@@ -29,7 +29,7 @@
 - SNP/indel/SV 零样本或微调变异效应评分。
 - 跨属留一评测和作物小样本迁移。
 
-详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)。
+详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)，其中包含 `.fna.gz` 扫描、contig QC、split、窗口化、token shard、GPU batch 输入、训练阶段、资源和耗时估算；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)。
 
 ## 集群使用边界
 
@@ -41,4 +41,4 @@
 ## 项目进展
 
 - 2026-06-07 23:26:04 CST: 读取本地 plantDB genome 数据说明，确认 1906 个可预训练 genome、262 个带注释完整 genome；完成第一版文献调研和正式训练方案设计文档。
-
+- 2026-06-07 23:46:31 CST: 扩展训练方案和模型结构文档，加入端到端预处理、模型输入张量、前沿架构对比、分阶段 CPU/GPU 资源需求和总体训练耗时估算。
