@@ -1,6 +1,6 @@
 # CropGenome-FM 作物基因组预训练大模型完整训练计划
 
-更新时间: 2026-06-08 15:00:51 CST
+更新时间: 2026-06-08 19:15:22 CST
 
 ## 1. 最终训练口径
 
@@ -225,26 +225,86 @@
 - 通过 contig QC。
 - 通过 window QC。
 - 不和 val/test 发生坐标或相似片段泄漏。
-- 满足区域采样比例。
+- 满足候选池保留规则，并在训练时满足区域采样比例。
 
-### 4.2 Window QC
+### 4.2 硬质量过滤
 
-通用过滤:
+所有训练、验证、测试窗口必须先通过硬质量过滤。规则在候选池构建阶段执行，不能等到训练时再临时判断。
 
-- 有效 A/C/G/T 比例 `>= 95%`。
-- N fraction `<= 5%`。
-- 低复杂度: 1kb 子窗口 Shannon entropy 过低则剔除。
-- homopolymer `> 100 bp` 且非真实注释区域时剔除或低权重。
-- intergenic softmask `> 50%` 剔除。
-- 跨 split 禁止相似度 `>= 95%` 且 overlap `>= 80%` 的近重复窗口。
+N 比例:
 
-区域特殊过滤:
+- train 默认 `N <= 5%`。
+- `5%-10%` 只允许稀缺小属或稀缺功能区域低权重救援，且需要在 sampling index 中记录 `rescued_by_low_abundance=true`。
+- validation/test 必须 `N <= 5%`，不做救援。
 
-- CDS/splice/TSS/TES 不因 repeat 直接剔除，但会记录 repeat fraction。
-- intron 保留靠近 splice 和高质量长 intron，低复杂度 intron 降权。
-- intergenic 只采高质量候选，不全量采样。
+连续 N:
 
-### 4.3 区域采样比例
+- 任意连续 `N >= 1 kb` 的窗口丢弃。
+- CDS、splice、start/stop 监督窗口中连续 `N >= 100 bp` 丢弃。
+
+有效碱基:
+
+- 普通预训练窗口要求 `A/C/G/T >= 90%`。
+- 关键监督窗口要求 `A/C/G/T >= 98%`，包括 CDS frame、splice donor/acceptor、start/stop codon、TSS/TES probe。
+
+低复杂度:
+
+- 单一碱基比例 `> 80%` 的窗口丢弃。
+- dust/entropy 标记为低复杂度的纯背景窗口丢弃。
+- CDS/splice/start/stop 若局部复杂度偏低但注释可靠，保留监督标签，同时降低 MLM mask 比例并记录低复杂度标记。
+
+contig 边缘:
+
+- 距 contig/scaffold 两端不足 `1 kb` 的窗口默认丢弃。
+- 若窗口包含完整 gene model、完整 CDS 或完整 transcript boundary，可作为功能窗口保留，但需要记录 `near_contig_edge=true`，validation/test 中不使用这类边缘窗口。
+
+注释可靠性:
+
+- CDS 坐标越界、transcript parent 缺失、exon/CDS parent 关系断裂的区域不用于监督任务。
+- CDS 长度不是 3 的倍数、缺 start/stop 或含内部 stop 的 transcript 不用于 CDS frame/start/stop 监督。
+- 这些区域仍可作为普通预训练序列进入候选池，但 `region_id` 不能标为可靠 CDS/splice/frame。
+
+### 4.3 候选窗口区域保留比例
+
+这一步决定哪些窗口进入候选池，用于压缩总数据量。它不是最终 batch 采样比例；最终训练还会从候选池中按 4.5 的目标比例动态采样。
+
+| 区域 | 候选池保留比例 | 保留范围和条件 |
+|---|---:|---|
+| CDS / coding exon | 100% | 所有 coding exon、CDS frame、start/stop 相关窗口进入候选池 |
+| splice donor/acceptor | 100% | donor/acceptor 上下游至少 `+/-2 kb` 进入候选池 |
+| start/stop codon neighborhood | 100% | start/stop 上下游至少 `+/-2 kb` 进入候选池 |
+| UTR | 100% | 已注释 5UTR/3UTR 全部保留；transcript boundary 周边窗口全部保留 |
+| promoter/TSS core | 100% | TSS upstream `0-5 kb` 全部保留 |
+| promoter/TSS distal | 15% | TSS upstream `5-20 kb` 只保留高质量代表窗口 |
+| weak promoter | 100% of weak window | 无可靠 TSS 时，只用 gene upstream `2 kb` 作为弱 promoter 标签 |
+| intron boundary | 100% | exon-intron boundary 两侧 `2 kb` 全部保留 |
+| ordinary intron interior | 10% | 普通 intron 内部随机分层保留 |
+| long intron interior | 5% | `>20 kb` 长 intron 内部优先保留 GC/复杂度正常、`N <= 2%` 的窗口 |
+| TE/repeat annotated | 50% | 只有可靠 repeat 注释时启用 |
+| gene-proximal TE/repeat | 100% | 距 gene body 或 promoter `20 kb` 内的 TE/repeat 全部保留 |
+| TE boundary | 100% | TE 边界上下游 `+/-2 kb` 全部保留 |
+| gene-proximal intergenic | 10% | 距任意 gene `20 kb` 内，优先 `N <= 2%`、非低复杂度、完整覆盖窗口 |
+| distal intergenic / far noncoding | 3%-5% | `N <= 2%`、无长 N、非低复杂度、非高度重复、GC 在本 genome `5%-95%` 分位范围内 |
+| random genome coverage | 1%-2% | 从通过 hard filter 的全基因组窗口中额外抽样，避免完全丢失背景分布 |
+
+TE/repeat 规则:
+
+- 有 repeat 注释的 assembly 才启用 TE/repeat 候选池。
+- 无 repeat 注释 genome 不把 intergenic 伪标为 non-repeat 或 TE/repeat。
+- TE/repeat 只作为区域标签和采样层，不覆盖 CDS、splice、UTR、promoter 等高优先级功能标签。
+
+### 4.4 去冗余和代表性控制
+
+为了进一步降低存储和重复学习，在同一个 split 内执行去冗余；不同 split 之间先做防泄漏相似性检查，不能通过去冗余掩盖泄漏。
+
+- 同一 assembly 内高度相似窗口按 minimizer/simhash 去冗余。
+- 对普通 intergenic 和 repeat-rich 背景，若窗口相似度 `>= 95%`，只保留 1 个代表。
+- 对 CDS、splice、start/stop 不做相似性丢弃，只做质量过滤。
+- 每个 assembly 的 distal intergenic token 占比不超过该 assembly 训练 token 的 `5%`。
+- 每个属的 ordinary intergenic token 占比不超过该属训练 token 的 `10%`。
+- 稀缺小属的功能区域不得被全局去冗余过度压缩；CDS/splice/start/stop 至少保留到可支撑该属下游 probe 的规模。
+
+### 4.5 训练 batch 区域采样比例
 
 区域采样参考 `douke_genome` 项目的思路: 优先保留 CDS、splice、promoter/TSS、UTR 等功能区和边界区；intron/intergenic 降低比例；TE/repeat 只有在存在可靠 TE/repeat 注释时进入，不允许把普通 intergenic 伪标为 non-repeat 或 TE。参考: https://github.com/shuai19910911/douke_genome/blob/main/PLAN.md
 
@@ -667,3 +727,4 @@ GitHub 文档只记录:
 - 2026-06-08 15:00:51 CST: 根据用户确认，放弃进一步压缩到核心 assembly 的方案，整理为最终完整训练计划: 262 个结构注释完整基因组 + 原始压缩数据搬运 + 小索引 + 在线采样/tokenization + 100-200GB 磁盘缓存。
 - 2026-06-08 18:16:18 CST: 按用户要求新增评测结果记录规范，预置预训练指标表、下游任务结果表、基线比较表和结果解释规则；明确 GitHub 只记录摘要和关键表格，不上传大结果文件。
 - 2026-06-08 18:45:35 CST: 按用户要求参考 `douke_genome` 的区域采样方案，调整为“有 TE/repeat 注释模式”和“无可靠 TE/repeat 注释 fallback 模式”；当前默认使用无 TE fallback，避免把普通 intergenic 伪标为 repeat/non-repeat。
+- 2026-06-08 19:15:22 CST: 按用户给定的 4.5.1-4.5.3 规则重构输入处理: 增加硬质量过滤、候选池区域保留比例、minimizer/simhash 去冗余和 assembly/genus 级 intergenic token 上限；明确候选池保留比例不同于训练 batch 采样比例。

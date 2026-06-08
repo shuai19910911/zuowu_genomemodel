@@ -1,6 +1,6 @@
 # CropGenome-FM 模型结构解析
 
-更新时间: 2026-06-08 15:00:51 CST
+更新时间: 2026-06-08 19:15:22 CST
 
 ## 1. 设计结论
 
@@ -81,7 +81,43 @@ metadata:        assembly_id, species_id, genus_id, contig_id, start, end, stran
 - high-quality intergenic。
 - random background。
 
-批内采样比例和 loss 权重参考 `douke_genome`，但当前作物数据若无可靠 TE/repeat 注释，则使用 fallback，不伪造 repeat 标签。
+模型输入来自候选池，而不是全基因组无差别切片。候选池先经过硬质量过滤:
+
+- train 默认 `N <= 5%`，validation/test 必须 `N <= 5%`；`5%-10%` 只允许稀缺小属或稀缺功能区低权重救援。
+- 任意连续 `N >= 1 kb` 丢弃；CDS/splice/start/stop 监督窗口中连续 `N >= 100 bp` 丢弃。
+- 普通窗口 `A/C/G/T >= 90%`；关键监督窗口 `A/C/G/T >= 98%`。
+- 单一碱基比例 `> 80%` 或 dust/entropy 低复杂度的纯背景窗口丢弃。
+- contig/scaffold 两端不足 `1 kb` 的窗口默认丢弃，除非包含完整基因结构。
+- CDS 坐标越界、transcript parent 缺失、CDS 长度不成 3 倍数的区域不用于 CDS/frame/splice 监督。
+
+候选池保留比例:
+
+| 区域 | 候选池保留比例 |
+|---|---:|
+| CDS / coding exon | 100% |
+| splice donor/acceptor +/-2 kb | 100% |
+| start/stop codon +/-2 kb | 100% |
+| annotated UTR and transcript boundary | 100% |
+| TSS upstream 0-5 kb | 100% |
+| TSS upstream 5-20 kb | 15% |
+| exon-intron boundary +/-2 kb | 100% |
+| ordinary intron interior | 10% |
+| long intron interior >20 kb | 5% |
+| TE/repeat annotated interval | 50% |
+| TE/repeat within 20 kb of gene/promoter | 100% |
+| TE boundary +/-2 kb | 100% |
+| gene-proximal intergenic within 20 kb | 10% |
+| distal intergenic / far noncoding | 3%-5% |
+| random genome coverage | 1%-2% |
+
+去冗余控制:
+
+- 普通 intergenic 和 repeat-rich 背景相似度 `>= 95%` 只保留 1 个代表。
+- CDS、splice、start/stop 不因相似性丢弃，只做质量过滤。
+- 每个 assembly 的 distal intergenic token 占比不超过该 assembly 训练 token 的 `5%`。
+- 每个属的 ordinary intergenic token 占比不超过该属训练 token 的 `10%`。
+
+批内采样比例和 loss 权重参考 `douke_genome`，但当前作物数据若无可靠 TE/repeat 注释，则使用 fallback，不伪造 repeat 标签。候选池保留比例用于控制磁盘和冗余，下面的采样比例用于控制每个训练 batch 的学习重点。
 
 模式 A: 有可靠 TE/repeat 注释。
 
@@ -227,3 +263,4 @@ L_total =
 - 2026-06-08 11:42:31 CST: 按用户要求改为只使用 262 个结构注释完整基因组，加入 region_ids、region_weights、区域加权 loss、片段过滤和基线优势预期。
 - 2026-06-08 15:00:51 CST: 明确最终训练数据管线为原始压缩数据 + 小索引 + 在线采样/tokenization + 100-200GB 磁盘缓存，不采用进一步压缩到核心 assembly 的方案。
 - 2026-06-08 18:45:35 CST: 区域采样比例参考 `douke_genome`，加入 TE/repeat 注释模式和当前默认无 TE fallback 模式。
+- 2026-06-08 19:15:22 CST: 输入侧加入 4.5 硬质量过滤、候选池保留比例和去冗余控制；模型训练仍按 batch 目标区域比例和 loss 权重动态采样。
