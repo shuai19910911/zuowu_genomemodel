@@ -48,7 +48,7 @@
   <text x="75" y="540" class="section">B. 注释区域构建、过滤与严格 Split</text>
 
   <rect x="50" y="925" width="2500" height="365" class="lane"/>
-  <text x="75" y="965" class="section">C. Token Shards、模型输入、架构与 Loss</text>
+  <text x="75" y="965" class="section">C. 在线采样 / Token Cache、模型输入、架构与 Loss</text>
 
   <rect x="50" y="1325" width="2500" height="405" class="lane"/>
   <text x="75" y="1365" class="section">D. 训练阶段、下游评测、基线优势与资源估算</text>
@@ -67,8 +67,8 @@
   <text x="530" y="290" class="t">genome gzip: 213.48 GB</text>
   <text x="530" y="322" class="s">GFF/GTF gzip: 5.40 GB</text>
   <text x="530" y="350" class="s">raw total: 218.89 GB</text>
-  <text x="530" y="378" class="s">处理后训练包: 1.2-2.0 TB</text>
-  <text x="530" y="405" class="s">完整+checkpoint: 3-8 TB</text>
+  <text x="530" y="378" class="s">训练搬运: raw + 小索引</text>
+  <text x="530" y="405" class="s">推荐训练磁盘: 1.5 TB</text>
 
   <rect x="940" y="220" width="390" height="200" class="warn"/>
   <text x="965" y="255" class="h">A3 明确放弃</text>
@@ -142,7 +142,7 @@
   <text x="2120" y="678" class="s">sequence_index/</text>
   <text x="2120" y="706" class="s">annotation_index/</text>
   <text x="2120" y="734" class="s">window_index/</text>
-  <text x="2120" y="762" class="s">token_shards/</text>
+  <text x="2120" y="762" class="s">token_cache/ 循环覆盖</text>
   <text x="2120" y="790" class="s">所有数据产物不上传 GitHub</text>
 
   <path d="M510 700 H575" class="line2"/>
@@ -152,13 +152,13 @@
 
   <!-- C lane -->
   <rect x="80" y="1005" width="520" height="230" class="box-blue"/>
-  <text x="105" y="1040" class="h">C1 Token Shards 与搬运</text>
+  <text x="105" y="1040" class="h">C1 在线采样与缓存</text>
   <text x="105" y="1075" class="s">A=0 C=1 G=2 T=3 N=4 MASK=5 PAD=6</text>
-  <text x="105" y="1103" class="s">uint8 tokens + parquet metadata + configs</text>
-  <text x="105" y="1131" class="s">最小训练包: 0.6-1.0 TB</text>
-  <text x="105" y="1159" class="s">推荐训练包: 1.2-2.0 TB</text>
-  <text x="105" y="1187" class="s">完整包 + checkpoint: 3-8 TB</text>
-  <text x="105" y="1215" class="s">训练服务器推荐磁盘: 4-12 TB</text>
+  <text x="105" y="1103" class="s">不预生成全量 token_shards</text>
+  <text x="105" y="1131" class="s">搬 raw gzip + 小索引 + configs</text>
+  <text x="105" y="1159" class="s">token_cache: 100-200 GB</text>
+  <text x="105" y="1187" class="s">只保留最近 checkpoint + best model</text>
+  <text x="105" y="1215" class="s">训练服务器推荐磁盘: 1.5 TB</text>
 
   <rect x="665" y="1005" width="540" height="230" class="box-blue"/>
   <text x="690" y="1040" class="h">C2 模型输入 Batch</text>
