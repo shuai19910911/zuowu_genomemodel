@@ -1,6 +1,6 @@
 # CropGenome-FM 作物基因组预训练大模型完整训练计划
 
-更新时间: 2026-06-08 19:15:22 CST
+更新时间: 2026-06-08 21:06:31 CST
 
 ## 1. 最终训练口径
 
@@ -537,12 +537,69 @@ CPU 总体: 2-5 天。
 
 ### 10.2 GPU 预训练阶段
 
-| 阶段 | context | token 预算 | 推荐 GPU | 预计时间 | 目标 |
-|---|---:|---:|---:|---:|---|
-| Stage B | 8K | 30B-80B | 4-8 x 80GB | 5-18 天 | 局部 motif、CDS、splice、TSS/TES |
-| Stage C1 | 64K | 15B-40B | 8 x 80GB | 7-18 天 | gene body、promoter-gene、长 intron |
-| Stage C2 | 128K | 5B-20B | 8 x 80GB | 5-14 天 | 远端调控和结构上下文 |
-| Stage D | 256K | 2B-10B | 8-16 x 80GB | 4-14 天 | 资源允许后做长上下文 midtraining |
+正式采用“同一模型渐进式扩长 + 每阶段短长度 replay”的训练策略。不是 8K、64K、128K、256K 四个模型分别从零训练，也不是把所有长度从一开始等比例混在一起训练。
+
+核心原则:
+
+- Stage B 先训练 8K，建立局部 DNA 语法、CDS、splice、TSS/TES 表征。
+- Stage C1 从 Stage B checkpoint 继续训练到 64K。
+- Stage C2 从 Stage C1 checkpoint 继续训练到 128K。
+- Stage D 从 Stage C2 checkpoint 继续做 256K midtraining，资源允许后执行。
+- 每个阶段设置一个主 context length，同时混入少量短 context replay，防止短程功能位点能力退化。
+- 长度比例按 token 数统计，不按 batch 数统计。
+
+| 阶段 | 主 context | 长度组成/token 比例 | token 预算 | 推荐 GPU | 预计时间 | 目标 |
+|---|---:|---|---:|---:|---:|---|
+| Stage B | 8K | 70% 8K + 20% 4K + 10% 16K warm-up | 30B-80B | 4-8 x 80GB | 5-18 天 | 局部 motif、CDS、splice、TSS/TES |
+| Stage C1 | 64K | 70% 64K + 15% 8K + 10% 16K/32K + 5% 4K | 15B-40B | 8 x 80GB | 7-18 天 | gene body、promoter-gene、长 intron |
+| Stage C2 | 128K | 75% 128K + 15% 64K + 10% 8K/16K | 5B-20B | 8 x 80GB | 5-14 天 | 远端调控和结构上下文 |
+| Stage D | 256K | 80% 256K + 15% 128K + 5% 8K/64K | 2B-10B | 8-16 x 80GB | 4-14 天 | 资源允许后做长上下文 midtraining |
+
+不采用完全多长度混合的原因:
+
+- 早期直接混入大量 64K/128K/256K 会显著降低吞吐，拉高显存和通信压力。
+- 模型尚未学会局部 DNA 语法时，超长窗口收益低，反而容易被 intron/intergenic 背景稀释 CDS/splice/start/stop 信号。
+- 不同长度在同一 micro-batch 内混放会增加 padding 和动态 shape 开销，训练统计也更难解释。
+
+### 10.3 多长度 sampler 和 batch 组织
+
+online sampler 使用两级抽样:
+
+1. 先抽 `context_bucket`: `4K`, `8K`, `16K`, `32K`, `64K`, `128K`, `256K`。
+2. 再在该长度桶内按区域比例抽 `region_bucket`: CDS、splice、TSS、UTR、TES、intron、TE/repeat、intergenic、background。
+
+batch 组织规则:
+
+- 同一个 micro-batch 内使用同一个 context length，减少 padding 和显存波动。
+- 不同 context length 通过 gradient accumulation 组合到同一个 optimizer step。
+- 每个 optimizer step 记录实际 token 数、context_bucket 比例、region_bucket 比例。
+- 每个长度桶内部继续执行 4.2 硬质量过滤、4.3 候选池保留比例、4.4 去冗余控制、4.5 区域采样比例。
+- 长 context 阶段不允许被 intergenic 背景吞掉；CDS/splice/start/stop replay 必须保留。
+
+每阶段日志至少记录:
+
+- `loss_4k`, `loss_8k`, `loss_16k`, `loss_32k`, `loss_64k`, `loss_128k`, `loss_256k`，未启用的桶记为 `NA`。
+- 每个 context_bucket 的 tokens/s、GPU memory、mask token 数、region token 分布。
+- 每个阶段结束时保存当前主 context checkpoint、最优 8K probe checkpoint 和最优 long-context checkpoint。
+
+### 10.4 阶段评估门槛
+
+进入下一阶段前必须通过以下检查:
+
+| 检查项 | 目的 | 通过标准 |
+|---|---|---|
+| `val_loss_8k` | 短程语法是否保留 | 相比上一阶段不能明显变差 |
+| 当前主 context `val_loss` | 当前长度是否有效学习 | 持续下降或达到稳定平台期 |
+| splice donor/acceptor probe | 核心短程功能任务 | C1/C2 后 AUROC/AUPRC 下降不超过 1%-2% |
+| CDS frame/start-stop probe | 编码区语法 | 不明显低于 Stage B checkpoint |
+| TSS/TES probe | 中程调控能力 | C1 后应优于 Stage B 或至少不退化 |
+| long intron/promoter-gene probe | 长程上下文能力 | C1/C2 应较 Stage B 有提升 |
+| RC consistency | 双链一致性 | 长阶段不能退化 |
+| tokens/s 和 GPU memory | 工程可训练性 | 达到可持续训练吞吐，无频繁 OOM |
+
+如果 C1/C2 的长 context loss 下降，但 8K 下游 probe 明显退化，需要提高短 context replay 比例；如果短程任务稳定但 long-context probe 没有提升，需要增加 64K/128K 主长度 token 比例或延长当前阶段。
+
+### 10.5 推荐训练服务器和总体时间
 
 推荐训练服务器:
 
@@ -554,7 +611,7 @@ CPU 总体: 2-5 天。
 总体时间:
 
 - CPU 预处理: 2-5 天。
-- 8K + 64K/128K 正式训练: 4-8 周。
+- 8K + 64K/128K 渐进式正式训练: 4-8 周。
 - 下游评测: 1-2 周。
 - 完整第一版报告模型: 6-10 周。
 
@@ -728,3 +785,4 @@ GitHub 文档只记录:
 - 2026-06-08 18:16:18 CST: 按用户要求新增评测结果记录规范，预置预训练指标表、下游任务结果表、基线比较表和结果解释规则；明确 GitHub 只记录摘要和关键表格，不上传大结果文件。
 - 2026-06-08 18:45:35 CST: 按用户要求参考 `douke_genome` 的区域采样方案，调整为“有 TE/repeat 注释模式”和“无可靠 TE/repeat 注释 fallback 模式”；当前默认使用无 TE fallback，避免把普通 intergenic 伪标为 repeat/non-repeat。
 - 2026-06-08 19:15:22 CST: 按用户给定的 4.5.1-4.5.3 规则重构输入处理: 增加硬质量过滤、候选池区域保留比例、minimizer/simhash 去冗余和 assembly/genus 级 intergenic token 上限；明确候选池保留比例不同于训练 batch 采样比例。
+- 2026-06-08 21:06:31 CST: 根据临时 context 长度策略评估，正式将 GPU 预训练优化为“同一模型渐进式扩长 + 每阶段短长度 replay”；新增多长度 sampler、micro-batch 组织、context_bucket 日志和阶段进入门槛。
