@@ -6,6 +6,8 @@ token_shards/
 stage_inputs/
 training_server_transfer/*
 !training_server_transfer/README.md
+scripts/
+slurm/
 configs/local*
 logs/
 checkpoints/

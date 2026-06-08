@@ -49,3 +49,4 @@
 - 2026-06-08 18:16:18 CST: 在训练计划中新增评测结果记录表和更新规则，后续预训练、下游任务和基线比较结果都写回 `PROJECT_PLAN.md` 的评测结果章节。
 - 2026-06-08 18:45:35 CST: 参考 `douke_genome` 的区域采样方案，更新为 TE/repeat 注释模式和当前默认无 TE fallback 模式。
 - 2026-06-08 22:19:54 CST: 按用户当前确认的方案更新训练计划: 本服务器固化每个 stage 的输入，训练服务器接收 `training_server_transfer/` 并动态生成 mask/label/RC。
+- 2026-06-08 22:43:02 CST: 开始 CPU 数据处理；因 genome 目录持续下载且可能混入非作物，manifest 阶段加入作物属白名单，今晚实际处理 263 个 crop assembly、26 个属；已提交 cu 分区 FASTA QC、annotation QC 和依赖合并任务。

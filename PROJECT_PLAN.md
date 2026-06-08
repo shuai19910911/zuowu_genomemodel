@@ -899,3 +899,4 @@ GitHub 文档只记录:
 - 2026-06-08 19:15:22 CST: 按用户给定的 4.5.1-4.5.3 规则重构输入处理: 增加硬质量过滤、候选池区域保留比例、minimizer/simhash 去冗余和 assembly/genus 级 intergenic token 上限；明确候选池保留比例不同于训练 batch 采样比例。
 - 2026-06-08 21:06:31 CST: 根据临时 context 长度策略评估，正式将 GPU 预训练优化为“同一模型渐进式扩长 + 每阶段短长度 replay”；新增多长度 sampler、micro-batch 组织、context_bucket 日志和阶段进入门槛。
 - 2026-06-08 22:19:54 CST: 按用户当前确认的跨服务器训练思路重写训练计划: 本服务器负责索引、候选池和 Stage B/C1/C2/D 固化输入生成；训练服务器只接收 `training_server_transfer/` 目录，训练时动态生成 mask、label、RC 增强和 batch 顺序。
+- 2026-06-08 22:43:02 CST: 开始 CPU 数据处理。由于 `/home/user/zhangzhishuai/data/plantDB/genome` 持续下载且可能包含非作物，manifest 生成加入作物属白名单；今晚实际 crop manifest 为 263 个 assembly、26 个属。已提交 Slurm `cu` 分区任务: FASTA QC array `8468483`、annotation QC array `8468489`、依赖合并任务 `8468495`；每个 array task 4 核 24GB，`--time=09:10:00`，脚本内设置 2026-06-09 08:00:00 CST 截止。
