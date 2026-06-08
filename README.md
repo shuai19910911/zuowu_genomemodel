@@ -30,7 +30,7 @@
 - SNP/indel/SV 零样本或微调变异效应评分。
 - 跨属留一评测和作物小样本迁移。
 
-详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)，其中包含数据过滤、严格防泄漏 split、区域加权采样、模型输入、loss、训练资源、搬运数据体积和下游任务；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)；技术路线图见 [TECHNICAL_ROADMAP.md](TECHNICAL_ROADMAP.md)。
+详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)，其中包含数据过滤、严格防泄漏 split、区域加权采样、模型输入、loss、训练资源、搬运数据体积、下游任务和评测结果记录表；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)；技术路线图见 [TECHNICAL_ROADMAP.md](TECHNICAL_ROADMAP.md)。
 
 ## 集群使用边界
 
@@ -46,3 +46,4 @@
 - 2026-06-08 11:42:31 CST: 根据新要求改为只使用 262 个结构注释完整基因组，放弃无注释 genome；补充区域加权、过滤标准、严格防泄漏 split、下游任务、基线优势预期、跨服务器搬运磁盘估算，并新增技术路线图。
 - 2026-06-08 12:33:50 CST: 将 `assets/cropgenome_fm_roadmap.svg` 从简约概览图扩展为详细技术路线图，覆盖数据口径、QC、区域构建、采样权重、防泄漏 split、token shard、模型输入、架构、loss、训练资源、下游任务和基线优势。
 - 2026-06-08 15:00:51 CST: 根据用户确认，放弃进一步压缩到核心 assembly 的方案；整理最终完整训练计划，采用 262 个结构注释完整基因组、原始压缩数据搬运、小索引、在线采样/tokenization 和 100-200GB 磁盘缓存。
+- 2026-06-08 18:16:18 CST: 在训练计划中新增评测结果记录表和更新规则，后续预训练、下游任务和基线比较结果都写回 `PROJECT_PLAN.md` 的评测结果章节。

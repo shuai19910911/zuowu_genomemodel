@@ -520,7 +520,111 @@ CPU 总体: 2-5 天。
 
 所有“优于基线”的说法必须以后续严格 benchmark 为准。
 
-## 13. 执行顺序
+## 13. 评测结果记录与更新规则
+
+评测结果必须写回本计划文档，GitHub 只记录摘要和关键表格，不上传大规模预测文件、embedding、逐样本结果或训练 checkpoint。详细结果保留在本地 `results/`，计划文档记录可复现路径、指标和结论。
+
+### 13.1 结果文件存储
+
+本地结果建议结构:
+
+```text
+results/
+  pretrain/
+    stage_b_8k_metrics.tsv
+    stage_c1_64k_metrics.tsv
+    stage_c2_128k_metrics.tsv
+  downstream/
+    splice_donor_acceptor/
+    tis_tts/
+    promoter_tss/
+    tes_polya/
+    region_classification/
+    lncrna_mrna/
+    chromatin_open_region/
+    expression_proxy/
+    variant_effect/
+  baselines/
+    cnn/
+    dnabert2/
+    agront/
+    plantcad2/
+    hyenadna_evo2/
+```
+
+GitHub 文档只记录:
+
+- 训练阶段。
+- checkpoint 名称或编号。
+- 数据 split 名称。
+- 任务名。
+- 指标。
+- 基线对照。
+- 主要结论。
+- 本地结果路径。
+
+### 13.2 预训练结果记录表
+
+| 更新时间 | 阶段 | context | token 数 | train loss | val loss | RC consistency | tokens/s | GPU | checkpoint | 结论 |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|---|
+| 待填 | Stage B | 8K | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | Stage C1 | 64K | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | Stage C2 | 128K | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | Stage D | 256K | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+
+预训练阶段必须记录:
+
+- train/val loss。
+- 按区域分组 loss: CDS、splice、promoter/TSS、TES、UTR、intron、intergenic。
+- 按属/物种分组 val loss。
+- RC consistency 指标。
+- tokens/s 和 GPU 显存峰值。
+- cache 命中率和在线 tokenization 吞吐。
+
+### 13.3 下游评测结果总表
+
+| 更新时间 | 任务 | split | 模型 | AUROC | AUPRC | F1/MCC | 其他指标 | 最强基线 | 是否超过基线 | 本地结果路径 | 结论 |
+|---|---|---|---|---:|---:|---:|---|---|---|---|---|
+| 待填 | splice donor/acceptor | gene-family + species holdout | CropGenome-FM | 待填 | 待填 | 待填 | - | 待填 | 待填 | 待填 | 待填 |
+| 待填 | TIS/TTS | gene-family holdout | CropGenome-FM | 待填 | 待填 | 待填 | - | 待填 | 待填 | 待填 | 待填 |
+| 待填 | promoter/TSS | assembly/species holdout | CropGenome-FM | 待填 | 待填 | 待填 | - | 待填 | 待填 | 待填 | 待填 |
+| 待填 | TES/polyA | gene holdout | CropGenome-FM | 待填 | 待填 | 待填 | - | 待填 | 待填 | 待填 | 待填 |
+| 待填 | CDS/UTR/intron classification | assembly holdout | CropGenome-FM | 待填 | 待填 | 待填 | macro-F1 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | lncRNA/mRNA | species holdout | CropGenome-FM | 待填 | 待填 | 待填 | MCC 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | chromatin/open region | species/tissue holdout | CropGenome-FM | 待填 | 待填 | 待填 | - | 待填 | 待填 | 待填 | 待填 |
+| 待填 | expression proxy | tissue/species holdout | CropGenome-FM | 待填 | 待填 | 待填 | Spearman 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | variant effect | gene/LD block holdout | CropGenome-FM | 待填 | 待填 | 待填 | Spearman 待填 | 待填 | 待填 | 待填 | 待填 |
+
+### 13.4 基线比较记录表
+
+每个下游任务至少记录以下基线:
+
+| 任务 | CNN/DeepSEA-like | DNABERT-2 | AgroNT | PlantCAD2 | HyenaDNA/Evo2 | CropGenome-FM | 当前结论 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| splice donor/acceptor | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+| TIS/TTS | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+| promoter/TSS | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+| TES/polyA | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+| CDS/UTR/intron | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+| lncRNA/mRNA | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+| variant effect | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 | 待填 |
+
+### 13.5 结果解释规则
+
+- 只有严格 holdout split 上超过基线，才写“超过基线”。
+- random split 结果只能作为辅助，不作为主结论。
+- 若只在某些任务超过，应写“在某些任务上超过”，不能写“全面超过”。
+- 若结果不稳定，必须记录方差、重复次数和失败原因。
+- 若更换数据、split、模型参数或 checkpoint，结果表必须新增一行，不覆盖旧结果。
+- 每完成一个阶段，README 的“项目进展”只写一句摘要，详细表格保留在本节。
+
+当前评测状态:
+
+- 预训练尚未开始。
+- 下游评测尚未开始。
+- 所有结果表为预注册模板，后续训练和评测完成后逐项填写。
+
+## 14. 执行顺序
 
 近期执行顺序:
 
@@ -535,9 +639,10 @@ CPU 总体: 2-5 天。
 9. 完成 Stage B 后做第一批下游 probe。
 10. 进入 64K/128K 继续预训练。
 
-## 14. 进展记录
+## 15. 进展记录
 
 - 2026-06-07 23:26:04 CST: 读取 `/home/user/zhangzhishuai/data/plantDB/genome/README.md`，确认训练数据口径；完成 AgroNT、PlantCAD/Caduceus、Evo 2、HyenaDNA、DNABERT-2、GROVER 和 DNA foundation benchmark 调研；确定主路线为长上下文、单碱基、RC 等变双向 Mamba/Hyena 模型。
 - 2026-06-07 23:46:31 CST: 按用户要求扩展为端到端正式训练方案，补充 `.fna.gz` 扫描、contig QC、split、窗口化、token shard、GPU batch 输入、mask/采样策略、下游监督数据构建，以及 CPU/GPU 资源和每阶段耗时估算。
 - 2026-06-08 11:42:31 CST: 按用户要求重构方案，放弃 1644 个无结构注释 genome，正式数据限定为 262 个有 FASTA+GFF/GTF 的 assembly；新增区域加权采样、严格防泄漏 split、片段过滤、跨服务器搬运磁盘估算、详细下游任务和基线优势预期。
 - 2026-06-08 15:00:51 CST: 根据用户确认，放弃进一步压缩到核心 assembly 的方案，整理为最终完整训练计划: 262 个结构注释完整基因组 + 原始压缩数据搬运 + 小索引 + 在线采样/tokenization + 100-200GB 磁盘缓存。
+- 2026-06-08 18:16:18 CST: 按用户要求新增评测结果记录规范，预置预训练指标表、下游任务结果表、基线比较表和结果解释规则；明确 GitHub 只记录摘要和关键表格，不上传大结果文件。
