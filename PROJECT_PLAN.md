@@ -246,20 +246,40 @@
 
 ### 4.3 区域采样比例
 
-训练 batch 的目标区域比例:
+区域采样参考 `douke_genome` 项目的思路: 优先保留 CDS、splice、promoter/TSS、UTR 等功能区和边界区；intron/intergenic 降低比例；TE/repeat 只有在存在可靠 TE/repeat 注释时进入，不允许把普通 intergenic 伪标为 non-repeat 或 TE。参考: https://github.com/shuai19910911/douke_genome/blob/main/PLAN.md
+
+训练 batch 的目标区域比例分为两种模式。
+
+模式 A: 有可靠 TE/repeat 注释时使用。
 
 | 区域 | 采样比例 | loss 权重 | 目的 |
 |---|---:|---:|---|
-| CDS/protein-coding exon | 30% | 1.50 | 密码子、ORF、保守编码结构 |
-| splice donor/acceptor | 12% | 2.00 | 剪接位点和外显子边界 |
-| UTR | 8% | 1.20 | 翻译调控、mRNA 稳定性 |
+| CDS/protein-coding exon | 25% | 1.50 | 密码子、ORF、保守编码结构 |
+| splice donor/acceptor | 15% | 2.00 | 剪接位点和外显子边界 |
 | promoter/TSS | 15% | 1.40 | 启动子和表达调控 |
-| TES/polyA | 8% | 1.20 | 转录终止和 polyA |
+| UTR | 10% | 1.20 | 翻译调控、mRNA 稳定性 |
+| TES/polyA | 5% | 1.20 | 转录终止和 polyA |
+| intron | 10% | 0.90 | 长程 gene body 和调控上下文 |
+| TE/repeat annotated | 12% | 0.80 | 作物基因组重复序列背景和调控相关重复 |
+| high-quality intergenic | 5% | 0.60 | 高质量非编码背景 |
+| random background | 3% | 0.50 | 保留 genome-wide 分布 |
+
+模式 B: 当前无可靠 TE/repeat 注释时使用。TE/repeat 的 12% 不启用，重新分配给 CDS、splice、TES、intron 和高质量 intergenic。
+
+| 区域 | 采样比例 | loss 权重 | 目的 |
+|---|---:|---:|---|
+| CDS/protein-coding exon | 28% | 1.50 | 密码子、ORF、保守编码结构 |
+| splice donor/acceptor | 18% | 2.00 | 剪接位点和外显子边界 |
+| promoter/TSS | 15% | 1.40 | 启动子和表达调控 |
+| UTR | 10% | 1.20 | 翻译调控、mRNA 稳定性 |
+| TES/polyA | 7% | 1.20 | 转录终止和 polyA |
 | intron | 12% | 0.90 | 长程 gene body 和调控上下文 |
-| high-quality intergenic | 10% | 0.60 | 高质量非编码背景 |
-| random background | 5% | 0.50 | 保留 genome-wide 分布 |
+| high-quality intergenic | 7% | 0.60 | 高质量非编码背景 |
+| random background | 3% | 0.50 | 保留 genome-wide 分布 |
 
 这是 batch sampler 的目标比例，不是 genome 的真实比例。每个 epoch 记录实际采样比例并做偏差修正。
+
+当前默认采用模式 B，除非后续为 262 个 assembly 补齐可靠 TE/repeat 注释或外部 repeat annotation。
 
 ## 5. 严格防泄漏 split
 
@@ -646,3 +666,4 @@ GitHub 文档只记录:
 - 2026-06-08 11:42:31 CST: 按用户要求重构方案，放弃 1644 个无结构注释 genome，正式数据限定为 262 个有 FASTA+GFF/GTF 的 assembly；新增区域加权采样、严格防泄漏 split、片段过滤、跨服务器搬运磁盘估算、详细下游任务和基线优势预期。
 - 2026-06-08 15:00:51 CST: 根据用户确认，放弃进一步压缩到核心 assembly 的方案，整理为最终完整训练计划: 262 个结构注释完整基因组 + 原始压缩数据搬运 + 小索引 + 在线采样/tokenization + 100-200GB 磁盘缓存。
 - 2026-06-08 18:16:18 CST: 按用户要求新增评测结果记录规范，预置预训练指标表、下游任务结果表、基线比较表和结果解释规则；明确 GitHub 只记录摘要和关键表格，不上传大结果文件。
+- 2026-06-08 18:45:35 CST: 按用户要求参考 `douke_genome` 的区域采样方案，调整为“有 TE/repeat 注释模式”和“无可靠 TE/repeat 注释 fallback 模式”；当前默认使用无 TE fallback，避免把普通 intergenic 伪标为 repeat/non-repeat。

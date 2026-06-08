@@ -10,7 +10,7 @@
 2. 数据 QC: 过滤短 contig、高 N、极端 GC、organelle contig、坏注释、低复杂度窗口和跨 split 近重复窗口。
 3. 区域构建: 从 GFF/GTF 构建 CDS、exon、UTR、splice flank、promoter/TSS、TES/polyA、intron、high-quality intergenic 和 background。
 4. 严格 split: 先按 assembly/species/genus/gene-family/LD block 分组，再窗口化，保证同一基因组片段不跨 train/val/test。
-5. 区域采样: CDS 30%、splice 12%、promoter/TSS 15%、UTR 8%、TES 8%、intron 12%、high-quality intergenic 10%、background 5%。
+5. 区域采样: 参考 `douke_genome`。若有可靠 TE/repeat 注释，使用 CDS 25%、splice 15%、promoter/TSS 15%、UTR 10%、TES 5%、intron 10%、TE/repeat 12%、intergenic 5%、background 3%；当前默认无 TE fallback 为 CDS 28%、splice 18%、promoter/TSS 15%、UTR 10%、TES 7%、intron 12%、intergenic 7%、background 3%。
 6. 数据搬运: 搬原始压缩数据 + 小索引 + configs，不搬全量 token shards；训练服务器使用 100-200GB 磁盘 cache 在线生成 token/window shard。
 7. 模型输入: `input_ids`、`labels_mlm`、`loss_mask`、`region_ids`、`region_weights`、`quality_scores` 和坐标 metadata。
 8. 模型架构: RC-equivariant Mamba2/Hyena + periodic local/global sparse attention，Large 约 300M-450M 参数。

@@ -77,21 +77,38 @@ metadata:        assembly_id, species_id, genus_id, contig_id, start, end, stran
 - promoter/TSS。
 - terminator/TES/polyA flank。
 - intron。
+- TE/repeat annotated，可选，只有可靠注释时启用。
 - high-quality intergenic。
 - random background。
 
-批内采样比例和 loss 权重:
+批内采样比例和 loss 权重参考 `douke_genome`，但当前作物数据若无可靠 TE/repeat 注释，则使用 fallback，不伪造 repeat 标签。
+
+模式 A: 有可靠 TE/repeat 注释。
 
 | 区域 | 采样比例 | loss 权重 |
 |---|---:|---:|
-| CDS/exon | 30% | 1.50 |
-| splice donor/acceptor | 12% | 2.00 |
-| UTR | 8% | 1.20 |
+| CDS/exon | 25% | 1.50 |
+| splice donor/acceptor | 15% | 2.00 |
 | promoter/TSS | 15% | 1.40 |
-| TES/polyA | 8% | 1.20 |
+| UTR | 10% | 1.20 |
+| TES/polyA | 5% | 1.20 |
+| intron | 10% | 0.90 |
+| TE/repeat annotated | 12% | 0.80 |
+| high-quality intergenic | 5% | 0.60 |
+| background | 3% | 0.50 |
+
+模式 B: 当前默认，无可靠 TE/repeat 注释。
+
+| 区域 | 采样比例 | loss 权重 |
+|---|---:|---:|
+| CDS/exon | 28% | 1.50 |
+| splice donor/acceptor | 18% | 2.00 |
+| promoter/TSS | 15% | 1.40 |
+| UTR | 10% | 1.20 |
+| TES/polyA | 7% | 1.20 |
 | intron | 12% | 0.90 |
-| high-quality intergenic | 10% | 0.60 |
-| background | 5% | 0.50 |
+| high-quality intergenic | 7% | 0.60 |
+| background | 3% | 0.50 |
 
 ## 5. Backbone
 
@@ -209,3 +226,4 @@ L_total =
 - 2026-06-07 23:46:31 CST: 增补 2026 前沿架构取舍，明确主模型为 RC-equivariant Mamba2/Hyena + periodic attention 的混合结构；补充输入张量、输出张量、训练目标、显存策略和分阶段资源估算。
 - 2026-06-08 11:42:31 CST: 按用户要求改为只使用 262 个结构注释完整基因组，加入 region_ids、region_weights、区域加权 loss、片段过滤和基线优势预期。
 - 2026-06-08 15:00:51 CST: 明确最终训练数据管线为原始压缩数据 + 小索引 + 在线采样/tokenization + 100-200GB 磁盘缓存，不采用进一步压缩到核心 assembly 的方案。
+- 2026-06-08 18:45:35 CST: 区域采样比例参考 `douke_genome`，加入 TE/repeat 注释模式和当前默认无 TE fallback 模式。

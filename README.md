@@ -16,8 +16,8 @@
 
 主模型采用结构注释感知、区域加权、长上下文、单碱基分辨率、反向互补等变的 Mamba2/Hyena + periodic attention 路线，而不是短窗口测试模型。正式训练重点:
 
-1. 预处理只使用 262 个结构注释完整基因组，构建 CDS、splice、UTR、promoter/TSS、TES、intron、high-quality intergenic 区域。
-2. 训练输入不全量采样所有序列，而是按区域比例和质量过滤进入 batch；high-quality intergenic 目标比例为 10%。
+1. 预处理只使用 262 个结构注释完整基因组，构建 CDS、splice、UTR、promoter/TSS、TES、intron、high-quality intergenic 区域；TE/repeat 只在有可靠注释时启用。
+2. 训练输入不全量采样所有序列，而是参考 `douke_genome` 的区域采样思路按区域比例和质量过滤进入 batch；当前默认无 TE fallback 为 CDS 28%、splice 18%、promoter/TSS 15%、UTR 10%、TES 7%、intron 12%、intergenic 7%、background 3%。
 3. 模型输入包含 `input_ids`、`labels_mlm`、`loss_mask`、`region_ids`、`region_weights` 和坐标 metadata。
 4. 训练上下文从 8K 扩展到 64K/128K，资源允许再到 256K。
 
@@ -47,3 +47,4 @@
 - 2026-06-08 12:33:50 CST: 将 `assets/cropgenome_fm_roadmap.svg` 从简约概览图扩展为详细技术路线图，覆盖数据口径、QC、区域构建、采样权重、防泄漏 split、token shard、模型输入、架构、loss、训练资源、下游任务和基线优势。
 - 2026-06-08 15:00:51 CST: 根据用户确认，放弃进一步压缩到核心 assembly 的方案；整理最终完整训练计划，采用 262 个结构注释完整基因组、原始压缩数据搬运、小索引、在线采样/tokenization 和 100-200GB 磁盘缓存。
 - 2026-06-08 18:16:18 CST: 在训练计划中新增评测结果记录表和更新规则，后续预训练、下游任务和基线比较结果都写回 `PROJECT_PLAN.md` 的评测结果章节。
+- 2026-06-08 18:45:35 CST: 参考 `douke_genome` 的区域采样方案，更新为 TE/repeat 注释模式和当前默认无 TE fallback 模式。
