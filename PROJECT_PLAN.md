@@ -1,18 +1,19 @@
 # CropGenome-FM 作物基因组预训练大模型完整训练计划
 
-更新时间: 2026-06-08 21:06:31 CST
+更新时间: 2026-06-08 22:19:54 CST
 
 ## 1. 最终训练口径
 
-本项目第一版正式模型采用“结构注释完整基因组 + 在线采样/tokenization + 小磁盘缓存”的方案。
+本项目第一版正式模型采用“结构注释完整基因组 + 本服务器固化每个 stage 的训练输入 + 训练服务器动态 mask/label/RC 训练”的方案。
 
 核心决策:
 
 - 使用 262 个同时具备 genome FASTA 和 GFF3/GTF 的 assembly。
 - 放弃 1644 个缺少 GFF3/GTF 结构注释的 genome，不进入第一版预训练。
-- 不再预生成全量 `token_shards`、全量 `window_index` 或全量长上下文 shard。
-- 训练服务器只搬运原始压缩数据、小索引和配置；训练时在线采样、在线 tokenization。
-- 训练服务器只维护 100-200GB 磁盘 cache，循环覆盖，不长期保存历史 shard。
+- 不预生成固定 mask、固定 MLM label、固定 batch 顺序或固定 RC 增强。
+- 在本服务器完成数据处理、候选池构建、split、防泄漏检查，并按 Stage B/C1/C2/D 一次性固化该 stage 的训练输入窗口或 `input_ids`。
+- 训练服务器只搬运 `training_server_transfer/` 中当前需要训练的 stage 数据、配置和小索引；训练时动态生成 mask、labels、RC 增强和 batch 顺序。
+- 训练服务器完成一个 stage 后删除或归档该 stage 输入数据，再搬运下一 stage，避免长期保存全部训练输入。
 
 当前正式数据:
 
@@ -32,16 +33,17 @@
 
 ## 2. 总体技术路线
 
-1. 读取 262 个完整注释 assembly。
-2. 流式扫描 FASTA，建立 contig 质量索引。
-3. 解析 GFF3/GTF，建立 gene、transcript、exon、CDS、UTR、intron、TSS、TES 区域索引。
-4. 构建 promoter、splice flank、TES/polyA、高质量 intergenic 等训练区域。
-5. 按 assembly/species/genus/gene-family 严格 split，先 split 后采样，防止泄漏。
-6. 在线按区域比例抽取窗口，不全量生成窗口表。
-7. 在线读取 `.fna.gz`，生成 token、mask、region_ids、region_weights。
-8. 使用 100-200GB 磁盘 cache 保存近期 token/window shard，循环覆盖。
-9. 训练 CropGenome-FM-Large: 8K -> 64K -> 128K，资源允许再做 256K。
-10. 构建下游任务，比较 CNN、DNABERT-2、AgroNT、PlantCAD2、HyenaDNA/Evo2 等基线。
+1. 本服务器读取 262 个完整注释 assembly。
+2. 本服务器流式扫描 FASTA，建立 contig 质量索引。
+3. 本服务器解析 GFF3/GTF，建立 gene、transcript、exon、CDS、UTR、intron、TSS、TES 区域索引。
+4. 本服务器构建 promoter、splice flank、TES/polyA、高质量 intergenic 等训练区域。
+5. 本服务器按 assembly/species/genus/gene-family 严格 split，先 split 后采样，防止泄漏。
+6. 本服务器按 4.2-4.5 规则构建候选池、去冗余、区域采样和 context bucket 配方。
+7. 本服务器按 Stage B/C1/C2/D 分别一次性固化该 stage 的输入窗口或 `input_ids`，但不固化 mask/label/batch order/RC。
+8. 将 `training_server_transfer/` 中的当前 stage 数据、配置、索引和 manifest 传输到训练服务器。
+9. 训练服务器读取固化输入，训练时动态 mask、动态 MLM label、动态 RC 增强、动态 batch 顺序。
+10. 训练 CropGenome-FM-Large: 8K -> 64K -> 128K，资源允许再做 256K。
+11. 构建下游任务，比较 CNN、DNABERT-2、AgroNT、PlantCAD2、HyenaDNA/Evo2 等基线。
 
 ## 3. 数据预处理
 
@@ -51,23 +53,27 @@
 
 | 目录 | 内容 | 训练服务器是否需要 | 预计体积 |
 |---|---|---|---:|
-| `raw_links/` | 指向原始 `.fna.gz/.gff.gz/.gtf.gz` 的路径表或软链接清单 | 是 | < 1 GB |
-| `data_manifests/` | assembly manifest、split、属/物种统计 | 是 | < 1 GB |
-| `sequence_index/` | contig 长度、GC、N、softmask、header、offset | 是 | 1-5 GB |
-| `annotation_index/` | gene、transcript、exon、CDS、UTR、intron、TSS、TES | 是 | 5-30 GB |
-| `sampling_index/` | 区域候选池、权重表、过滤规则、split map | 是 | 5-30 GB |
-| `token_cache/` | 在线生成的临时 token/window shard | 是，循环覆盖 | 100-200 GB |
+| `raw_links/` | 指向原始 `.fna.gz/.gff.gz/.gtf.gz` 的路径表或软链接清单，仅本服务器使用 | 否 | < 1 GB |
+| `data_manifests/` | assembly manifest、split、属/物种统计 | 是，随 transfer 搬运摘要 | < 1 GB |
+| `sequence_index/` | contig 长度、GC、N、softmask、header、offset | 是，随 transfer 搬运必要索引 | 1-5 GB |
+| `annotation_index/` | gene、transcript、exon、CDS、UTR、intron、TSS、TES | 是，随 transfer 搬运必要索引 | 5-30 GB |
+| `sampling_index/` | 区域候选池、权重表、过滤规则、split map | 是，随 transfer 搬运必要索引 | 5-30 GB |
+| `stage_inputs/` | 本服务器生成的 Stage B/C1/C2/D 固化输入窗口或 `input_ids` | 按 stage 搬运 | 70-225 GB，全 stage 合计估算 |
+| `training_server_transfer/` | 专门给用户传到训练服务器的目录，里面放当前要搬运的 stage 数据、配置、索引和 manifest | 是 | 当前 stage 约 40-160 GB，按最大 Stage B 估算 |
 | `configs/` | 数据、模型、训练配置 | 是 | < 1 GB |
-| `logs/` | Slurm 和训练日志 | 是 | 20-50 GB |
-| `checkpoints/` | 最近 checkpoint 和 best inference 权重 | 是 | 100-300 GB |
-| `results/` | 下游评测结果 | 是 | 20-100 GB |
+| `logs/` | 本服务器预处理日志和训练服务器训练日志 | 可选 | 20-50 GB |
+| `checkpoints/` | 最近 checkpoint 和 best inference 权重，训练服务器产生 | 不从本服务器搬运 | 100-300 GB |
+| `results/` | 下游评测结果，训练服务器或评测服务器产生 | 不从本服务器搬运 | 20-100 GB |
+
+`training_server_transfer/` 是唯一推荐用户整体传输到训练服务器的目录。它的内容由本服务器准备，不上传大文件到 GitHub。GitHub 只保留该目录的说明文件和计划文档。
 
 不搬运到训练服务器:
 
-- 全量 `window_index`。
-- 全量长期 `token_shards`。
+- 原始 plantDB 全量数据，除非后续决定训练服务器重新取序列。
+- 本服务器中间 debug 文件。
+- 已完成且不再训练的旧 stage 输入。
 - 历史 checkpoint。
-- 大量中间 debug 文件。
+- 下游大结果文件。
 
 ### 3.2 Assembly manifest
 
@@ -213,6 +219,87 @@
 - 2-6 个 CPU 作业。
 - 每作业 30 核、80-150GB RAM。
 - 6-24 小时。
+
+### 3.6 Stage 输入固化与训练服务器传输目录
+
+当前正式方案不是训练服务器完全在线采样，也不是提前固化完整监督样本，而是在本服务器按 stage 固化训练输入。
+
+固化内容:
+
+- `input_ids` 或原始 sequence window，优先 `uint8 input_ids`。
+- `window_id`。
+- `assembly_id`、`species_id`、`genus_id`。
+- `contig_id`、`start`、`end`、`strand`。
+- `split`。
+- `context_bucket`: `4K`, `8K`, `16K`, `32K`, `64K`, `128K`, `256K`。
+- `region_bucket`: CDS、splice、TSS、UTR、TES、intron、TE/repeat、intergenic、background。
+- `region_weight_base`。
+- `quality_flags`: N fraction、low-complexity、near-contig-edge、rescued_by_low_abundance 等。
+
+不固化内容:
+
+- MLM mask 位置。
+- `labels_mlm`。
+- causal loss 位置。
+- RC 增强方向和 RC pair 抽样。
+- batch 顺序。
+- dropout 或训练时增强。
+- 动态 loss 微调。
+
+每个 stage 的输入数据按一个完整 stage 逻辑生成，物理上拆成多个 shard，方便校验、搬运和断点续传。
+
+| Stage | 长度组成/token 比例 | token 预算 | 固化输入估算体积 |
+|---|---|---:|---:|
+| Stage B | 70% 8K + 20% 4K + 10% 16K warm-up | 30B-80B | 40-120 GB |
+| Stage C1 | 70% 64K + 15% 8K + 10% 16K/32K + 5% 4K | 15B-40B | 20-60 GB |
+| Stage C2 | 75% 128K + 15% 64K + 10% 8K/16K | 5B-20B | 7-30 GB |
+| Stage D | 80% 256K + 15% 128K + 5% 8K/64K | 2B-10B | 3-15 GB |
+
+体积估算假设:
+
+- `input_ids` 使用 `uint8`，约 1 byte/token。
+- metadata、shard index、校验文件、压缩块开销约为 input token 的 20%-50%。
+- 如果保存原始 ASCII sequence 而不是 `uint8 input_ids`，体积可能增加。
+- 如果额外保存多套重复窗口或固定 mask/label，体积会显著增加；第一版禁止这样做。
+
+本服务器生成目录:
+
+```text
+stage_inputs/
+  Stage_B/
+    manifest.tsv
+    stage_mix.yaml
+    shard_000001.input_ids.bin
+    shard_000001.windows.tsv
+    shard_000001.sha256
+    ...
+  Stage_C1/
+  Stage_C2/
+  Stage_D/
+```
+
+训练服务器传输目录:
+
+```text
+training_server_transfer/
+  README.md
+  TRANSFER_MANIFEST.tsv
+  configs/
+  data_manifests/
+  sequence_index/
+  annotation_index/
+  sampling_index/
+  stage_inputs/
+    Stage_B/
+```
+
+用户实际传输时，只需要把 `training_server_transfer/` 整个目录传到训练服务器。每次推荐只放当前要训练的 stage；训练完 Stage B 后删除或归档 `training_server_transfer/stage_inputs/Stage_B/`，再在本服务器重新准备 Stage C1 的 `training_server_transfer/`。
+
+训练服务器磁盘估算:
+
+- 如果每次只搬一个完整 stage，按最大 Stage B 估算，输入数据约 40-120GB；加 checkpoint、cache、logs、临时文件，建议训练服务器至少 500GB 可用空间，800GB 更稳。
+- 如果四个 stage 全部同时放在训练服务器，输入数据约 70-225GB；加 checkpoint、cache、logs、临时文件，建议至少 800GB，可用空间 1TB-1.5TB 更舒服。
+- 若使用 8 x 80GB GPU 训练 Large 模型，checkpoint 和 optimizer state 会成为主要额外空间来源，需要严格只保留最近 checkpoint 和 best checkpoint。
 
 ## 4. 片段过滤和采样策略
 
@@ -371,24 +458,24 @@ TE/repeat 规则:
 
 ## 6. 训练服务器存储策略
 
-采用低磁盘策略:
+采用“按 stage 搬运固化输入”的低磁盘策略:
 
-- 搬原始压缩数据。
-- 搬轻量索引。
-- 不搬全量 token shards。
-- 不搬全量 window index。
-- 训练时在线采样和在线 tokenization。
-- `token_cache/` 限制为 100-200GB，循环覆盖。
+- 本服务器生成 `stage_inputs/Stage_B`、`Stage_C1`、`Stage_C2`、`Stage_D`。
+- 每次在 `training_server_transfer/` 中只放当前要训练的 stage 数据、必要索引、配置和 manifest。
+- 训练服务器不需要搬运原始 plantDB 全量数据。
+- 训练服务器不需要重新解析 FASTA/GFF/GTF。
+- 训练服务器读取固化 `input_ids` 或 sequence window。
+- 训练时动态生成 mask、MLM labels、RC 增强、batch 顺序和动态 loss。
 - 只保留最近 1 个完整 checkpoint 和 1 个 best inference checkpoint。
+- 一个 stage 训练完成后，删除或归档该 stage 输入，再搬运下一 stage。
 
 ### 6.1 训练服务器磁盘需求
 
 | 项目 | 体积 |
 |---|---:|
-| 原始压缩数据 | 218.89 GB |
-| 轻量 manifest + sequence index | 1-5 GB |
-| annotation/sampling index | 10-60 GB |
-| token/window cache | 100-200 GB |
+| 当前 stage 固化输入 | Stage B 最大约 40-120 GB |
+| transfer manifest + configs | < 1 GB |
+| sequence/annotation/sampling 必要索引 | 10-60 GB |
 | logs | 20-50 GB |
 | 当前 checkpoint + best model | 100-300 GB |
 | results/downstream cache | 20-100 GB |
@@ -396,9 +483,9 @@ TE/repeat 规则:
 
 结论:
 
-- 最低可运行: 800GB-1TB 可用磁盘。
-- 推荐: 1.5TB 可用磁盘。
-- 更稳妥: 2TB 可用磁盘。
+- 每次只搬一个完整 stage: 最低 500GB 可用磁盘，推荐 800GB。
+- 四个 stage 全部同时放训练服务器: 最低 800GB，推荐 1TB-1.5TB。
+- 若保存多个 full checkpoint 或 ZeRO optimizer state，推荐 1.5TB-2TB。
 
 ### 6.2 训练服务器 CPU/RAM
 
@@ -406,7 +493,7 @@ TE/repeat 规则:
 
 - CPU: 32-64 核。
 - RAM: 128-256GB。
-- 本地 SSD 优先放 `token_cache/` 和 checkpoint。
+- 本地 SSD 优先放当前 stage 输入、checkpoint 和 dataloader 临时 cache。
 
 最低:
 
@@ -415,18 +502,37 @@ TE/repeat 规则:
 
 ## 7. 模型输入
 
-每个训练样本在线生成:
+每个训练样本由固化输入和训练时动态监督两部分组成。
+
+本服务器固化:
+
+```text
+input_ids:       [L] uint8, 或 sequence window
+region_ids:      [L] uint8
+region_weights:  [L] fp16/bf16 base value
+quality_scores:  [L] optional fp16 or compact flags
+metadata:        assembly_id, species_id, genus_id, contig_id, start, end, strand, split, context_bucket
+```
+
+训练服务器动态生成:
 
 ```text
 input_ids:       [B, L] int64
 labels_mlm:      [B, L] int64, 非 mask 位点为 -100
 loss_mask:       [B, L] bool
-region_ids:      [B, L] uint8
-region_weights:  [B, L] fp16/bf16
-quality_scores:  [B, L] optional fp16
+region_ids:      [B, L] uint8, 来自固化输入
+region_weights:  [B, L] fp16/bf16, 可在 base value 上动态调整
+quality_scores:  [B, L] optional fp16, 来自固化输入或 flags
 rc_flag:         [B] bool
 metadata:        assembly_id, species_id, genus_id, contig_id, start, end, strand, split
 ```
+
+关键原则:
+
+- 固化输入不包含固定 mask。
+- 固化输入不包含固定 `labels_mlm`。
+- 同一个 `input_ids` 在不同 epoch 可产生不同 mask 和 RC 增强。
+- stage 输入顺序不作为训练 batch 顺序，训练服务器 dataloader 仍可 shuffle。
 
 token vocabulary:
 
@@ -531,9 +637,10 @@ L_total =
 | P3 | GFF/GTF 解析 | 2-6 作业，每作业 30 核，80-150GB | 8-36 小时 |
 | P4 | 区域构建和候选池 | 2-6 作业，每作业 30 核，80-150GB | 6-24 小时 |
 | P5 | split 和防泄漏检查 | 8-16 核，32-64GB | 2-8 小时 |
-| P6 | online sampler dry-run | 1-2 GPU + 16-32 CPU 核 | 2-8 小时 |
+| P6 | stage 输入固化和 shard 校验 | 2-6 作业，每作业 30 核，80-150GB | 8-36 小时 |
+| P7 | `training_server_transfer/` 目录准备和传输校验 | 8-16 核，32-64GB | 1-6 小时 |
 
-CPU 总体: 2-5 天。
+CPU 总体: 3-7 天，取决于是否一次性生成全部 Stage B/C1/C2/D 输入。
 
 ### 10.2 GPU 预训练阶段
 
@@ -561,20 +668,21 @@ CPU 总体: 2-5 天。
 - 模型尚未学会局部 DNA 语法时，超长窗口收益低，反而容易被 intron/intergenic 背景稀释 CDS/splice/start/stop 信号。
 - 不同长度在同一 micro-batch 内混放会增加 padding 和动态 shape 开销，训练统计也更难解释。
 
-### 10.3 多长度 sampler 和 batch 组织
+### 10.3 多长度 stage input loader 和 batch 组织
 
-online sampler 使用两级抽样:
+本服务器生成 stage 输入时使用两级抽样:
 
 1. 先抽 `context_bucket`: `4K`, `8K`, `16K`, `32K`, `64K`, `128K`, `256K`。
 2. 再在该长度桶内按区域比例抽 `region_bucket`: CDS、splice、TSS、UTR、TES、intron、TE/repeat、intergenic、background。
 
-batch 组织规则:
+训练服务器 dataloader 读取已经固化的 stage 输入，并在训练时组织 batch:
 
 - 同一个 micro-batch 内使用同一个 context length，减少 padding 和显存波动。
 - 不同 context length 通过 gradient accumulation 组合到同一个 optimizer step。
 - 每个 optimizer step 记录实际 token 数、context_bucket 比例、region_bucket 比例。
-- 每个长度桶内部继续执行 4.2 硬质量过滤、4.3 候选池保留比例、4.4 去冗余控制、4.5 区域采样比例。
+- 每个长度桶在本服务器固化前必须已经执行 4.2 硬质量过滤、4.3 候选池保留比例、4.4 去冗余控制、4.5 区域采样比例。
 - 长 context 阶段不允许被 intergenic 背景吞掉；CDS/splice/start/stop replay 必须保留。
+- 训练服务器只负责 shuffle、dynamic mask、dynamic labels、RC augmentation、batch collation，不重新做全基因组采样。
 
 每阶段日志至少记录:
 
@@ -603,14 +711,14 @@ batch 组织规则:
 
 推荐训练服务器:
 
-- 磁盘: 1.5TB 可用空间，最低 800GB-1TB。
+- 磁盘: 每次只搬一个 stage 时最低 500GB 可用空间，推荐 800GB；若多个 stage 同时保存，推荐 1TB-1.5TB。
 - CPU: 32-64 核。
 - RAM: 128-256GB。
 - GPU: 推荐 4-8 张 80GB；最低 2 张 80GB 可跑 Base 或 Large 8K/64K。
 
 总体时间:
 
-- CPU 预处理: 2-5 天。
+- CPU 预处理和 stage 输入固化: 3-7 天。
 - 8K + 64K/128K 渐进式正式训练: 4-8 周。
 - 下游评测: 1-2 周。
 - 完整第一版报告模型: 6-10 周。
@@ -716,7 +824,9 @@ GitHub 文档只记录:
 - 按属/物种分组 val loss。
 - RC consistency 指标。
 - tokens/s 和 GPU 显存峰值。
-- cache 命中率和在线 tokenization 吞吐。
+- stage input loader 吞吐。
+- dynamic mask/label 生成开销。
+- 当前 `training_server_transfer/` 目录版本和 stage input manifest。
 
 ### 13.3 下游评测结果总表
 
@@ -770,19 +880,22 @@ GitHub 文档只记录:
 3. 解析 GFF/GTF，生成 annotation index。
 4. 构建 region candidates 和 sampling index。
 5. 生成 split，并跑防泄漏检查。
-6. 实现 online sampler 和 tokenization。
-7. 在训练服务器跑 1000 step dry-run，校正吞吐和缓存策略。
-8. 启动 Stage B 8K 正式预训练。
-9. 完成 Stage B 后做第一批下游 probe。
-10. 进入 64K/128K 继续预训练。
+6. 在本服务器按 Stage B/C1/C2/D 生成固化输入窗口或 `input_ids`，并为每个 stage 生成 shard manifest 和 sha256 校验。
+7. 准备 `training_server_transfer/`，每次只放当前要搬运的 stage、必要索引、配置和 manifest。
+8. 将 `training_server_transfer/` 整体传输到训练服务器，并在训练服务器校验 sha256、manifest、stage mix 比例和 split。
+9. 在训练服务器跑 1000 step dry-run，校正 dataloader 吞吐、dynamic mask 开销、显存和 checkpoint 策略。
+10. 启动 Stage B 8K 正式预训练。
+11. 完成 Stage B 后做第一批下游 probe，删除或归档 Stage B 输入，准备 Stage C1 transfer。
+12. 按 Stage C1 -> C2 -> D 顺序继续预训练。
 
 ## 15. 进展记录
 
 - 2026-06-07 23:26:04 CST: 读取 `/home/user/zhangzhishuai/data/plantDB/genome/README.md`，确认训练数据口径；完成 AgroNT、PlantCAD/Caduceus、Evo 2、HyenaDNA、DNABERT-2、GROVER 和 DNA foundation benchmark 调研；确定主路线为长上下文、单碱基、RC 等变双向 Mamba/Hyena 模型。
 - 2026-06-07 23:46:31 CST: 按用户要求扩展为端到端正式训练方案，补充 `.fna.gz` 扫描、contig QC、split、窗口化、token shard、GPU batch 输入、mask/采样策略、下游监督数据构建，以及 CPU/GPU 资源和每阶段耗时估算。
 - 2026-06-08 11:42:31 CST: 按用户要求重构方案，放弃 1644 个无结构注释 genome，正式数据限定为 262 个有 FASTA+GFF/GTF 的 assembly；新增区域加权采样、严格防泄漏 split、片段过滤、跨服务器搬运磁盘估算、详细下游任务和基线优势预期。
-- 2026-06-08 15:00:51 CST: 根据用户确认，放弃进一步压缩到核心 assembly 的方案，整理为最终完整训练计划: 262 个结构注释完整基因组 + 原始压缩数据搬运 + 小索引 + 在线采样/tokenization + 100-200GB 磁盘缓存。
+- 2026-06-08 15:00:51 CST: 根据用户确认，放弃进一步压缩到核心 assembly 的方案，整理当时版本的完整训练计划；后续已按 22:19:54 CST 的跨服务器固化输入方案更新。
 - 2026-06-08 18:16:18 CST: 按用户要求新增评测结果记录规范，预置预训练指标表、下游任务结果表、基线比较表和结果解释规则；明确 GitHub 只记录摘要和关键表格，不上传大结果文件。
 - 2026-06-08 18:45:35 CST: 按用户要求参考 `douke_genome` 的区域采样方案，调整为“有 TE/repeat 注释模式”和“无可靠 TE/repeat 注释 fallback 模式”；当前默认使用无 TE fallback，避免把普通 intergenic 伪标为 repeat/non-repeat。
 - 2026-06-08 19:15:22 CST: 按用户给定的 4.5.1-4.5.3 规则重构输入处理: 增加硬质量过滤、候选池区域保留比例、minimizer/simhash 去冗余和 assembly/genus 级 intergenic token 上限；明确候选池保留比例不同于训练 batch 采样比例。
 - 2026-06-08 21:06:31 CST: 根据临时 context 长度策略评估，正式将 GPU 预训练优化为“同一模型渐进式扩长 + 每阶段短长度 replay”；新增多长度 sampler、micro-batch 组织、context_bucket 日志和阶段进入门槛。
+- 2026-06-08 22:19:54 CST: 按用户当前确认的跨服务器训练思路重写训练计划: 本服务器负责索引、候选池和 Stage B/C1/C2/D 固化输入生成；训练服务器只接收 `training_server_transfer/` 目录，训练时动态生成 mask、label、RC 增强和 batch 顺序。

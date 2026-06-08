@@ -3,6 +3,9 @@ sequence_index/
 annotation_index/
 window_index/
 token_shards/
+stage_inputs/
+training_server_transfer/*
+!training_server_transfer/README.md
 configs/local*
 logs/
 checkpoints/

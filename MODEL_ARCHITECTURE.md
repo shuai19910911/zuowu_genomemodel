@@ -1,10 +1,10 @@
 # CropGenome-FM 模型结构解析
 
-更新时间: 2026-06-08 19:15:22 CST
+更新时间: 2026-06-08 22:19:54 CST
 
 ## 1. 设计结论
 
-CropGenome-FM 是一个面向作物结构注释基因组的区域加权长上下文基础模型。第一版正式模型只使用 262 个有 FASTA + GFF3/GTF 的 assembly，不使用缺少结构注释的 genome。训练数据采用在线采样和在线 tokenization，不预生成全量 token shards。
+CropGenome-FM 是一个面向作物结构注释基因组的区域加权长上下文基础模型。第一版正式模型只使用 262 个有 FASTA + GFF3/GTF 的 assembly，不使用缺少结构注释的 genome。训练数据在本服务器按 stage 固化输入窗口或 `input_ids`，训练服务器动态生成 mask、label、RC 增强和 batch 顺序。
 
 主架构:
 
@@ -261,6 +261,7 @@ L_total =
 - 2026-06-07 23:26:04 CST: 完成第一版 CropGenome-FM 模型结构定义，确定主线为单碱基、长上下文、RC 等变双向 Mamba/Hyena 架构，参数档位为 Base/Large/XL，第一正式目标为 Large。
 - 2026-06-07 23:46:31 CST: 增补 2026 前沿架构取舍，明确主模型为 RC-equivariant Mamba2/Hyena + periodic attention 的混合结构；补充输入张量、输出张量、训练目标、显存策略和分阶段资源估算。
 - 2026-06-08 11:42:31 CST: 按用户要求改为只使用 262 个结构注释完整基因组，加入 region_ids、region_weights、区域加权 loss、片段过滤和基线优势预期。
-- 2026-06-08 15:00:51 CST: 明确最终训练数据管线为原始压缩数据 + 小索引 + 在线采样/tokenization + 100-200GB 磁盘缓存，不采用进一步压缩到核心 assembly 的方案。
+- 2026-06-08 15:00:51 CST: 明确最终训练数据管线不采用进一步压缩到核心 assembly 的方案。
 - 2026-06-08 18:45:35 CST: 区域采样比例参考 `douke_genome`，加入 TE/repeat 注释模式和当前默认无 TE fallback 模式。
 - 2026-06-08 19:15:22 CST: 输入侧加入 4.5 硬质量过滤、候选池保留比例和去冗余控制；模型训练仍按 batch 目标区域比例和 loss 权重动态采样。
+- 2026-06-08 22:19:54 CST: 输入管线更新为本服务器固化 stage 输入，训练服务器动态生成 mask/label/RC；新增 `training_server_transfer/` 作为跨服务器传输目录。
