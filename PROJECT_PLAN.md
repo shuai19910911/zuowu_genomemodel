@@ -1,295 +1,294 @@
 # 作物基因组预训练大模型详细训练方案
 
-更新时间: 2026-06-07 23:46:31 CST
+更新时间: 2026-06-08 11:42:31 CST
 
-## 1. 目标
+## 1. 当前决策
 
-训练一个面向作物基因组的正式基础模型，不做玩具版、抽样测试版或非正式小模型。模型应直接服务于作物基因组功能解析和育种相关任务:
+本项目第一版正式模型只使用有结构注释的基因组。此前 1906 个 genome 中，1644 个缺少 GFF3/GTF 注释的 assembly 暂时放弃，不进入预训练。这样牺牲纯序列规模，换来更高质量的区域定义、区域加权预训练、严格下游任务构建和更可控的数据泄漏风险。
 
-- 学习多作物、多属、多品种 genome 的通用序列表示。
-- 在未见作物或少样本作物上迁移到功能区间识别、基因结构相关任务和变异效应预测。
-- 支持零样本序列打分、参数高效微调、全模型微调和批量 embedding 生成。
-- 为后续作物基因组调控元件、候选变异、基因编辑靶点优先级排序提供基础模型。
+当前正式数据口径:
 
-## 2. 文献依据
+- 使用: 262 个同时具备 genome FASTA 和 GFF3/GTF 的 assembly。
+- 覆盖: 26 个属。
+- assembly level: chromosome 233 个、complete genome 13 个、scaffold 12 个、contig 4 个。
+- 原始压缩体积: genome `.fna.gz` 约 213.48 GB，GFF3/GTF `.gz` 约 5.40 GB，合计约 218.89 GB。
+- 不使用: 1644 个只有 genome、缺少结构注释的 assembly。
 
-当前证据支持以下设计取舍:
+训练目标不是复刻短窗口 DNA BERT，而是训练一个结构注释感知、区域加权、长上下文、反向互补一致的作物基因组基础模型。
 
-- AgroNT 是最直接的植物参照。它在 48 个植物物种 genome 上训练 transformer DNA LM，使用约 6000 bp 输入、6-mer token、15% MLM，并在植物调控注释、promoter/terminator 强度、组织特异表达和功能变异优先级等任务上取得强结果。来源: https://www.nature.com/articles/s42003-024-06465-2
-- PlantCAD/PlantCaduceus 是当前更贴近本项目架构需求的植物模型路线，基于 Caduceus/Mamba，强调双向、反向互补等变和单碱基分辨率；PlantCAD 预训练 16 个被子植物 genome，PlantCAD2 提供 8192 bp、88M/311M/694M 模型。来源: https://github.com/plantcad/plantcad
-- Evo 2 说明基因组基础模型的正式长上下文训练趋势: 先短上下文预训练，再长上下文 midtraining；模型覆盖 9T DNA bp，目标上下文达 1M token。来源: https://www.nature.com/articles/s41586-026-10176-5
-- HyenaDNA 证明单碱基、长上下文 genome modeling 可行，并将上下文扩到 1M token。来源: https://arxiv.org/abs/2306.15794
-- DNABERT-2 和 GROVER 说明 DNA tokenization 不能只机械依赖固定 k-mer；BPE 能提高计算效率，但长上下文单碱基模型更适合保留变异级分辨率。来源: https://arxiv.org/abs/2306.15006 和 https://www.nature.com/articles/s42256-024-00872-0
-- 2025 年 DNA foundation model benchmark 显示，通用 foundation model 在不同任务上的优势并不均匀；必须同时做零样本 embedding、参数高效微调和任务特化微调评测，不能只看预训练 loss。来源: https://www.nature.com/articles/s41467-025-65823-8
+## 2. 文献和前沿方向
 
-## 3. 数据策略
+当前模型设计依据:
 
-### 3.1 数据来源
+- AgroNT: 植物 DNA LM 强基线，48 个植物 genome，约 6000 bp 输入、6-mer token、15% MLM，在植物调控和变异优先级任务上有效。来源: https://www.nature.com/articles/s42003-024-06465-2
+- PlantCAD/PlantCAD2: 植物 Caduceus/Mamba 路线，强调单碱基、双向、反向互补等变。PlantCAD2 提供 Mamba2 植物长上下文模型配置。来源: https://github.com/plantcad/plantcad
+- Evo 2 / StripedHyena 2: 2026 年大规模基因组基础模型代表，强调单碱基、长上下文、短到长 midtraining 和 likelihood 变异评分。来源: https://www.nature.com/articles/s41586-026-10176-5
+- HyenaDNA: 证明单碱基长上下文 DNA 建模可行，支持 1M token 级别上下文。来源: https://arxiv.org/abs/2306.15794
+- HybriDNA: Transformer + Mamba2 hybrid 思路，适合同时保留注意力的局部精确交互和 SSM 的长程效率。来源: https://arxiv.org/abs/2502.10807
+- AlphaGenome: 监督式 1Mb DNA 输入多模态调控预测模型，说明长上下文对调控、表达和变异任务的重要性。来源: https://www.alphagenome.com/
+- DNABERT-2/GROVER: BPE/k-mer DNA tokenization 是重要基线，但单碱基建模更适合 ref/alt 变异解释。来源: https://arxiv.org/abs/2306.15006 和 https://www.nature.com/articles/s42256-024-00872-0
 
-本地数据目录: `/home/user/zhangzhishuai/data/plantDB/genome`
+结论: 主模型采用 `RC-equivariant Mamba2/Hyena + periodic attention + region-weighted MLM/causal objectives`。AgroNT、DNABERT-2、PlantCAD2、HyenaDNA 和 CNN/DeepSEA-like 模型作为基线。
 
-- 1906 个含 genome FASTA 的 assembly 用于自监督预训练。
-- 262 个含 genome + GFF3/GTF 的 assembly 用于下游监督任务构建、预训练评估和 gene-region aware 数据切分。
-- 当前不把 Phytozome 数据纳入正式训练，除非后续完成可复现下载、许可和版本记录。
+## 3. 数据预处理总流程
 
-### 3.2 预训练数据清洗
+所有新生成脚本、manifest、索引、shard、日志和结果都放在当前项目目录下。原始 plantDB 目录只读。
 
-必须先在当前项目目录生成可复现 manifest，不直接改动原始数据目录:
+### 3.1 产物目录
 
-1. 扫描 `completed-genome-index.tsv` 与 `incomplete-genome-index.tsv`，生成训练 manifest。
-2. 过滤短 contig、异常字符比例高的序列、过高 N 比例窗口。
-3. 保留 soft-mask/lowercase 信息作为可选辅助通道；主输入仍为 A/C/G/T/N 单碱基。
-4. 按 assembly、species、genus 分层划分 train/val/test，严禁同一 assembly 的相邻窗口跨 split 泄漏。
-5. 对多拷贝、重复、近重复 genome 做 MinHash/seqkit 级别去冗余记录，但不盲目删除作物品种内真实变异；去冗余策略作为数据权重而非简单丢弃。
+| 目录 | 内容 | 预计体积 | GitHub |
+|---|---|---:|---|
+| `data_manifests/` | 262 个 assembly manifest、split、区域权重表 | < 1 GB | 不上传 |
+| `sequence_index/` | contig 长度、GC、N、softmask、offset | 1-5 GB | 不上传 |
+| `annotation_index/` | gene/transcript/exon/CDS/UTR/intron/intergenic/promoter/TSS/TES 区间 | 10-80 GB | 不上传 |
+| `window_index/` | 训练窗口坐标、区域类型、质量指标、split、权重 | 20-100 GB | 不上传 |
+| `token_shards/` | uint8 token shards、labels/mask 可动态生成 | 0.6-2.5 TB | 不上传 |
+| `configs/` | 关键训练配置 | < 100 MB | 可选择上传摘要 |
+| `logs/` | Slurm 和训练日志 | 10-200 GB | 不上传 |
+| `checkpoints/` | 模型和 optimizer checkpoint | 0.5-5 TB | 不上传 |
+| `results/` | 下游评测和表格 | 10-500 GB | 只上传总结 |
 
-### 3.3 采样权重
+## 4. 预处理步骤、资源和时间
 
-作物数据按属极不均衡，Beta、Hordeum、Oryza、Zea 等数量高。预训练采样采用混合权重:
+| 步骤 | 输入 | 输出 | 过滤/处理 | 资源 | 预计时间 |
+|---|---|---|---|---|---|
+| A1 manifest | completed index | `assemblies.tsv` | 只保留有 genome + GFF/GTF 的 262 个 | 8 核 32G | 5-20 分钟 |
+| A2 FASTA 扫描 | 213GB `.fna.gz` | `contigs.tsv` | 统计长度、N、GC、softmask、header | 6 个 CPU 作业，各 30 核 100-150G | 8-24 小时 |
+| A3 注释解析 | 5.4GB GFF/GTF | gene/transcript/CDS/UTR/intron 表 | 校验层级、坐标、strand、CDS phase | 2-6 个 CPU 作业，各 30 核 80-150G | 8-36 小时 |
+| A4 区域构建 | FASTA index + 注释 | promoter/TSS/TES/intergenic/region map | 合并重叠、去除冲突、多转录本取 canonical + 保留 isoform 标签 | 2-6 个 CPU 作业，各 30 核 80-150G | 6-24 小时 |
+| A5 split | assembly + gene + region | split 表 | assembly/species/genus holdout；窗口不跨 split | 8 核 32G | 0.5-2 小时 |
+| A6 窗口候选 | region map | `window_index/*.parquet` | 按区域和质量采样，不全量输入 | 6 个 CPU 作业，各 30 核 150G | 8-36 小时 |
+| A7 token shard | window index + FASTA | `token_shards/` | A/C/G/T/N -> uint8；保存 metadata | 6 个 CPU 作业，各 30 核 150G | 12-48 小时 |
+| A8 训练 dry-run | token shards | 1000 step 吞吐报告 | 验证 batch、mask、loss、split | 1-2 GPU | 2-8 小时 |
 
-- 50% assembly-balanced: 防止大属和大基因组完全支配。
-- 30% genus-balanced: 提升小属、孤儿作物表示。
-- 20% length-proportional: 保留真实 genome bp 分布。
+CPU 预处理总耗时预计 2-5 天。若共享文件系统吞吐低，最慢步骤会是 A2 和 A7。
 
-训练时记录每个 batch 的 assembly/species/genus 统计，后续评估是否过度偏向高频属。
+## 5. 片段过滤标准
 
-## 4. 端到端数据预处理和模型输入
+不会把所有序列都输入模型。候选窗口必须先通过 assembly、contig、annotation 和 window 四层过滤。
 
-本节定义从本地 `.fna.gz` 到 GPU batch 的正式数据流。所有产物都放在当前项目目录下，不写入原始 plantDB 目录。
+### 5.1 Assembly 过滤
 
-### 4.1 目录和产物约定
+- 必须有 genome FASTA 和 GFF3/GTF。
+- 优先 chromosome/complete genome；scaffold 和 contig assembly 只保留注释一致性高、N 比例低的区域。
+- 同一物种/品种存在多个版本时，优先 RefSeq、chromosome-level、新版本；旧版本只作为 holdout 或低权重。
 
-| 阶段 | 目录 | 内容 | 是否上传 GitHub |
-|---|---|---|---|
-| manifest | `data_manifests/` | assembly、FASTA 路径、注释路径、split、权重 | 否 |
-| 序列索引 | `sequence_index/` | contig/scaffold 长度、N 比例、GC、offset | 否 |
-| 窗口索引 | `window_index/` | 每个训练窗口的 assembly、contig、start、end、strand、split | 否 |
-| token shard | `token_shards/` | mmap/Arrow/WebDataset 格式 tokenized windows | 否 |
-| 配置 | `configs/` | 数据、模型、训练 yaml/json | 可选，只传关键配置 |
-| 日志 | `logs/` | Slurm log、训练 log、资源统计 | 否 |
-| checkpoint | `checkpoints/` | optimizer/model checkpoint | 否 |
-| 结果 | `results/` | 下游评测表和图 | 否，除非整理成摘要 |
+### 5.2 Contig 过滤
 
-### 4.2 预处理步骤
+- 长度 `< 10 kb` 的 contig 不进入预训练。
+- contig N fraction `> 10%` 不进入预训练；`5%-10%` 只允许非关键区域低权重采样。
+- 极端 GC: 属内 GC z-score `>|4|` 的 contig 进入人工检查或低权重。
+- organelle/plastid/mitochondrial contig 单独标记，第一版主模型不混入核基因组训练。
 
-Step 1: assembly manifest。
+### 5.3 Annotation 过滤
 
-- 读取 `completed-genome-index.tsv` 和 `incomplete-genome-index.tsv`。
-- 合并 1906 个 genome，字段包括 `assembly_accession`、`species`、`genus`、`assembly_level`、`source`、`genome_path`、`has_gff3`、`has_gtf`、`gff3_path`、`gtf_path`。
-- 生成 `data_manifests/assemblies.tsv`。
-- 资源估算: 1 个 CPU 作业，8-16 核，32G 内存，5-20 分钟。
+- gene/transcript/exon/CDS 坐标必须合法且 strand 一致。
+- CDS phase 严重冲突、exon 顺序错误、转录本越界的基因不进入 CDS/TIS/TTS/splice 任务。
+- 多转录本基因保留 canonical transcript 作为主训练区域；其他 isoform 只用于增强或下游 isoform 任务。
+- 蛋白编码基因、lncRNA、pseudogene、transposon gene 分开标记，不混成单一类别。
 
-Step 2: FASTA 解压流式扫描。
+### 5.4 Window 过滤
 
-- 逐个读取 `.fna.gz`，不整体解压到磁盘。
-- 对每条 contig/scaffold/chromosome 统计长度、A/C/G/T/N 数量、GC、N fraction、lowercase fraction、header。
-- 过滤建议: 长度 `< 2 kb` 的序列不进入预训练；`N fraction > 0.30` 的 contig 不进入预训练；单个窗口中 `N fraction > 0.20` 时不作为训练样本。
-- 生成 `sequence_index/contigs.tsv`。
-- 资源估算: 6 个 CPU 作业并行，每个 30 核、100-150G 内存；总输入 gzip 约 898GB，预计 8-24 小时，取决于共享文件系统吞吐。
+- 8K/64K/128K 窗口有效 A/C/G/T 比例必须 `>= 95%`；N 比例 `<= 5%`。
+- 低复杂度窗口过滤: Shannon entropy `< 1.2` 的 1kb 子窗口占比过高则剔除。
+- homopolymer 过滤: 任意单碱基连续长度 `> 100 bp` 且非真实注释区域时剔除或低权重。
+- repeat/softmask 比例: CDS/TSS/splice 窗口不因 repeat 直接剔除；intergenic 窗口 softmask `> 50%` 剔除。
+- 近重复控制: 与同 split 内高相似窗口重复时只保留代表；跨 split 禁止出现相似度 `>= 95%` 且 overlap `>= 80%` 的窗口。
+- intergenic 只采高质量 10%: 从远离基因、低 N、低重复、GC 正常、有保守性或靠近已知调控上下文的 intergenic 候选中抽样，不做全量输入。
 
-Step 3: split 切分。
+## 6. 严格防泄漏 split
 
-- 主 split 以 assembly 为单位，避免同一 assembly 窗口跨 split。
-- 推荐比例: train 90%、val 5%、test 5%。
-- 强制留出若干低频属/作物作为 `genus_holdout`，用于检验跨属迁移。
-- 下游任务另建 `species_holdout` 和 `genus_holdout`。
-- 生成 `data_manifests/splits.tsv`。
-- 资源估算: 1 个 CPU 作业，8 核，16G 内存，5-10 分钟。
+原则: 一个数据集中的基因组片段不能同时出现在训练集和验证/测试集。
 
-Step 4: 窗口化。
+### 6.1 预训练 split
 
-- Stage B 8K: window length 8192，stride 8192 或随机采样等价；每个 epoch 动态重采样，避免固定切片过拟合。
-- Stage C 64K/128K: window length 65536/131072，stride 1/2 window；优先 chromosome/scaffold 长序列。
-- Stage D 256K+: window length 262144 起；只用长 contig/scaffold/chromosome。
-- 每个窗口记录 `assembly_id, contig_id, start, end, strand, n_frac, gc, split, sampling_weight`。
-- 资源估算: 6 个 CPU 作业，每个 30 核、80-150G 内存；8K 窗口索引 2-8 小时，64K+ 长窗口索引 1-4 小时。
+- 主 split 以 assembly 为单位: 同一 assembly 的所有窗口只能属于 train、val、test 或 holdout 中的一个。
+- species holdout: 若某 species 有多个 assembly，至少保留部分 species 全量进入测试，用于跨品种/跨物种泛化。
+- genus holdout: 选择小属和高价值作物属作为完整属留出，检验跨属迁移。
+- split 完成后再窗口化，避免先切窗口再分组造成泄漏。
 
-Step 5: tokenization/sharding。
+### 6.2 下游 split
 
-- 第一版主模型单碱基 token，不训练 BPE tokenizer。
-- 映射: `A=0, C=1, G=2, T=3, N=4, MASK=5, PAD=6, BOS=7, EOS=8`。
-- 数据落盘格式优先用 mmap `.bin + .idx` 或 Arrow/Parquet；训练读取时避免反复 gzip 解压。
-- 每个 shard 建议 0.5-2GB，便于多进程 DataLoader 随机读取。
-- 同时保存 `token_shards/shard_manifest.tsv`，记录每个 shard 的窗口数、token 数、split、属分布。
-- 资源估算: 6 个 CPU 作业，每个 30 核、150G 内存；8K token shard 12-36 小时；64K/128K token shard 8-24 小时；总临时磁盘建议 3-6TB。
+- gene-level split: 同一 gene_id 的所有 promoter、CDS、UTR、splice、TIS/TTS 片段不能跨 split。
+- paralog-aware split: 高相似基因家族按 family 分组，防止同源片段泄漏到测试集。
+- coordinate exclusion: 若必须在同 assembly 内切分，train 与 val/test 窗口之间至少留出 `2 x max_context` 间隔。
+- variant task split: 同一 variant、同一 LD block、同一 gene 周围窗口不能跨 split。
 
-Step 6: 训练时 batch 构造。
+## 7. 区域加权训练设计
 
-每个 GPU step 输入形态:
+只使用 262 个注释完整基因组后，预训练不再是简单随机 genome window，而是结构区域感知采样。
+
+### 7.1 Batch 区域比例
+
+| 区域 | 批内目标比例 | loss 权重 | 说明 |
+|---|---:|---:|---|
+| CDS/protein-coding exon | 30% | 1.50 | 优先学习密码子、ORF、保守编码结构 |
+| splice donor/acceptor 周围 | 12% | 2.00 | 预测剪接位点和外显子边界，是最重要下游任务之一 |
+| UTR | 8% | 1.20 | 翻译调控和 mRNA 稳定性相关 |
+| promoter/TSS upstream | 15% | 1.40 | 表达调控和启动子任务 |
+| terminator/TES/polyA 周围 | 8% | 1.20 | 转录终止和 polyA 相关 |
+| intron | 12% | 0.90 | 保留长程基因结构和调控上下文 |
+| high-quality intergenic | 10% | 0.60 | 非编码区只采高质量 10%，避免噪声支配 |
+| random genomic background | 5% | 0.50 | 保留 genome-wide 分布，防止模型只见注释区域 |
+
+区域比例是 batch sampler 的目标比例，不代表真实 genome 比例。每个 epoch 记录实际比例并做偏差修正。
+
+### 7.2 区域窗口构造
+
+- CDS: 以 exon/CDS block 为中心，8K 窗口覆盖上下游；长上下文阶段拼接同一 gene body。
+- splice: donor/acceptor 位点中心化窗口，短窗口用于位点，长窗口加入上下游 exon/intron。
+- promoter/TSS: TSS 上游 5kb + 下游 1kb 为核心，8K/64K 窗口扩展到附近调控区。
+- TES/polyA: TES 上下游各 3kb，标注转录方向。
+- intron: 采样长 intron、高质量 intron、靠近 splice 的 intron 子区间；低复杂度 intron 降权。
+- intergenic: 只采 N 低、重复低、GC 正常、远离 assembly gap 的候选；不全量采样。
+
+## 8. 模型输入、架构和 loss
+
+### 8.1 预训练输入
+
+每个样本包含:
 
 ```text
-input_ids:      int64/bfloat16-compatible integer tensor [batch, seq_len]
-attention_mask: bool/int tensor [batch, seq_len], state-space 模型可选
-labels:         int64 tensor [batch, seq_len], 非预测位置为 -100
-loss_mask:      bool tensor [batch, seq_len]
-meta:           assembly_id, species_id, genus_id, contig_id, start, end, strand
+input_ids:       [B, L] uint8/int64, A=0 C=1 G=2 T=3 N=4 MASK=5 PAD=6
+labels_mlm:      [B, L] int64, 非 mask 位点为 -100
+loss_mask:       [B, L] bool, N/PAD/低质量位点为 0
+region_ids:      [B, L] uint8, CDS/splice/UTR/promoter/TES/intron/intergenic/background
+region_weights:  [B, L] float16, 由区域和质量共同决定
+rc_flag:         [B] bool, 是否输入 reverse-complement
+metadata:        assembly_id, species_id, genus_id, contig_id, start, end, strand, split
 ```
 
-mask 策略:
+上下文长度:
 
-- 15% 有效 A/C/G/T token 被选为预测目标。
-- 其中 80% 替换为 `[MASK]`，10% 随机替换为 A/C/G/T，10% 保持原 token。
-- span masking 覆盖 1-512 bp，偏向短 span，但保留少量长 span。
-- N 和 PAD 不计入 loss。
+- Stage B: 8192。
+- Stage C1: 65536。
+- Stage C2: 131072。
+- Stage D: 262144；资源充足后才尝试 512K。
 
-采样顺序:
+### 8.2 架构
 
-1. 按 `assembly/genus/length` 混合权重抽 assembly。
-2. 在 assembly 内按 contig 长度和质量抽 contig。
-3. 抽窗口，随机 strand 或 reverse-complement。
-4. 生成 mask，返回 batch。
+主模型 CropGenome-FM-Large:
 
-### 4.3 下游监督数据构建
+- token embedding: 单碱基 + region embedding + optional strand/position feature。
+- backbone: RC-equivariant bidirectional Mamba2/Hyena block。
+- periodic attention: 每 4-6 层插入 local/global sparse attention，增强 promoter-splice-CDS 等精确相互作用。
+- normalization: RMSNorm。
+- MLP: gated MLP/SwiGLU。
+- output heads: MLM head、causal LM auxiliary head、region-aware contrastive/probe head。
+- 参数量: 300M-450M。
 
-下游数据只从 262 个带 GFF3/GTF 的完整 assembly 和后续公开功能组数据生成:
+备选:
 
-- GFF/GTF 解析统一输出 `annotations/genes.parquet`、`annotations/transcripts.parquet`、`annotations/exons.parquet`。
-- splice 数据: donor/acceptor 正例来自 exon-intron junction；负例来自同 contig 非 junction GT/AG 或随机位点，按 GC/局部重复匹配。
-- TIS/TTS: start/stop codon 周围窗口；负例来自同 frame 非起止位点。
-- promoter/terminator: TSS upstream 5kb + downstream 1kb，TES 周围 6kb；表达强度任务需要外部表达或 STARR-seq 标签。
-- lncRNA/mRNA: transcript sequence，负例按长度和 GC 匹配。
-- variant effect: VCF 或候选变异表转为 ref/alt 两条等长序列，输出 delta likelihood 和 embedding delta。
+- Base 100M-150M: 资源不足时的正式较小模型。
+- XL 800M-1.2B: 8-16 张 80GB GPU 稳定后再考虑。
 
-监督数据资源估算: 2-6 个 CPU 作业，每个 30 核、80-150G；首轮 GFF/GTF 解析和任务构建 12-48 小时，主要取决于注释文件质量和负例采样规模。
+### 8.3 Loss
 
-## 5. 主模型训练路线
+总 loss:
 
-### 5.1 主模型名称
+```text
+L_total =
+  1.00 * L_region_weighted_MLM
+  + 0.10 * L_causal_next_token
+  + 0.05 * L_reverse_complement_consistency
+  + 0.05 * L_region_contrastive_optional
+```
 
-临时名称: CropGenome-FM。
+主 loss:
 
-### 5.2 主架构
+- `L_region_weighted_MLM`: 对 15% mask/span 位点做 cross entropy，按 `region_weights` 加权。
+- mask span: 1-512 bp；CDS/splice/TSS 可更多短 span，intron/intergenic 可混合长 span。
+- N/PAD/低质量碱基不计入 loss。
 
-正式主线采用前沿长上下文 DNA 模型的混合路线: PlantCAD/Caduceus 的 RC 等变双向建模 + Evo 2/StripedHyena 2 的短到长课程训练 + HybriDNA 的 Transformer-Mamba2 混合思想。第一实现不手写底层 CUDA kernel，优先改造已有 Mamba2/Hyena/Caduceus 可靠实现。
+辅助 loss:
 
-- token: 单碱基 A/C/G/T/N，加 special tokens。
-- input resolution: 1 bp/token。
-- core: RC-equivariant bidirectional Mamba2/Hyena blocks，关键层插入稀疏/局部 attention。
-- reverse-complement equivariance: forward strand 与 reverse-complement strand 共享或成对约束参数，在输出端做 RC-consistent LM head。
-- pretraining objective: masked nucleotide modeling + span denoising；长上下文阶段加入 causal next-token auxiliary loss，便于后续零样本 likelihood 和生成式序列评分。
-- precision: bf16。
-- distributed training: PyTorch FSDP 或 DeepSpeed ZeRO-3，优先选择集群可稳定运行的一套。
+- `L_causal_next_token`: 只在一部分 batch 上启用，支持 ref/alt likelihood score。
+- `L_reverse_complement_consistency`: 同一窗口 forward 与 reverse-complement embedding/logits 保持一致。
+- `L_region_contrastive_optional`: 同一 gene 周围不同区域做弱对比，后续视训练稳定性决定是否启用。
 
-### 5.3 参数规模
+## 9. 训练资源和总时间估算
 
-第一版正式模型不做玩具规模，采用三档可发表/可复用规模:
+### 9.1 CPU 预处理
 
-| 模型 | 层数 | hidden | 估计参数 | 上下文 | 用途 |
-|---|---:|---:|---:|---:|---|
-| CropGenome-FM-Base | 24 | 768 | 100M-150M | 64K -> 128K | 主力可训练、可微调模型 |
-| CropGenome-FM-Large | 32 | 1024 | 300M-450M | 128K -> 256K | 正式主模型 |
-| CropGenome-FM-XL | 40 | 1536 | 800M-1.2B | 256K -> 512K/1M | 资源允许后续扩展 |
+| 阶段 | 作业数 | 每作业资源 | 时间 |
+|---|---:|---|---:|
+| manifest + split | 1 | 8-16 核，32G | < 2 小时 |
+| FASTA/annotation 扫描 | 2-6 | 30 核，80-150G | 8-36 小时 |
+| 区域构建 + 窗口过滤 | 2-6 | 30 核，80-150G | 12-48 小时 |
+| token shard | 2-6 | 30 核，150G | 12-48 小时 |
+| 下游数据构建 | 2-6 | 30 核，80-150G | 12-72 小时 |
 
-推荐先直接启动 Large 的正式数据管线和正式训练配置；Base 只作为资源不足时的正式较小模型，不作为测试版。
+CPU 总体: 2-5 天。最多每批提交 6 个 CPU 命令，符合当前 q07/q08 限制。
 
-### 5.4 训练阶段和资源估算
+### 9.2 GPU 训练
 
-Stage A: 数据 manifest 与 tokenizer/编码确认。
+| 阶段 | context | token 预算 | 推荐 GPU | 预计时间 |
+|---|---:|---:|---:|---:|
+| Stage B | 8K | 30B-80B | 4-8 x 80GB | 5-18 天 |
+| Stage C1 | 64K | 15B-40B | 8 x 80GB | 7-18 天 |
+| Stage C2 | 128K | 5B-20B | 8 x 80GB | 5-14 天 |
+| Stage D | 256K | 2B-10B | 8-16 x 80GB | 4-14 天 |
+| 下游 LoRA/linear probe | 8K-128K | 按任务 | 1-4 x 80GB | 1-2 周 |
 
-- 产物: `data_manifests/`、窗口统计、split 表。
-- CPU: q07/q08，30 核，150G 内存。
-- 判定: 100% 可追溯到原始 genome 路径和 assembly accession。
-- 预计耗时: 1-2 天，包括扫描、索引、初步 QC 和 shard 生成。
+推荐资源下，从预处理到完成第一版正式模型和核心下游评测，预计 6-10 周。若只有 2 张 80GB GPU，预计 2-4 个月，并建议先停止在 64K/128K。
 
-Stage B: 8K 基础预训练。
+## 10. 跨服务器搬运和磁盘空间估算
 
-- 输入长度: 8192 bp。
-- batch: 按 GPU 显存确定，使用 gradient accumulation 保持全局 batch >= 1M bp。
-- 目标: MLM/span denoising loss 稳定下降，val split 不泄漏。
-- 推荐资源: 4-8 张 80GB GPU；最低 2 张 80GB GPU 可跑 Large 但会明显变慢。
-- 训练 token 预算: 50B-150B tokens，约等于全数据有效碱基多轮采样。
-- 预计耗时: 4 GPU 约 10-25 天；8 GPU 约 5-14 天；实际以 tokens/s 标定后调整。
+若在本服务器完成数据处理，再把处理好的数据搬到其他服务器训练，建议搬运“token shard + metadata + configs”，不搬运所有中间日志和 checkpoint。
 
-Stage C: 64K/128K 继续预训练。
+| 包 | 内容 | 估计体积 |
+|---|---|---:|
+| 最小训练包 | filtered token shards for 8K + metadata + configs | 0.6-1.0 TB |
+| 推荐训练包 | 8K + 64K/128K token shards + annotation metadata | 1.2-2.0 TB |
+| 完整训练包 | 所有 token shards、window index、annotation index、下游数据 | 2.0-3.5 TB |
+| 加原始数据备份 | 完整训练包 + 218.89GB raw gzip | 2.3-3.8 TB |
+| 加 checkpoint | 训练包 + 最近 3-5 个 checkpoint | 3.0-8.0 TB |
 
-- 从 Stage B checkpoint 继续。
-- 增加长窗口和跨 gene/intergenic 长程上下文。
-- 目标: 长上下文 validation loss 下降，embedding 下游线性探针优于随机/CNN baseline。
-- 推荐资源: 8 张 80GB GPU；FSDP/ZeRO-3 + gradient checkpointing。
-- 训练 token 预算: 20B-80B tokens。
-- 预计耗时: 8 GPU 约 7-21 天；4 GPU 约 18-45 天。
+训练服务器建议可用磁盘:
 
-Stage D: 256K 长上下文 midtraining。
+- 最低: 2 TB，只能跑 8K/部分 64K。
+- 推荐: 4 TB，可放推荐训练包、日志和少量 checkpoint。
+- 充足: 8-12 TB，可保留完整训练包、多阶段 checkpoint 和下游 embedding。
 
-- 借鉴 Evo 2 的短到长课程训练。
-- 以 chromosome/scaffold 连续窗口为主。
-- 目标: 变异打分、调控区间和基因结构任务在长上下文输入中收益可见。
-- 推荐资源: 8-16 张 80GB GPU；若只有 2-4 GPU，应先把目标降到 128K 或使用更小 batch。
-- 训练 token 预算: 5B-30B tokens。
-- 预计耗时: 8 GPU 约 7-21 天；16 GPU 约 4-12 天。
+## 11. 下游任务详细设计
 
-Stage E: 下游微调与基准。
+| 任务 | 正例 | 负例 | split | 指标 | 预期优势 |
+|---|---|---|---|---|---|
+| splice donor/acceptor | GFF/GTF exon-intron junction | 同 contig 非 junction GT/AG + random | gene family + species holdout | AUROC, AUPRC, F1 | 区域加权和 splice 高 loss 权重，预计优于 DNABERT-2/AgroNT 在跨物种 donor/acceptor |
+| TIS/TTS | CDS start/stop codon 周围 | 同 frame 非起止 codon | gene family holdout | AUROC, AUPRC | CDS 高权重 + 单碱基建模，预计优于 k-mer 模型 |
+| promoter/TSS | TSS 上游 5kb + 下游 1kb | matched intergenic | assembly/species holdout | AUROC, AUPRC | 长上下文 + TSS 权重，预计优于短窗口 CNN 和 DNABERT-2 |
+| TES/polyA | TES 周围窗口 | matched downstream negatives | gene holdout | AUROC, AUPRC | TES 专门采样，预计优于未做区域感知预训练的模型 |
+| CDS/UTR/intron 区域分类 | 注释区域 | matched background | assembly holdout | macro-F1 | 区域 embedding 预训练，预计明显优于随机初始化 CNN |
+| lncRNA/mRNA | transcript 注释 | 长度/GC 匹配负例 | species holdout | AUROC, MCC | 单碱基 + transcript 区域训练，预计优于一般 DNA embedding |
+| chromatin/open region | 公共 ATAC/DNase peaks | matched closed regions | species/tissue holdout | AUROC, AUPRC | 若接入标签，长上下文有望优于短窗口 AgroNT |
+| expression proxy | promoter/gene body -> expression bin | matched genes | tissue/species holdout | Spearman, AUROC | 需要外部表达标签；长上下文预计优于短上下文模型 |
+| variant effect | ref/alt 已知功能变异 | neutral/matched variants | gene/LD block holdout | AUROC, Spearman | causal likelihood + RC consistency，预计优于纯 MLM embedding |
 
-- 参数高效微调: LoRA/IA3。
-- 全模型微调: 只在关键任务上跑。
-- 零样本: ref/alt log-likelihood ratio、mean embedding、variant effect vector。
-- 推荐资源: 单任务 1-4 张 GPU；批量 embedding 2-8 张 GPU。
-- 预计耗时: 数据构建 1-3 天；每个 LoRA 任务 2-24 小时；全模型微调每任务 0.5-3 天；完整基准 1-2 周。
+## 12. 基线和预计优势
 
-### 5.5 总体时间估算
+必须比较:
 
-| 场景 | GPU 资源 | 正式 Large 训练总耗时 | 备注 |
-|---|---:|---:|---|
-| 最低可行 | 2 x 80GB | 2-4 个月 | 可完成 8K + 部分 64K，256K 压力大 |
-| 推荐 | 4 x 80GB | 6-10 周 | 可完成 8K 和 64K/128K，256K 需精简 |
-| 强推荐 | 8 x 80GB | 4-7 周 | 可完成 Large 主线和完整下游 |
-| 充足 | 16 x 80GB | 3-5 周 | 可尝试 256K/512K midtraining |
+- CNN/DeepSEA-like 从头训练: 本模型预计在所有小样本和跨物种任务上更好。
+- DNABERT-2: 本模型预计在单点变异、splice/TIS/TTS 和长上下文 promoter/TES 上更好。
+- AgroNT: AgroNT 是植物强基线；本模型预计在结构注释相关任务、长上下文任务、变异 likelihood 上更好，但在某些短 promoter 分类任务上不保证全面超过。
+- PlantCAD/PlantCAD2: 本模型架构接近，但本项目使用 262 个有注释作物 genome、区域加权训练，预计在作物结构区域任务上更有优势；若 PlantCAD2 已用更大植物数据，本模型不保证全任务超过，但应在本地作物注释任务和严格 holdout 上更贴合。
+- HyenaDNA/Evo 2: 通用基因组长模型很强；本模型预计在作物结构注释和区域任务上更好，通用生成能力不一定超过。
 
-CPU 预处理总体约 2-5 天；正式训练总体约 4-10 周；下游评测约 1-2 周。因此从当前状态到第一版可报告模型，推荐资源下预计 6-12 周。
+最有把握超过基线的任务:
 
-## 6. 下游任务设计
+1. splice donor/acceptor 跨物种评测。
+2. TIS/TTS 和 CDS/UTR/intron 区域分类。
+3. gene family holdout 下的 lncRNA/mRNA。
+4. 区域加权后的 promoter/TES 分类。
 
-优先使用本地 262 个完整注释 genome 构建:
+不确定、需要实测的任务:
 
-1. Splice donor/acceptor: 从 GFF3/GTF 提取 exon-intron junction，构造同染色体 hard negatives。
-2. TIS/TTS: CDS start/stop 周围窗口，按 gene family 或 chromosome split 防泄漏。
-3. Promoter/terminator: TSS 上游/下游窗口；若没有表达强度标签，先做区域分类，后续接公开 STARR-seq/表达数据。
-4. lncRNA/mRNA: 用注释 transcript，按长度和 GC 匹配负例，避免模型只学长度。
-5. Chromatin/open region: 接入公开植物 ATAC-seq peak 数据，优先 rice/maize/Arabidopsis/soybean。
-6. Tissue expression: promoter-proximal sequence 到表达量或表达/不表达分类。
-7. Variant effect: ref/alt 序列 log-likelihood ratio、embedding difference、LoRA 分类器；优先 rice、maize、soybean 已知农艺变异。
+- expression regression。
+- chromatin/open region 跨组织泛化。
+- 农艺变异 effect size 排序。
 
-关键评估切分:
-
-- Random split 只作辅助。
-- Assembly holdout。
-- Species holdout。
-- Genus holdout。
-- Crop-family holdout。
-
-## 7. 预计结果
-
-正式训练成功的最低标准:
-
-- 预训练 validation loss 在同 split 持续下降，无明显数据泄漏。
-- 在 splice/TIS/TTS/promoter/open chromatin 至少 3 类任务上，微调结果超过从头训练 CNN baseline。
-- 在 species/genus holdout 中，优于 DNABERT-2/AgroNT/PlantCAD 可取得 checkpoint 的零样本 embedding 或 LoRA 微调基线中的至少一部分。
-- 对 ref/alt 变异能输出稳定、方向一致的 log-likelihood 或 embedding effect score。
-
-高价值结果:
-
-- 在作物特异任务上优于 AgroNT 或 PlantCAD 同规模/同输入长度模型。
-- 在小样本作物迁移和孤儿作物任务上有明显收益。
-- 长上下文阶段相对 8K 模型在表达、调控或变异任务上带来可量化提升。
-
-## 8. 当前环境和执行原则
-
-- 登录节点不直接跑重 CPU/GPU 任务。
-- CPU 作业生成 `sbatch -p q07 -c 30 ...` 或 `sbatch -p q08 -c 30 ...` 脚本，由用户或后续明确步骤提交。
-- GPU 命令只生成，不自动执行，例如 `CUDA_VISIBLE_DEVICES=1,2 python train.py ...`。
-- 所有新脚本、manifest、日志、配置、结果都放在当前目录下。
-- GitHub 只同步 `README.md`、`PROJECT_PLAN.md`、`MODEL_ARCHITECTURE.md` 这类轻量项目文档。
-
-## 9. 近期里程碑
-
-- M1: 生成训练 manifest、split 和窗口统计。
-- M2: 建立正式数据读取器和 batch 采样权重配置。
-- M3: 安装/固定训练依赖，选择 FSDP 或 DeepSpeed。
-- M4: 生成 Large 模型正式预训练配置和用户可执行 GPU 命令。
-- M5: 完成 8K 预训练阶段。
-- M6: 完成 64K/128K 继续预训练阶段。
-- M7: 完成核心下游任务数据集与评测。
-
-## 10. 进展记录
+## 13. 进展记录
 
 - 2026-06-07 23:26:04 CST: 读取 `/home/user/zhangzhishuai/data/plantDB/genome/README.md`，确认训练数据口径；完成 AgroNT、PlantCAD/Caduceus、Evo 2、HyenaDNA、DNABERT-2、GROVER 和 DNA foundation benchmark 调研；确定主路线为长上下文、单碱基、RC 等变双向 Mamba/Hyena 模型。
 - 2026-06-07 23:46:31 CST: 按用户要求扩展为端到端正式训练方案，补充 `.fna.gz` 扫描、contig QC、split、窗口化、token shard、GPU batch 输入、mask/采样策略、下游监督数据构建，以及 CPU/GPU 资源和每阶段耗时估算。
+- 2026-06-08 11:42:31 CST: 按用户要求重构方案，放弃 1644 个无结构注释 genome，正式数据限定为 262 个有 FASTA+GFF/GTF 的 assembly；新增区域加权采样、严格防泄漏 split、片段过滤、跨服务器搬运磁盘估算、详细下游任务和基线优势预期。
