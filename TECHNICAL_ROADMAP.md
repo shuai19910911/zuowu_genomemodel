@@ -1,19 +1,23 @@
 # CropGenome-FM 技术路线图
 
-更新时间: 2026-06-08 11:42:31 CST
+更新时间: 2026-06-08 12:33:50 CST
 
 ![CropGenome-FM 技术路线图](assets/cropgenome_fm_roadmap.svg)
 
 ## 路线概览
 
-1. 数据输入: 只使用 262 个有 FASTA + GFF3/GTF 的结构注释完整基因组。
-2. 预处理: FASTA QC、GFF/GTF 解析、区域构建、严格 split、窗口过滤、token shard。
-3. 采样: CDS、splice、UTR、promoter/TSS、TES、intron、high-quality intergenic、background 按目标比例进入 batch。
-4. 模型: RC-equivariant Mamba2/Hyena + periodic attention。
-5. Loss: region-weighted MLM + causal next-token + RC consistency。
-6. 下游: splice、TIS/TTS、promoter/TES、区域分类、lncRNA/mRNA、chromatin、expression、variant effect。
-7. 基线: CNN、DNABERT-2、AgroNT、PlantCAD2、HyenaDNA/Evo2。
-8. 时间: CPU 预处理 2-5 天；GPU 正式训练 4-10 周；下游评测 1-2 周。
+1. 数据口径: 只使用 262 个有 FASTA + GFF3/GTF 的结构注释完整基因组；放弃 1644 个无结构注释基因组。
+2. 数据 QC: 过滤短 contig、高 N、极端 GC、organelle contig、坏注释、低复杂度窗口和跨 split 近重复窗口。
+3. 区域构建: 从 GFF/GTF 构建 CDS、exon、UTR、splice flank、promoter/TSS、TES/polyA、intron、high-quality intergenic 和 background。
+4. 严格 split: 先按 assembly/species/genus/gene-family/LD block 分组，再窗口化，保证同一基因组片段不跨 train/val/test。
+5. 区域采样: CDS 30%、splice 12%、promoter/TSS 15%、UTR 8%、TES 8%、intron 12%、high-quality intergenic 10%、background 5%。
+6. 数据搬运: 推荐搬运 token shards + metadata + configs，训练包约 1.2-2.0 TB；带 checkpoint 完整训练环境建议 4-12 TB。
+7. 模型输入: `input_ids`、`labels_mlm`、`loss_mask`、`region_ids`、`region_weights`、`quality_scores` 和坐标 metadata。
+8. 模型架构: RC-equivariant Mamba2/Hyena + periodic local/global sparse attention，Large 约 300M-450M 参数。
+9. Loss: region-weighted MLM + causal next-token likelihood + reverse-complement consistency + optional region contrastive loss。
+10. 训练计划: CPU 预处理 2-5 天；GPU 8K -> 64K -> 128K -> 256K 正式训练约 4-10 周；下游评测 1-2 周。
+11. 下游任务: splice、TIS/TTS、promoter/TES、CDS/UTR/intron、lncRNA/mRNA、chromatin、expression、variant effect。
+12. 基线和优势: 对比 CNN、DNABERT-2、AgroNT、PlantCAD2、HyenaDNA/Evo2；预计在 splice、TIS/TTS、结构区域分类、promoter/TES 和 gene-family holdout lncRNA/mRNA 上更强。
 
 ## 路线图维护规则
 
