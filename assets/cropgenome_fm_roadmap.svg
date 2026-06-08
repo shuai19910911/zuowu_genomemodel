@@ -35,7 +35,7 @@
   <text x="580" y="225" class="step">2. QC 与注释解析</text>
   <text x="580" y="265" class="small">FASTA: length, N, GC, entropy</text>
   <text x="580" y="300" class="small">GFF/GTF: gene, exon, CDS, UTR</text>
-  <text x="580" y="335" class="small">过滤 contig & bad annotation</text>
+  <text x="580" y="335" class="small">过滤 contig &amp; bad annotation</text>
   <text x="580" y="370" class="small">CPU: 2-5 天</text>
 
   <rect x="1060" y="180" width="500" height="220" class="box3"/>
