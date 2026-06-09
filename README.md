@@ -55,3 +55,4 @@
 - 2026-06-09 10:28:40 CST: q08 region/sampling candidate 构建完成，q07 split/transfer manifest 和 SHA256 校验完成；`training_server_transfer/` 目前为可传输真实文件目录，体积约 5.3GB。
 - 2026-06-09 12:52:00 CST: 新增 `TRANSFER_DIRECTORY_STRUCTURE.md`，详细说明训练服务器只需整体搬运 `training_server_transfer/`，并解释最终目录下每个文件的用途、当前已完成内容和仍需生成的 Stage input。
 - 2026-06-09 15:14:03 CST: 完成 263 个 crop assembly 的 seqid alias 修正和新版 region candidates 重建；`features_missing_contig` 从 23,713,267 降到 3,581,382；`training_server_transfer/` 已刷新为 5.7GB，`sha256sum -c SHA256SUMS` 全部通过。
+- 2026-06-09 15:45:00 CST: 修正为 accession-level canonical split，263 行 manifest 折叠为 258 个唯一 assembly accession，train/val/test 为 192/35/31，cross-split duplicate 为 0；已提交 `cu` array `8470511` 生成 Stage B/C1/C2/D 窗口候选，并提交依赖 array `8470515` 在窗口候选完成后编码 `uint8 input_ids`。

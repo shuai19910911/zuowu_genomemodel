@@ -59,12 +59,12 @@ sha256sum -c SHA256SUMS
 
 ## 3. 最终目录结构
 
-最终训练前，`training_server_transfer/` 应包含:
+最终训练前，`training_server_transfer/` 采用简约目录结构。训练服务器只需要这个目录，不需要本服务器的原始 genome 目录，也不需要本服务器的大型中间候选池。
 
 ```text
 training_server_transfer/
   README.md
-  TRANSFER_MANIFEST.tsv
+  MANIFEST.tsv
   SHA256SUMS
 
   configs/
@@ -78,56 +78,43 @@ training_server_transfer/
     train_stage_C2.yaml
     train_stage_D.yaml
 
-  data_manifests/
-    assemblies.tsv
-    assemblies.summary.txt
-    assembly_splits.tsv
-    assembly_splits.summary.tsv
-
-  sequence_index/
-    contigs.tsv
-    fasta_qc.summary.tsv
-    seqid_alias.tsv
-
-  annotation_index/
+  metadata/
+    assemblies.canonical.tsv
+    assembly_splits.canonical.tsv
+    assembly_splits.canonical.summary.tsv
+    token_vocab.tsv
     annotation_qc.summary.tsv
+    preprocessing_summary.tsv
 
-  sampling_index/
-    region_candidates.tsv.gz
-    region_candidates.summary.tsv
-    final_window_candidates.tsv.gz
-    final_window_candidates.summary.tsv
-
-  stage_inputs/
+  inputs/
     Stage_B/
       manifest.tsv
-      stage_mix.yaml
       shard_000001.input_ids.bin
-      shard_000001.windows.tsv
-      shard_000001.sha256
+      shard_000001.windows.tsv.gz
       ...
     Stage_C1/
       manifest.tsv
-      stage_mix.yaml
       shard_000001.input_ids.bin
-      shard_000001.windows.tsv
-      shard_000001.sha256
+      shard_000001.windows.tsv.gz
       ...
     Stage_C2/
       manifest.tsv
-      stage_mix.yaml
       shard_000001.input_ids.bin
-      shard_000001.windows.tsv
-      shard_000001.sha256
+      shard_000001.windows.tsv.gz
       ...
     Stage_D/
       manifest.tsv
-      stage_mix.yaml
       shard_000001.input_ids.bin
-      shard_000001.windows.tsv
-      shard_000001.sha256
+      shard_000001.windows.tsv.gz
       ...
 ```
+
+简约规则:
+
+- `inputs/` 是训练服务器直接读取的核心数据。
+- `metadata/` 只保留训练解释、防泄漏 split、token vocabulary 和 QC 摘要。
+- 不搬运 `sequence_index/contigs.tsv`、`sampling_index/region_candidates.tsv.gz`、`annotation_index/features.tsv` 等本服务器中间文件。
+- `MANIFEST.tsv` 记录所有应搬运文件；`SHA256SUMS` 用于到训练服务器后的完整性校验。
 
 ## 4. 顶层文件
 
