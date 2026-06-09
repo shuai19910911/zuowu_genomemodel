@@ -1,6 +1,6 @@
 # CropGenome-FM 作物基因组预训练大模型完整训练计划
 
-更新时间: 2026-06-08 22:19:54 CST
+更新时间: 2026-06-09 21:10:00 CST
 
 ## 1. 最终训练口径
 
@@ -8,39 +8,37 @@
 
 核心决策:
 
-- 使用 262 个同时具备 genome FASTA 和 GFF3/GTF 的 assembly。
+- 使用 263 行同时具备 genome FASTA 和 GFF3/GTF 的 crop assembly manifest；按 assembly accession 去重后为 258 个 canonical assembly accession。
 - 放弃 1644 个缺少 GFF3/GTF 结构注释的 genome，不进入第一版预训练。
 - 不预生成固定 mask、固定 MLM label、固定 batch 顺序或固定 RC 增强。
 - 在本服务器完成数据处理、候选池构建、split、防泄漏检查，并按 Stage B/C1/C2/D 一次性固化该 stage 的训练输入窗口或 `input_ids`。
-- 训练服务器只搬运 `training_server_transfer/` 中当前需要训练的 stage 数据、配置和小索引；训练时动态生成 mask、labels、RC 增强和 batch 顺序。
-- 训练服务器完成一个 stage 后删除或归档该 stage 输入数据，再搬运下一 stage，避免长期保存全部训练输入。
+- 训练服务器只搬运 `training_server_transfer/` 数据、配置和小元数据；训练时动态生成 mask、labels、RC 增强和 batch 顺序。
+- 当前已生成 Stage B/C1/C2/D 全部固化输入；如训练服务器磁盘紧张，也可以只保留当前要训练的一个 stage 子目录。
 
 当前正式数据:
 
 | 项目 | 数量/体积 |
 |---|---:|
-| 有 genome + GFF3/GTF 的 assembly | 262 |
+| 有 genome + GFF3/GTF 的 crop manifest 行 | 263 |
+| canonical assembly accession | 258 |
 | 覆盖属 | 26 |
-| chromosome-level assembly | 233 |
-| complete genome assembly | 13 |
-| scaffold assembly | 12 |
-| contig assembly | 4 |
-| genome `.fna.gz` | 213.48 GB |
-| GFF/GTF `.gz` | 5.40 GB |
-| 原始压缩数据合计 | 218.89 GB |
+| canonical split train/val/test | 192/35/31 |
+| 训练服务器最终搬运目录 | `training_server_transfer/` |
+| 最终搬运目录体积 | 约 50GB |
+| 搬运目录 SHA256 | 2026-06-09 已通过 |
 
 训练目标: 训练一个结构注释感知、区域加权、长上下文、反向互补一致的作物基因组基础模型 CropGenome-FM。
 
 ## 2. 总体技术路线
 
-1. 本服务器读取 262 个完整注释 assembly。
+1. 本服务器读取 263 行完整注释 crop assembly manifest，并折叠为 258 个 canonical assembly accession。
 2. 本服务器流式扫描 FASTA，建立 contig 质量索引。
 3. 本服务器解析 GFF3/GTF，建立 gene、transcript、exon、CDS、UTR、intron、TSS、TES 区域索引。
 4. 本服务器构建 promoter、splice flank、TES/polyA、高质量 intergenic 等训练区域。
 5. 本服务器按 assembly/species/genus/gene-family 严格 split，先 split 后采样，防止泄漏。
 6. 本服务器按 4.2-4.5 规则构建候选池、去冗余、区域采样和 context bucket 配方。
 7. 本服务器按 Stage B/C1/C2/D 分别一次性固化该 stage 的输入窗口或 `input_ids`，但不固化 mask/label/batch order/RC。
-8. 将 `training_server_transfer/` 中的当前 stage 数据、配置、索引和 manifest 传输到训练服务器。
+8. 将 `training_server_transfer/` 中的 stage 数据、配置、小元数据和 manifest 传输到训练服务器。
 9. 训练服务器读取固化输入，训练时动态 mask、动态 MLM label、动态 RC 增强、动态 batch 顺序。
 10. 训练 CropGenome-FM-Large: 8K -> 64K -> 128K，资源允许再做 256K。
 11. 构建下游任务，比较 CNN、DNABERT-2、AgroNT、PlantCAD2、HyenaDNA/Evo2 等基线。
@@ -54,12 +52,11 @@
 | 目录 | 内容 | 训练服务器是否需要 | 预计体积 |
 |---|---|---|---:|
 | `raw_links/` | 指向原始 `.fna.gz/.gff.gz/.gtf.gz` 的路径表或软链接清单，仅本服务器使用 | 否 | < 1 GB |
-| `data_manifests/` | assembly manifest、split、属/物种统计 | 是，随 transfer 搬运摘要 | < 1 GB |
-| `sequence_index/` | contig 长度、GC、N、softmask、header、offset | 是，随 transfer 搬运必要索引 | 1-5 GB |
-| `annotation_index/` | gene、transcript、exon、CDS、UTR、intron、TSS、TES | 是，随 transfer 搬运必要索引 | 5-30 GB |
-| `sampling_index/` | 区域候选池、权重表、过滤规则、split map | 是，随 transfer 搬运必要索引 | 5-30 GB |
-| `stage_inputs/` | 本服务器生成的 Stage B/C1/C2/D 固化输入窗口或 `input_ids` | 按 stage 搬运 | 70-225 GB，全 stage 合计估算 |
-| `training_server_transfer/` | 专门给用户传到训练服务器的目录，里面放当前要搬运的 stage 数据、配置、索引和 manifest | 是 | 当前 stage 约 40-160 GB，按最大 Stage B 估算 |
+| `data_manifests/` | assembly manifest、split、属/物种统计，本服务器中间目录 | 否，最终只搬运 `metadata/` 摘要 | < 1 GB |
+| `sequence_index/` | contig 长度、GC、N、softmask、header、offset，本服务器中间目录 | 否，最终只搬运 QC 摘要 | 约 2.2 GB |
+| `annotation_index/` | gene、transcript、exon、CDS、UTR、TSS/TES，本服务器中间目录 | 否，最终只搬运 QC 摘要 | 约 47 GB |
+| `sampling_index/` | 区域候选池、权重表、过滤规则、split map，本服务器中间目录 | 否，最终只搬运候选汇总 | 约 7.3 GB |
+| `training_server_transfer/` | 专门给用户传到训练服务器的简约目录，包含 configs、metadata、inputs、manifest 和 SHA256 | 是 | 约 50 GB |
 | `configs/` | 数据、模型、训练配置 | 是 | < 1 GB |
 | `logs/` | 本服务器预处理日志和训练服务器训练日志 | 可选 | 20-50 GB |
 | `checkpoints/` | 最近 checkpoint 和 best inference 权重，训练服务器产生 | 不从本服务器搬运 | 100-300 GB |
@@ -118,7 +115,7 @@
 
 输入:
 
-- 262 个 `.fna.gz`。
+- 263 行 crop manifest 对应的 `.fna.gz`，canonical accession 去重后用于 split 防泄漏。
 
 处理:
 
@@ -155,7 +152,7 @@
 
 输入:
 
-- 262 个 assembly 的 GFF3/GTF。
+- 263 行 crop manifest 对应的 GFF3/GTF。
 
 输出:
 
@@ -248,57 +245,60 @@
 
 每个 stage 的输入数据按一个完整 stage 逻辑生成，物理上拆成多个 shard，方便校验、搬运和断点续传。
 
-| Stage | 长度组成/token 比例 | token 预算 | 固化输入估算体积 |
-|---|---|---:|---:|
-| Stage B | 70% 8K + 20% 4K + 10% 16K warm-up | 30B-80B | 40-120 GB |
-| Stage C1 | 70% 64K + 15% 8K + 10% 16K/32K + 5% 4K | 15B-40B | 20-60 GB |
-| Stage C2 | 75% 128K + 15% 64K + 10% 8K/16K | 5B-20B | 7-30 GB |
-| Stage D | 80% 256K + 15% 128K + 5% 8K/64K | 2B-10B | 3-15 GB |
+| Stage | 长度组成/token 比例 | token 预算 | 实际写入 token | 实际目录大小 |
+|---|---|---:|---:|---:|
+| Stage B | 70% 8K + 20% 4K + 10% 16K warm-up | 30B | 30,600,306,688 | 29 GB |
+| Stage C1 | 70% 64K + 15% 8K + 10% 16K/32K + 5% 4K | 15B | 15,301,525,504 | 15 GB |
+| Stage C2 | 75% 128K + 15% 64K + 10% 8K/16K | 5B | 5,102,608,384 | 4.8 GB |
+| Stage D | 80% 256K + 15% 128K + 5% 8K/64K | 2B | 2,045,698,048 | 2.0 GB |
 
-体积估算假设:
+实际体积说明:
 
 - `input_ids` 使用 `uint8`，约 1 byte/token。
-- metadata、shard index、校验文件、压缩块开销约为 input token 的 20%-50%。
-- 如果保存原始 ASCII sequence 而不是 `uint8 input_ids`，体积可能增加。
-- 如果额外保存多套重复窗口或固定 mask/label，体积会显著增加；第一版禁止这样做。
+- `.windows.tsv.gz`、manifest、summary、metadata 和 SHA256 是额外开销。
+- 当前四个 stage 已全部生成，`training_server_transfer/` 总体约 50GB。
+- 第一版不保存固定 mask/label/batch order/RC 结果。
 
 本服务器生成目录:
 
 ```text
-stage_inputs/
-  Stage_B/
-    manifest.tsv
-    stage_mix.yaml
-    shard_000001.input_ids.bin
-    shard_000001.windows.tsv
-    shard_000001.sha256
-    ...
-  Stage_C1/
-  Stage_C2/
-  Stage_D/
+training_server_transfer/
+  README.md
+  MANIFEST.tsv
+  SHA256SUMS
+  configs/
+  metadata/
+  inputs/
+    Stage_B/
+      manifest.tsv
+      summary.tsv
+      shard_000001.input_ids.bin
+      shard_000001.windows.tsv.gz
+      ...
+    Stage_C1/
+    Stage_C2/
+    Stage_D/
 ```
 
-训练服务器传输目录:
+训练服务器传输目录保持简约:
 
 ```text
 training_server_transfer/
   README.md
-  TRANSFER_MANIFEST.tsv
+  MANIFEST.tsv
+  SHA256SUMS
   configs/
-  data_manifests/
-  sequence_index/
-  annotation_index/
-  sampling_index/
-  stage_inputs/
-    Stage_B/
+  metadata/
+  inputs/
 ```
 
-用户实际传输时，只需要把 `training_server_transfer/` 整个目录传到训练服务器。每次推荐只放当前要训练的 stage；训练完 Stage B 后删除或归档 `training_server_transfer/stage_inputs/Stage_B/`，再在本服务器重新准备 Stage C1 的 `training_server_transfer/`。
+用户实际传输时，只需要把 `training_server_transfer/` 整个目录传到训练服务器。若训练服务器空间紧张，可以只保留当前要训练的 `inputs/Stage_*` 子目录，训练完一个 stage 后删除或归档该 stage 输入。
 
 训练服务器磁盘估算:
 
-- 如果每次只搬一个完整 stage，按最大 Stage B 估算，输入数据约 40-120GB；加 checkpoint、cache、logs、临时文件，建议训练服务器至少 500GB 可用空间，800GB 更稳。
-- 如果四个 stage 全部同时放在训练服务器，输入数据约 70-225GB；加 checkpoint、cache、logs、临时文件，建议至少 800GB，可用空间 1TB-1.5TB 更舒服。
+- 当前四个 stage 全部搬运，输入和小元数据约 50GB。
+- 若每次只保留一个 stage，最大 Stage B 约 29GB。
+- 加 checkpoint、cache、logs、临时文件，训练服务器建议至少 800GB 可用空间；若保留多份 checkpoint 或多实验并行，建议 1TB-1.5TB。
 - 若使用 8 x 80GB GPU 训练 Large 模型，checkpoint 和 optimizer state 会成为主要额外空间来源，需要严格只保留最近 checkpoint 和 best checkpoint。
 
 ## 4. 片段过滤和采样策略
@@ -426,7 +426,7 @@ TE/repeat 规则:
 
 这是 batch sampler 的目标比例，不是 genome 的真实比例。每个 epoch 记录实际采样比例并做偏差修正。
 
-当前默认采用模式 B，除非后续为 262 个 assembly 补齐可靠 TE/repeat 注释或外部 repeat annotation。
+当前默认采用模式 B，除非后续为当前 crop assembly 补齐可靠 TE/repeat 注释或外部 repeat annotation。
 
 ## 5. 严格防泄漏 split
 
@@ -460,7 +460,7 @@ TE/repeat 规则:
 
 采用“按 stage 搬运固化输入”的低磁盘策略:
 
-- 本服务器生成 `stage_inputs/Stage_B`、`Stage_C1`、`Stage_C2`、`Stage_D`。
+- 本服务器生成 `training_server_transfer/inputs/Stage_B`、`Stage_C1`、`Stage_C2`、`Stage_D`。
 - 每次在 `training_server_transfer/` 中只放当前要训练的 stage 数据、必要索引、配置和 manifest。
 - 训练服务器不需要搬运原始 plantDB 全量数据。
 - 训练服务器不需要重新解析 FASTA/GFF/GTF。
@@ -892,7 +892,7 @@ GitHub 文档只记录:
 
 - 2026-06-07 23:26:04 CST: 读取 `/home/user/zhangzhishuai/data/plantDB/genome/README.md`，确认训练数据口径；完成 AgroNT、PlantCAD/Caduceus、Evo 2、HyenaDNA、DNABERT-2、GROVER 和 DNA foundation benchmark 调研；确定主路线为长上下文、单碱基、RC 等变双向 Mamba/Hyena 模型。
 - 2026-06-07 23:46:31 CST: 按用户要求扩展为端到端正式训练方案，补充 `.fna.gz` 扫描、contig QC、split、窗口化、token shard、GPU batch 输入、mask/采样策略、下游监督数据构建，以及 CPU/GPU 资源和每阶段耗时估算。
-- 2026-06-08 11:42:31 CST: 按用户要求重构方案，放弃 1644 个无结构注释 genome，正式数据限定为 262 个有 FASTA+GFF/GTF 的 assembly；新增区域加权采样、严格防泄漏 split、片段过滤、跨服务器搬运磁盘估算、详细下游任务和基线优势预期。
+- 2026-06-08 11:42:31 CST: 按用户要求重构方案，放弃无结构注释 genome，正式数据限定为有 FASTA+GFF/GTF 的 crop assembly；新增区域加权采样、严格防泄漏 split、片段过滤、跨服务器搬运磁盘估算、详细下游任务和基线优势预期。
 - 2026-06-08 15:00:51 CST: 根据用户确认，放弃进一步压缩到核心 assembly 的方案，整理当时版本的完整训练计划；后续已按 22:19:54 CST 的跨服务器固化输入方案更新。
 - 2026-06-08 18:16:18 CST: 按用户要求新增评测结果记录规范，预置预训练指标表、下游任务结果表、基线比较表和结果解释规则；明确 GitHub 只记录摘要和关键表格，不上传大结果文件。
 - 2026-06-08 18:45:35 CST: 按用户要求参考 `douke_genome` 的区域采样方案，调整为“有 TE/repeat 注释模式”和“无可靠 TE/repeat 注释 fallback 模式”；当前默认使用无 TE fallback，避免把普通 intergenic 伪标为 repeat/non-repeat。
@@ -901,4 +901,5 @@ GitHub 文档只记录:
 - 2026-06-08 22:19:54 CST: 按用户当前确认的跨服务器训练思路重写训练计划: 本服务器负责索引、候选池和 Stage B/C1/C2/D 固化输入生成；训练服务器只接收 `training_server_transfer/` 目录，训练时动态生成 mask、label、RC 增强和 batch 顺序。
 - 2026-06-08 22:43:02 CST: 开始 CPU 数据处理。由于 `/home/user/zhangzhishuai/data/plantDB/genome` 持续下载且可能包含非作物，manifest 生成加入作物属白名单；今晚实际 crop manifest 为 263 个 assembly、26 个属。已提交 Slurm `cu` 分区任务: FASTA QC array `8468483`、annotation QC array `8468489`、依赖合并任务 `8468495`；每个 array task 4 核 24GB，`--time=09:10:00`，脚本内设置 2026-06-09 08:00:00 CST 截止。
 - 2026-06-09 08:48:28 CST: 按用户要求后续任务切换到 `q07/q08`。FASTA QC 263/263 成功，annotation QC 经流式脚本重跑后 263/263 成功；已在 `q07` 完成合并，得到 `sequence_index/contigs.tsv`、`annotation_index/features.tsv` 等文件；已在 `q08` 提交 region/sampling candidate 构建任务 `8469374`。
-- 2026-06-09 10:28:40 CST: q08 region/sampling candidate 构建任务 `8469374` 完成，生成 `sampling_index/region_candidates.tsv.gz` 约 3.2GB；q07 split/transfer 任务完成，assembly split 为 train 197、val 35、test 31；`training_server_transfer/` 已生成真实文件而非 symlink，体积约 5.3GB，并完成 SHA256 校验。
+- 2026-06-09 10:28:40 CST: q08 region/sampling candidate 构建任务 `8469374` 完成，生成 `sampling_index/region_candidates.tsv.gz`；q07 split/transfer 任务完成，生成第一版基础传输包并完成 SHA256 校验。
+- 2026-06-09 21:10:00 CST: Stage B/C1/C2/D 固化输入全部完成，`training_server_transfer/` 整理为 `configs/metadata/inputs` 简约目录，总体约 50GB；全目录 `sha256sum -c SHA256SUMS` 通过。

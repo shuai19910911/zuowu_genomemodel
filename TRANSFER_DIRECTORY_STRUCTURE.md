@@ -1,383 +1,129 @@
 # training_server_transfer 目录结构和搬运说明
 
-更新时间: 2026-06-09 15:14:03 CST
+更新时间: 2026-06-09 21:10:00 CST
 
-## 1. 目标
+## 当前结论
 
-`training_server_transfer/` 是本项目唯一推荐整体搬运到训练服务器的目录。训练服务器不能访问本服务器的原始 genome 目录，因此最终训练前必须把训练所需的索引、配置、split、候选区域和 Stage B/C1/C2/D 固化输入都放入这个目录。
+`training_server_transfer/` 已整理为训练服务器唯一需要搬运的简约目录。训练服务器不需要访问本服务器原始 genome 目录，也不需要搬运本服务器的大型中间索引。
 
-用户搬运时只需要搬运:
+搬运目录:
 
 ```text
 training_server_transfer/
 ```
 
-到训练服务器后，先校验:
+搬运后先校验:
 
 ```bash
 cd training_server_transfer
 sha256sum -c SHA256SUMS
 ```
 
-校验通过后，训练程序只读取这个目录，不再访问 `/home/user/zhangzhishuai/data/plantDB/genome`。
+当前最终目录约 `50GB`，全目录 SHA256 校验已于 2026-06-09 通过。
 
-## 2. 当前目录状态
-
-当前已完成的是 seqid 修正后的基础索引包，体积约 `5.7GB`。它已经可以搬运到训练服务器用于检查、开发 dataloader、构建训练程序和做 dataloader dry-run，但还不能直接启动正式预训练，因为 Stage B/C1/C2/D 的固化 `input_ids` 尚未全部生成。
-
-当前已完成:
-
-- crop manifest: 263 个 crop assembly，26 个属。
-- FASTA QC: 263/263。
-- annotation QC: 263/263。
-- contig index。
-- seqid alias。
-- seqid 修正后的 region candidates。
-- assembly split。
-- stage mix 配置。
-- transfer manifest。
-- SHA256 校验: 2026-06-09 15:14 CST 通过。
-
-仍需完成:
-
-- 按 hard filter 和区域保留比例生成最终 window candidates。
-- 按 Stage B/C1/C2/D 比例固化 `input_ids` shards。
-- 为每个 stage 生成 shard manifest 和 SHA256。
-
-当前关键处理结果:
-
-| 项目 | 结果 |
-|---|---:|
-| crop assembly | 263 |
-| 属 | 26 |
-| FASTA QC | 263/263 |
-| annotation QC | 263/263 |
-| seqid matched features | 170,531,747 |
-| seqid unmatched features | 3,581,382 |
-| region candidate gzip | 3.7GB |
-| transfer directory | 5.7GB |
-
-## 3. 最终目录结构
-
-最终训练前，`training_server_transfer/` 采用简约目录结构。训练服务器只需要这个目录，不需要本服务器的原始 genome 目录，也不需要本服务器的大型中间候选池。
+## 简约目录结构
 
 ```text
 training_server_transfer/
   README.md
   MANIFEST.tsv
   SHA256SUMS
-
   configs/
     stage_B_mix.yaml
     stage_C1_mix.yaml
     stage_C2_mix.yaml
     stage_D_mix.yaml
-    model_large.yaml
-    train_stage_B.yaml
-    train_stage_C1.yaml
-    train_stage_C2.yaml
-    train_stage_D.yaml
-
   metadata/
     assemblies.canonical.tsv
     assembly_splits.canonical.tsv
     assembly_splits.canonical.summary.tsv
-    token_vocab.tsv
     annotation_qc.summary.tsv
-    preprocessing_summary.tsv
-
+    fasta_qc.summary.tsv
+    region_candidates.summary.tsv
+    seqid_alias.summary.tsv
+    token_vocab.tsv
   inputs/
     Stage_B/
       manifest.tsv
+      summary.tsv
       shard_000001.input_ids.bin
       shard_000001.windows.tsv.gz
       ...
     Stage_C1/
-      manifest.tsv
-      shard_000001.input_ids.bin
-      shard_000001.windows.tsv.gz
-      ...
     Stage_C2/
-      manifest.tsv
-      shard_000001.input_ids.bin
-      shard_000001.windows.tsv.gz
-      ...
     Stage_D/
-      manifest.tsv
-      shard_000001.input_ids.bin
-      shard_000001.windows.tsv.gz
-      ...
 ```
 
-简约规则:
+## 目录说明
 
-- `inputs/` 是训练服务器直接读取的核心数据。
-- `metadata/` 只保留训练解释、防泄漏 split、token vocabulary 和 QC 摘要。
-- 不搬运 `sequence_index/contigs.tsv`、`sampling_index/region_candidates.tsv.gz`、`annotation_index/features.tsv` 等本服务器中间文件。
-- `MANIFEST.tsv` 记录所有应搬运文件；`SHA256SUMS` 用于到训练服务器后的完整性校验。
+### `configs/`
 
-## 4. 顶层文件
+保存每个预训练阶段的长度混合比例:
 
-### `README.md`
+| 文件 | 主 context | 长度组成 |
+|---|---:|---|
+| `stage_B_mix.yaml` | 8K | 70% 8K + 20% 4K + 10% 16K |
+| `stage_C1_mix.yaml` | 64K | 70% 64K + 15% 8K + 10% 16K/32K + 5% 4K |
+| `stage_C2_mix.yaml` | 128K | 75% 128K + 15% 64K + 10% 8K/16K |
+| `stage_D_mix.yaml` | 256K | 80% 256K + 15% 128K + 5% 8K/64K |
 
-说明 `training_server_transfer/` 的用途、目录结构、校验方式和注意事项。这个文件可以上传 GitHub。
+### `metadata/`
 
-### `TRANSFER_MANIFEST.tsv`
+只保留训练解释、split 防泄漏和 QC 追踪需要的小文件:
 
-记录需要搬运的所有文件。字段:
-
-| 字段 | 含义 |
+| 文件 | 作用 |
 |---|---|
-| `relative_path` | 文件在 `training_server_transfer/` 内的相对路径 |
-| `absolute_path` | 本服务器上的源路径或生成路径 |
-| `bytes` | 文件大小 |
-| `role` | 文件角色 |
-| `required` | 是否训练必须 |
-
-### `SHA256SUMS`
-
-所有可搬运文件的 SHA256 校验表。搬到训练服务器后必须运行:
-
-```bash
-sha256sum -c SHA256SUMS
-```
-
-如果有任何文件校验失败，不能开始训练。
-
-## 5. `configs/`
-
-### `stage_B_mix.yaml`
-
-Stage B 的长度比例配置:
-
-```text
-70% 8K + 20% 4K + 10% 16K
-```
-
-### `stage_C1_mix.yaml`
-
-Stage C1 的长度比例配置:
-
-```text
-70% 64K + 15% 8K + 10% 16K/32K + 5% 4K
-```
-
-### `stage_C2_mix.yaml`
-
-Stage C2 的长度比例配置:
-
-```text
-75% 128K + 15% 64K + 10% 8K/16K
-```
-
-### `stage_D_mix.yaml`
-
-Stage D 的长度比例配置:
-
-```text
-80% 256K + 15% 128K + 5% 8K/64K
-```
-
-### `model_large.yaml`
-
-正式 Large 模型结构配置。后续生成，包含 layers、hidden size、attention interval、loss 权重、RC consistency 等。
-
-### `train_stage_*.yaml`
-
-每个 stage 的训练配置。后续生成，包含 batch 组织、gradient accumulation、checkpoint 策略、日志路径和评估间隔。
-
-## 6. `data_manifests/`
-
-### `assemblies.tsv`
-
-263 个 crop assembly 的总清单。包含 assembly id、物种、属、genome 路径、annotation 路径、assembly level、source 等。训练服务器不使用原始路径读取 genome，但需要这些字段用于 metadata 和结果解释。
-
-### `assemblies.summary.txt`
-
-assembly 数量、属数量、压缩 genome/annotation 体积摘要。
-
-### `assembly_splits.tsv`
-
-严格 assembly-level split。当前:
-
-| split | assembly 数 |
-|---|---:|
-| train | 197 |
-| val | 35 |
-| test | 31 |
-
-训练、验证、测试不能跨 assembly 混用，避免同一基因组片段泄漏。
-
-### `assembly_splits.summary.tsv`
-
-split 数量摘要。
-
-## 7. `sequence_index/`
-
-### `contigs.tsv`
-
-FASTA QC 结果。每条 contig/chromosome 一行，包含:
-
-- assembly id。
-- species/genus。
-- contig id。
-- length。
-- A/C/G/T/N 计数。
-- GC fraction。
-- N fraction。
-- softmask fraction。
-- max N run。
-- organelle 候选标记。
-- 是否训练可用。
-
-### `fasta_qc.summary.tsv`
-
-每个 assembly 的 FASTA QC 摘要，包括 contig 数、总长度、低质量 contig 数和状态。
-
-### `seqid_alias.tsv`
-
-已生成。用于解决 annotation seqid 与 FASTA contig id 不一致问题。训练窗口生成必须使用这个表把 annotation 坐标映射到真实 FASTA contig。当前 `matched_features=170,531,747`，`unmatched_features=3,581,382`。
-
-## 8. `annotation_index/`
-
-### `annotation_qc.summary.tsv`
-
-每个 assembly 的注释解析摘要，包括 gene、mRNA/transcript、exon、CDS、UTR 数量，以及 bad coordinate、parent missing、CDS phase 异常等。
-
-### 不搬运 `features.tsv`
-
-`annotation_index/features.tsv` 约 24GB，是本服务器构建候选区间的中间文件。它不进入最终搬运目录，避免训练服务器存储压力过大。训练服务器只需要已经生成好的 candidates 和 stage inputs。
-
-## 9. `sampling_index/`
-
-### `region_candidates.tsv.gz`
-
-功能区域候选区间。由 GFF/GTF 注释和 contig QC 构建，包含:
-
-- CDS。
-- exon。
-- splice flank。
-- UTR。
-- gene body。
-- promoter core 0-5kb。
-- promoter distal 5-20kb。
-- TES flank。
-
-当前文件约 `3.7GB`，已经过 seqid alias 修正。
-
-### `region_candidates.summary.tsv`
-
-候选区域数量统计。seqid alias 修正后，`features_missing_contig` 从旧版 `23,713,267` 降到 `3,581,382`。
-
-### `final_window_candidates.tsv.gz`
-
-后续生成。它是正式 stage input 生成前的窗口候选池，已经完成:
-
-- hard quality filter。
-- 区域保留比例。
-- 去冗余。
-- split 标记。
-- context bucket 标记。
-- region bucket 标记。
-
-### `final_window_candidates.summary.tsv`
-
-后续生成。统计每个 split、stage、context bucket、region bucket 的窗口数量和 token 数。
-
-## 10. `stage_inputs/`
-
-这是最终训练服务器直接读取的核心数据目录。训练服务器不能访问原始 genome，因此这里必须包含已经固化好的输入。
-
-### `Stage_B/`
-
-Stage B 输入。目标比例:
-
-```text
-70% 8K + 20% 4K + 10% 16K
-```
-
-文件:
-
-| 文件 | 含义 |
+| `assemblies.canonical.tsv` | 去重后的 canonical assembly 清单 |
+| `assembly_splits.canonical.tsv` | canonical accession 级 train/val/test split |
+| `assembly_splits.canonical.summary.tsv` | split 统计，确认跨 split 重复为 0 |
+| `annotation_qc.summary.tsv` | 注释解析 QC 汇总 |
+| `fasta_qc.summary.tsv` | FASTA QC 汇总 |
+| `region_candidates.summary.tsv` | 区域候选生成统计 |
+| `seqid_alias.summary.tsv` | annotation seqid 到 FASTA contig 的映射统计 |
+| `token_vocab.tsv` | input id 编码，A=0 C=1 G=2 T=3 N/ambiguous=4 |
+
+### `inputs/`
+
+训练服务器直接读取的固化输入。每个 stage 包含:
+
+| 文件 | 作用 |
 |---|---|
-| `manifest.tsv` | Stage B 所有 shard 的清单、token 数、region/context 比例和 SHA256 |
-| `stage_mix.yaml` | Stage B 长度比例配置副本 |
-| `shard_*.input_ids.bin` | 固化的 `uint8 input_ids`，A/C/G/T/N 等已经编码 |
-| `shard_*.windows.tsv` | 每条 window 的坐标、assembly、contig、split、region bucket、context bucket |
-| `shard_*.sha256` | 单个 shard 的校验 |
+| `manifest.tsv` | shard 级 token 数、窗口数、input/windows SHA256 |
+| `summary.tsv` | stage 级写入 token/window 数、过滤失败数、quota 达成情况 |
+| `shard_*.input_ids.bin` | uint8 token 序列 |
+| `shard_*.windows.tsv.gz` | 每个窗口的来源 assembly、contig、坐标、split、context、region bucket、offset 和 length |
 
-训练时仍然动态生成:
+## 已生成 stage 输入
 
-- mask positions。
-- MLM labels。
-- RC augmentation。
-- batch order。
-- dynamic loss 权重微调。
+| stage | 写入 token | 窗口数 | shard 数 | 目录大小 |
+|---|---:|---:|---:|---:|
+| Stage_B | 30,600,306,688 | 4,295,686 | 31 | 29GB |
+| Stage_C1 | 15,301,525,504 | 700,433 | 16 | 15GB |
+| Stage_C2 | 5,102,608,384 | 87,591 | 6 | 4.8GB |
+| Stage_D | 2,045,698,048 | 15,612 | 3 | 2.0GB |
 
-### `Stage_C1/`
+质量过滤结果:
 
-Stage C1 输入。目标比例:
+| stage | failed_quality | missing_contig_in_fasta |
+|---|---:|---:|
+| Stage_B | 1,513 | 0 |
+| Stage_C1 | 254 | 0 |
+| Stage_C2 | 32 | 0 |
+| Stage_D | 4 | 0 |
 
-```text
-70% 64K + 15% 8K + 10% 16K/32K + 5% 4K
-```
+## 不在搬运目录中的本地中间文件
 
-文件结构同 Stage B。
+以下目录已移出 `training_server_transfer/`，保留在本服务器 `local_intermediate_not_for_transfer/training_server_transfer_legacy/`，训练服务器不需要搬运:
 
-### `Stage_C2/`
+- `annotation_index/`
+- `data_manifests/`
+- `sampling_index/`
+- `sequence_index/`
+- 旧 `TRANSFER_MANIFEST.tsv`
 
-Stage C2 输入。目标比例:
+## 训练端读取规则
 
-```text
-75% 128K + 15% 64K + 10% 8K/16K
-```
-
-文件结构同 Stage B。
-
-### `Stage_D/`
-
-Stage D 输入。目标比例:
-
-```text
-80% 256K + 15% 128K + 5% 8K/64K
-```
-
-文件结构同 Stage B。Stage D 是资源允许后的长上下文 midtraining，不是第一版必须完成条件。
-
-## 11. 搬运规则
-
-最终只搬运:
-
-```text
-training_server_transfer/
-```
-
-不要单独搬运:
-
-- `/home/user/zhangzhishuai/data/plantDB/genome`
-- `annotation_index/features.tsv`
-- `logs/`
-- `checkpoints/`
-- `results/`
-- `scripts/`
-- `slurm/`
-
-训练服务器收到后:
-
-1. 进入目录。
-2. 运行 `sha256sum -c SHA256SUMS`。
-3. 检查 `TRANSFER_MANIFEST.tsv`。
-4. 检查 `stage_inputs/Stage_B/manifest.tsv`。
-5. 启动 Stage B 训练。
-
-## 12. 当前下一步
-
-当前下一步不是搬运，而是在本服务器继续完成:
-
-1. 生成 `seqid_alias.tsv`。
-2. 重建修正后的 `region_candidates.tsv.gz`。
-3. 生成 `final_window_candidates.tsv.gz`。
-4. 生成 Stage B/C1/C2/D 的 `input_ids` shards。
-5. 更新 `TRANSFER_MANIFEST.tsv` 和 `SHA256SUMS`。
-
-以上完成后，`training_server_transfer/` 才是“搬过去即可直接训练”的最终目录。
+- `.input_ids.bin` 使用 `uint8` 读取。
+- 每条窗口的 offset/length 在对应 `.windows.tsv.gz` 中。
+- dynamic mask、MLM labels、reverse-complement augmentation、batch shuffle 在训练端在线完成。
+- train/val/test split 已按 canonical assembly accession 固定，避免同一 assembly 的窗口泄漏到多个 split。

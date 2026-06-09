@@ -1,55 +1,51 @@
 # training_server_transfer
 
-这个目录是本项目专门用于跨服务器训练的数据传输目录。
+这个目录是训练服务器唯一需要搬运的目录。训练服务器不需要访问原始 `/home/user/zhangzhishuai/data/plantDB/genome`，也不需要本服务器生成的中间大索引。
 
-用户把这个目录中的全部内容传输到训练服务器后，训练服务器应能读取当前 stage 的固化输入、必要索引和配置，并开始训练。GitHub 只保留本说明文件；实际生成的大文件会被 `.gitignore` 排除，不上传到仓库。
-
-正式传输目录结构:
+目录结构:
 
 ```text
 training_server_transfer/
   README.md
-  TRANSFER_MANIFEST.tsv
+  MANIFEST.tsv
+  SHA256SUMS
   configs/
-  data_manifests/
-  sequence_index/
-  annotation_index/
-  sampling_index/
-  stage_inputs/
+    stage_B_mix.yaml
+    stage_C1_mix.yaml
+    stage_C2_mix.yaml
+    stage_D_mix.yaml
+  metadata/
+    assemblies.canonical.tsv
+    assembly_splits.canonical.tsv
+    assembly_splits.canonical.summary.tsv
+    annotation_qc.summary.tsv
+    fasta_qc.summary.tsv
+    region_candidates.summary.tsv
+    seqid_alias.summary.tsv
+    token_vocab.tsv
+  inputs/
     Stage_B/
       manifest.tsv
-      stage_mix.yaml
+      summary.tsv
       shard_000001.input_ids.bin
-      shard_000001.windows.tsv
-      shard_000001.sha256
+      shard_000001.windows.tsv.gz
       ...
+    Stage_C1/
+    Stage_C2/
+    Stage_D/
 ```
 
-每次推荐只放当前要训练的一个 stage，例如先放 `Stage_B`。Stage B 训练完成后，删除或归档 `stage_inputs/Stage_B/`，再重新准备包含 `Stage_C1` 的传输目录。
+训练输入说明:
 
-本目录应包含:
+- `.input_ids.bin`: uint8 token 序列，按窗口顺序连续存储。
+- `.windows.tsv.gz`: 每个窗口的来源 assembly、contig、坐标、split、context、region bucket、shard offset 和 length。
+- 每个 stage 的 `manifest.tsv`: shard 级 token 数、窗口数、input/windows SHA256。
+- 每个 stage 的 `summary.tsv`: 实际写入 token/window 数、过滤失败数、quota 达成情况。
+- `metadata/token_vocab.tsv`: token 编码，A=0, C=1, G=2, T=3, N/ambiguous=4。
 
-- 当前 stage 固化输入窗口或 `input_ids`。
-- 当前 stage 的 `manifest.tsv`。
-- 当前 stage 的 `stage_mix.yaml`。
-- 必要的 data/sequence/annotation/sampling 小索引。
-- 训练配置。
-- sha256 校验文件。
+训练端注意:
 
-本目录不应包含:
-
-- 固定 mask 位置。
-- 固定 MLM labels。
-- 固定 batch 顺序。
-- 固定 RC 增强结果。
-- 历史 checkpoint。
-- 下游大结果文件。
-- 原始 plantDB 全量数据，除非后续明确改为训练服务器重新取序列。
-
-训练服务器收到本目录后必须先检查:
-
-- `TRANSFER_MANIFEST.tsv` 文件列表完整。
-- 所有 shard 的 sha256 校验通过。
-- stage mix 比例符合计划。
-- split 信息没有 train/val/test 泄漏。
-- 当前 stage 输入体积和训练服务器剩余磁盘空间满足要求。
+- dynamic mask、reverse-complement augmentation、batch shuffle 在训练服务器在线完成；这里没有固化 mask/labels。
+- split 已按 canonical assembly accession 固定，避免同一 assembly 的窗口同时进入 train/val/test。
+- Stage 顺序建议为 B -> C1 -> C2 -> D；也可以只搬运当前要训练的 stage 子目录以减少训练服务器占用。
+- 搬运后先运行 `sha256sum -c SHA256SUMS`，再启动训练。

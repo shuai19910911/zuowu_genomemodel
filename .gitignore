@@ -5,8 +5,10 @@ sampling_index/
 window_index/
 token_shards/
 stage_inputs/
+stage_windows/
 training_server_transfer/*
 !training_server_transfer/README.md
+local_intermediate_not_for_transfer/
 scripts/
 slurm/
 configs/local*
