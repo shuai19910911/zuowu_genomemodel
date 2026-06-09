@@ -54,3 +54,4 @@
 - 2026-06-09 08:48:28 CST: FASTA QC 和 annotation QC 均完成 263/263，已在 q07 完成合并；继续按用户要求切换到 q07/q08，已在 q08 提交 region/sampling candidate 构建任务 `8469374`。
 - 2026-06-09 10:28:40 CST: q08 region/sampling candidate 构建完成，q07 split/transfer manifest 和 SHA256 校验完成；`training_server_transfer/` 目前为可传输真实文件目录，体积约 5.3GB。
 - 2026-06-09 12:52:00 CST: 新增 `TRANSFER_DIRECTORY_STRUCTURE.md`，详细说明训练服务器只需整体搬运 `training_server_transfer/`，并解释最终目录下每个文件的用途、当前已完成内容和仍需生成的 Stage input。
+- 2026-06-09 15:14:03 CST: 完成 263 个 crop assembly 的 seqid alias 修正和新版 region candidates 重建；`features_missing_contig` 从 23,713,267 降到 3,581,382；`training_server_transfer/` 已刷新为 5.7GB，`sha256sum -c SHA256SUMS` 全部通过。

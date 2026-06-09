@@ -1,6 +1,6 @@
 # training_server_transfer 目录结构和搬运说明
 
-更新时间: 2026-06-09 12:52:00 CST
+更新时间: 2026-06-09 15:14:03 CST
 
 ## 1. 目标
 
@@ -23,7 +23,7 @@ sha256sum -c SHA256SUMS
 
 ## 2. 当前目录状态
 
-当前已完成的是基础索引包，体积约 `5.3GB`。它已经可以搬运到训练服务器用于检查、开发 dataloader、做 dry-run 配置，但还不能直接启动正式预训练，因为 Stage B/C1/C2/D 的固化 `input_ids` 尚未全部生成。
+当前已完成的是 seqid 修正后的基础索引包，体积约 `5.7GB`。它已经可以搬运到训练服务器用于检查、开发 dataloader、构建训练程序和做 dataloader dry-run，但还不能直接启动正式预训练，因为 Stage B/C1/C2/D 的固化 `input_ids` 尚未全部生成。
 
 当前已完成:
 
@@ -31,18 +31,31 @@ sha256sum -c SHA256SUMS
 - FASTA QC: 263/263。
 - annotation QC: 263/263。
 - contig index。
-- region candidates。
+- seqid alias。
+- seqid 修正后的 region candidates。
 - assembly split。
 - stage mix 配置。
 - transfer manifest。
-- SHA256 校验。
+- SHA256 校验: 2026-06-09 15:14 CST 通过。
 
 仍需完成:
 
-- 处理 annotation seqid 与 FASTA contig id 不匹配问题。
 - 按 hard filter 和区域保留比例生成最终 window candidates。
 - 按 Stage B/C1/C2/D 比例固化 `input_ids` shards。
 - 为每个 stage 生成 shard manifest 和 SHA256。
+
+当前关键处理结果:
+
+| 项目 | 结果 |
+|---|---:|
+| crop assembly | 263 |
+| 属 | 26 |
+| FASTA QC | 263/263 |
+| annotation QC | 263/263 |
+| seqid matched features | 170,531,747 |
+| seqid unmatched features | 3,581,382 |
+| region candidate gzip | 3.7GB |
+| transfer directory | 5.7GB |
 
 ## 3. 最终目录结构
 
@@ -236,7 +249,7 @@ FASTA QC 结果。每条 contig/chromosome 一行，包含:
 
 ### `seqid_alias.tsv`
 
-后续生成。用于解决 annotation seqid 与 FASTA contig id 不一致问题。训练窗口生成必须使用这个表把 annotation 坐标映射到真实 FASTA contig。
+已生成。用于解决 annotation seqid 与 FASTA contig id 不一致问题。训练窗口生成必须使用这个表把 annotation 坐标映射到真实 FASTA contig。当前 `matched_features=170,531,747`，`unmatched_features=3,581,382`。
 
 ## 8. `annotation_index/`
 
@@ -263,11 +276,11 @@ FASTA QC 结果。每条 contig/chromosome 一行，包含:
 - promoter distal 5-20kb。
 - TES flank。
 
-当前文件约 `3.2GB`。
+当前文件约 `3.7GB`，已经过 seqid alias 修正。
 
 ### `region_candidates.summary.tsv`
 
-候选区域数量统计。当前已发现一部分 annotation seqid 没有匹配到 FASTA contig id，这部分会在 `seqid_alias.tsv` 生成和候选重建后修正。
+候选区域数量统计。seqid alias 修正后，`features_missing_contig` 从旧版 `23,713,267` 降到 `3,581,382`。
 
 ### `final_window_candidates.tsv.gz`
 
