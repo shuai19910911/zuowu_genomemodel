@@ -6,10 +6,10 @@
 
 数据说明文件: `/home/user/zhangzhishuai/data/plantDB/genome/README.md`
 
-- 当前正式训练只使用带 genome 且至少有 GFF3/GTF 注释的完整 assembly: 262 个。
+- 当前正式训练只使用带 genome 且至少有 GFF3/GTF 注释的 crop assembly: 263 个。
 - 覆盖属: 26 个。
 - 放弃缺少结构注释的 assembly: 1644 个，暂不进入预训练。
-- 262 个正式数据的 genome gzip 约 213.48 GB，GFF/GTF gzip 合计约 5.40 GB，总压缩体积约 218.89 GB。
+- 263 个正式数据的 genome gzip 约 214.11 GB，GFF/GTF gzip 合计约 2.89 GB，总压缩体积约 216.99 GB。
 - GitHub 只保存项目介绍、计划、模型结构和进展，不上传基因组、注释、中间索引或训练产物。
 
 ## 核心方案
@@ -31,6 +31,7 @@
 - 跨属留一评测和作物小样本迁移。
 
 详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)，其中包含数据过滤、严格防泄漏 split、区域加权采样、模型输入、loss、训练资源、搬运数据体积、下游任务和评测结果记录表；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)；技术路线图见 [TECHNICAL_ROADMAP.md](TECHNICAL_ROADMAP.md)。
+训练服务器搬运目录结构和每个文件用途见 [TRANSFER_DIRECTORY_STRUCTURE.md](TRANSFER_DIRECTORY_STRUCTURE.md)。
 
 ## 集群使用边界
 
@@ -52,3 +53,4 @@
 - 2026-06-08 22:43:02 CST: 开始 CPU 数据处理；因 genome 目录持续下载且可能混入非作物，manifest 阶段加入作物属白名单，今晚实际处理 263 个 crop assembly、26 个属；已提交 cu 分区 FASTA QC、annotation QC 和依赖合并任务。
 - 2026-06-09 08:48:28 CST: FASTA QC 和 annotation QC 均完成 263/263，已在 q07 完成合并；继续按用户要求切换到 q07/q08，已在 q08 提交 region/sampling candidate 构建任务 `8469374`。
 - 2026-06-09 10:28:40 CST: q08 region/sampling candidate 构建完成，q07 split/transfer manifest 和 SHA256 校验完成；`training_server_transfer/` 目前为可传输真实文件目录，体积约 5.3GB。
+- 2026-06-09 12:52:00 CST: 新增 `TRANSFER_DIRECTORY_STRUCTURE.md`，详细说明训练服务器只需整体搬运 `training_server_transfer/`，并解释最终目录下每个文件的用途、当前已完成内容和仍需生成的 Stage input。
