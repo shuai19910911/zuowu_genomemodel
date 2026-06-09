@@ -1,6 +1,6 @@
 # training_server_transfer 目录结构和搬运说明
 
-更新时间: 2026-06-09 21:10:00 CST
+更新时间: 2026-06-09 21:42:00 CST
 
 ## 当前结论
 
@@ -19,7 +19,7 @@ cd training_server_transfer
 sha256sum -c SHA256SUMS
 ```
 
-当前最终目录约 `50GB`，全目录 SHA256 校验已于 2026-06-09 通过。
+当前最终目录约 `50GB`，已包含简洁训练脚本目录 `scripts/` 和正式训练配置；全目录 SHA256 校验已于 2026-06-09 通过。
 
 ## 简约目录结构
 
@@ -29,10 +29,15 @@ training_server_transfer/
   MANIFEST.tsv
   SHA256SUMS
   configs/
+    model_large.json
     stage_B_mix.yaml
     stage_C1_mix.yaml
     stage_C2_mix.yaml
     stage_D_mix.yaml
+    train_stage_B.json
+    train_stage_C1.json
+    train_stage_C2.json
+    train_stage_D.json
   metadata/
     assemblies.canonical.tsv
     assembly_splits.canonical.tsv
@@ -52,13 +57,19 @@ training_server_transfer/
     Stage_C1/
     Stage_C2/
     Stage_D/
+  scripts/
+    README.md
+    check_package.py
+    requirements.txt
+    run_stage.sh
+    train.py
 ```
 
 ## 目录说明
 
 ### `configs/`
 
-保存每个预训练阶段的长度混合比例:
+保存模型结构配置、训练配置和每个预训练阶段的长度混合比例:
 
 | 文件 | 主 context | 长度组成 |
 |---|---:|---|
@@ -66,6 +77,16 @@ training_server_transfer/
 | `stage_C1_mix.yaml` | 64K | 70% 64K + 15% 8K + 10% 16K/32K + 5% 4K |
 | `stage_C2_mix.yaml` | 128K | 75% 128K + 15% 64K + 10% 8K/16K |
 | `stage_D_mix.yaml` | 256K | 80% 256K + 15% 128K + 5% 8K/64K |
+
+新增训练配置:
+
+| 文件 | 作用 |
+|---|---|
+| `model_large.json` | CropGenome-FM-Large 模型结构、token vocabulary、MLM 和后端优先级 |
+| `train_stage_B.json` | Stage B 训练步数、batch、学习率、保存和评估间隔 |
+| `train_stage_C1.json` | Stage C1 训练配置 |
+| `train_stage_C2.json` | Stage C2 训练配置 |
+| `train_stage_D.json` | Stage D 训练配置 |
 
 ### `metadata/`
 
@@ -92,6 +113,17 @@ training_server_transfer/
 | `summary.tsv` | stage 级写入 token/window 数、过滤失败数、quota 达成情况 |
 | `shard_*.input_ids.bin` | uint8 token 序列 |
 | `shard_*.windows.tsv.gz` | 每个窗口的来源 assembly、contig、坐标、split、context、region bucket、offset 和 length |
+
+### `scripts/`
+
+训练服务器上的脚本目录保持最小化:
+
+| 文件 | 作用 |
+|---|---|
+| `check_package.py` | 搬运包和 stage manifest 自检 |
+| `train.py` | 正式预训练入口，动态 mask、动态 labels、RC augmentation、checkpoint |
+| `run_stage.sh` | 统一启动脚本，默认调用 `mamba run -n zuowu_genomemodel` |
+| `requirements.txt` | 训练依赖摘要 |
 
 ## 已生成 stage 输入
 

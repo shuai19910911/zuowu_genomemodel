@@ -10,10 +10,15 @@ training_server_transfer/
   MANIFEST.tsv
   SHA256SUMS
   configs/
+    model_large.json
     stage_B_mix.yaml
     stage_C1_mix.yaml
     stage_C2_mix.yaml
     stage_D_mix.yaml
+    train_stage_B.json
+    train_stage_C1.json
+    train_stage_C2.json
+    train_stage_D.json
   metadata/
     assemblies.canonical.tsv
     assembly_splits.canonical.tsv
@@ -33,6 +38,12 @@ training_server_transfer/
     Stage_C1/
     Stage_C2/
     Stage_D/
+  scripts/
+    README.md
+    check_package.py
+    requirements.txt
+    run_stage.sh
+    train.py
 ```
 
 训练输入说明:
@@ -49,3 +60,18 @@ training_server_transfer/
 - split 已按 canonical assembly accession 固定，避免同一 assembly 的窗口同时进入 train/val/test。
 - Stage 顺序建议为 B -> C1 -> C2 -> D；也可以只搬运当前要训练的 stage 子目录以减少训练服务器占用。
 - 搬运后先运行 `sha256sum -c SHA256SUMS`，再启动训练。
+
+训练脚本:
+
+- `scripts/check_package.py`: 检查目录、manifest、gzip header、token 文件大小和可选 SHA256。
+- `scripts/train.py`: 正式预训练入口，读取 `configs/model_large.json` 和 `configs/train_stage_*.json`。
+- `scripts/run_stage.sh`: 简洁启动入口，默认使用 `mamba run -n zuowu_genomemodel`。
+
+推荐命令:
+
+```bash
+cd training_server_transfer
+sha256sum -c SHA256SUMS
+python scripts/check_package.py --stage all --quick
+CUDA_VISIBLE_DEVICES=1,2 bash scripts/run_stage.sh Stage_B 2
+```
