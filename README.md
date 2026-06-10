@@ -60,3 +60,4 @@
 - 2026-06-09 21:42:00 CST: 在 `training_server_transfer/` 新增简洁训练脚本目录 `scripts/` 和正式训练配置 `configs/model_large.json`、`configs/train_stage_*.json`；完成语法检查、stage package quick check 和全目录 SHA256 校验。
 - 2026-06-10 09:45:00 CST: 在 `zuowu_genomemodel` 环境安装 `numpy 2.2.6`、CUDA PyTorch `2.5.1` (`torch.version.cuda=12.4`) 和 `torchrun`；导出 `training_server_transfer/configs/zuowu_genomemodel_env.yml`，完成训练脚本 tiny dry-run、package quick check 和全目录 SHA256 校验。
 - 2026-06-10 11:17:00 CST: 为 `zuowu_genomemodel` 补装 CUDA `nvcc 12.4.131` 和基础构建工具，并重新导出环境到 `training_server_transfer/configs/zuowu_genomemodel_env.yml`；尝试安装 `mamba-ssm`，但登录节点源码构建强制编译多架构导致 `cicc` 被系统终止，当前训练脚本使用 `hyena_lite` 后端；重新完成 package quick check、tiny dry-run 和全目录 SHA256 校验。
+- 2026-06-10 12:45:11 CST: 在 `PROJECT_PLAN.md` 详细说明 Stage B/C1/C2/D 的长度组成比例是 stage 级 token 配方，不是候选池保留率或在某个长度桶内固定抽样比例；补充 Stage B 8K/4K/16K token 和等价窗口数估算。

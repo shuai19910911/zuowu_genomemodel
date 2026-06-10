@@ -1,6 +1,6 @@
 # CropGenome-FM 作物基因组预训练大模型完整训练计划
 
-更新时间: 2026-06-09 21:10:00 CST
+更新时间: 2026-06-10 12:45:11 CST
 
 ## 1. 最终训练口径
 
@@ -251,6 +251,43 @@
 | Stage C1 | 70% 64K + 15% 8K + 10% 16K/32K + 5% 4K | 15B | 15,301,525,504 | 15 GB |
 | Stage C2 | 75% 128K + 15% 64K + 10% 8K/16K | 5B | 5,102,608,384 | 4.8 GB |
 | Stage D | 80% 256K + 15% 128K + 5% 8K/64K | 2B | 2,045,698,048 | 2.0 GB |
+
+这里的“长度组成/token 比例”是 stage 级 token 配方，不是候选池保留率，也不是训练 batch 区域采样比例。以 Stage B 为例，`70% 8K + 20% 4K + 10% 16K warm-up` 的含义是: Stage B 最终写入的约 30.6B token 中，约 70% token 来自长度为 8K 的窗口，约 20% token 来自 4K 窗口，约 10% token 来自 16K warm-up 窗口。它不是“把所有 8K 窗口都输入训练”，也不是“在所有 8K 窗口中保留 80%”。实际流程是先按 4.2 硬质量过滤、4.3 候选池区域保留比例和 4.4 去冗余得到合格候选池，再在合格候选池内按 stage 的长度 token 配方和 4.5 区域采样目标抽取窗口，直到该 stage 的 token 预算达到目标。
+
+因此需要区分三类比例:
+
+| 比例类型 | 作用位置 | 例子 | 含义 |
+|---|---|---|---|
+| 候选池区域保留比例 | 本服务器预处理阶段 | distal intergenic 只保留 3%-5% | 决定哪些原始窗口有资格进入候选池，用于压缩数据和去掉低价值背景 |
+| stage 长度 token 比例 | 本服务器 stage 固化阶段 | Stage B 中 70% token 来自 8K | 决定一个 stage 内不同 context length 对总 token 的贡献 |
+| 训练 batch 区域采样比例 | stage 固化和训练 loader 统计阶段 | 当前无 TE 模式下 CDS 28%、splice 18% | 决定训练 token 在不同功能区域上的目标分布 |
+
+Stage B 的实际抽样逻辑:
+
+1. 先从所有通过 QC、split、防泄漏、区域保留和去冗余的候选窗口中，按 `context_bucket=8K/4K/16K` 分桶。
+2. 对每个长度桶内部，再按 4.5 的区域目标比例抽样，例如 CDS、splice、promoter/TSS、UTR、TES、intron、high-quality intergenic、random background。
+3. 每抽到一个 8K 窗口，向 Stage B 写入约 8192 token；每抽到一个 4K 窗口，写入约 4096 token；每抽到一个 16K 窗口，写入约 16384 token。
+4. 当某个长度桶达到该 stage 的 token 配额后，该长度桶停止继续写入；如果某个高优先级区域候选不足，则按同长度桶内的 fallback 区域顺序补足，而不是强行重复同一窗口。
+5. 物理 shard 只是存储切分，`shard_000001`、`shard_000002` 等不是新的训练阶段，也不改变长度比例或区域比例。
+
+按实际写入 token 估算，Stage B 的 30,600,306,688 token 约对应:
+
+| 长度桶 | token 目标比例 | 估算 token | 估算等价窗口数 |
+|---|---:|---:|---:|
+| 8K | 70% | 约 21.42B | 约 2.61M 个 8K 窗口 |
+| 4K | 20% | 约 6.12B | 约 1.49M 个 4K 窗口 |
+| 16K | 10% | 约 3.06B | 约 0.19M 个 16K 窗口 |
+
+这些是按 token 比例换算的近似值；实际窗口数以 `inputs/Stage_B/manifest.tsv` 和 `.windows.tsv.gz` 为准，因为最后一个 shard、contig 边界、质量过滤、区域候选不足和去冗余会造成轻微偏差。
+
+其他 stage 同理:
+
+| Stage | 主长度逻辑 | replay/warm-up 逻辑 | 实际含义 |
+|---|---|---|---|
+| Stage B | 8K 占主导 | 4K 保留短 motif/CDS/splice 密度，16K warm-up 让模型提前接触稍长上下文 | 先学局部 DNA 语法和功能位点，不让超长背景过早稀释信号 |
+| Stage C1 | 64K 占主导 | 8K、16K/32K、4K replay | 从 Stage B checkpoint 扩到 gene body、promoter-gene、长 intron，同时保持短程功能能力 |
+| Stage C2 | 128K 占主导 | 64K 和 8K/16K replay | 进一步学习远端调控和结构上下文，同时避免 8K probe 退化 |
+| Stage D | 256K 占主导 | 128K 和少量 8K/64K replay | 资源允许时做长上下文 midtraining，不作为从零训练阶段 |
 
 实际体积说明:
 
@@ -674,6 +711,8 @@ CPU 总体: 3-7 天，取决于是否一次性生成全部 Stage B/C1/C2/D 输�
 
 1. 先抽 `context_bucket`: `4K`, `8K`, `16K`, `32K`, `64K`, `128K`, `256K`。
 2. 再在该长度桶内按区域比例抽 `region_bucket`: CDS、splice、TSS、UTR、TES、intron、TE/repeat、intergenic、background。
+
+执行口径: context bucket 的比例按 token 计数，不按窗口数计数。例如 Stage B 的 `70% 8K` 表示 Stage B 总 token 中约 70% 来自 8K 窗口；它不是保留所有 8K 候选，也不是在 8K 候选中固定抽 70% 或 80%。若 8K 候选池远大于配额，只抽到 token 配额为止；若某个区域在 8K 桶中候选不足，按同长度桶内预设 fallback 区域补齐，并在 `summary.tsv` 中记录偏差。
 
 训练服务器 dataloader 读取已经固化的 stage 输入，并在训练时组织 batch:
 
