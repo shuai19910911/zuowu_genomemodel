@@ -19,6 +19,7 @@ training_server_transfer/
     train_stage_C1.json
     train_stage_C2.json
     train_stage_D.json
+    zuowu_genomemodel_env.yml
   metadata/
     assemblies.canonical.tsv
     assembly_splits.canonical.tsv
@@ -75,3 +76,15 @@ sha256sum -c SHA256SUMS
 python scripts/check_package.py --stage all --quick
 CUDA_VISIBLE_DEVICES=1,2 bash scripts/run_stage.sh Stage_B 2
 ```
+
+环境迁移:
+
+```bash
+mamba env create -n zuowu_genomemodel -f configs/zuowu_genomemodel_env.yml
+```
+
+当前导出环境核心版本:
+
+- `numpy 2.2.6`
+- `torch 2.5.1`
+- `torch.version.cuda 12.4`

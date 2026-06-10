@@ -38,6 +38,7 @@ training_server_transfer/
     train_stage_C1.json
     train_stage_C2.json
     train_stage_D.json
+    zuowu_genomemodel_env.yml
   metadata/
     assemblies.canonical.tsv
     assembly_splits.canonical.tsv
@@ -87,6 +88,7 @@ training_server_transfer/
 | `train_stage_C1.json` | Stage C1 训练配置 |
 | `train_stage_C2.json` | Stage C2 训练配置 |
 | `train_stage_D.json` | Stage D 训练配置 |
+| `zuowu_genomemodel_env.yml` | 已安装训练环境的 mamba 导出文件，含 numpy、CUDA PyTorch 等 |
 
 ### `metadata/`
 
