@@ -1,6 +1,6 @@
 # CropGenome-FM 作物基因组预训练大模型完整训练计划
 
-更新时间: 2026-06-10 12:45:11 CST
+更新时间: 2026-06-10 12:57:14 CST
 
 ## 1. 最终训练口径
 
@@ -252,7 +252,34 @@
 | Stage C2 | 75% 128K + 15% 64K + 10% 8K/16K | 5B | 5,102,608,384 | 4.8 GB |
 | Stage D | 80% 256K + 15% 128K + 5% 8K/64K | 2B | 2,045,698,048 | 2.0 GB |
 
-这里的“长度组成/token 比例”是 stage 级 token 配方，不是候选池保留率，也不是训练 batch 区域采样比例。以 Stage B 为例，`70% 8K + 20% 4K + 10% 16K warm-up` 的含义是: Stage B 最终写入的约 30.6B token 中，约 70% token 来自长度为 8K 的窗口，约 20% token 来自 4K 窗口，约 10% token 来自 16K warm-up 窗口。它不是“把所有 8K 窗口都输入训练”，也不是“在所有 8K 窗口中保留 80%”。实际流程是先按 4.2 硬质量过滤、4.3 候选池区域保留比例和 4.4 去冗余得到合格候选池，再在合格候选池内按 stage 的长度 token 配方和 4.5 区域采样目标抽取窗口，直到该 stage 的 token 预算达到目标。
+这里的“长度组成/token 比例”是 stage 级 token 配方，不是候选池保留率，也不是训练 batch 区域采样比例。以 Stage B 为例，`70% 8K + 20% 4K + 10% 16K warm-up` 的含义是: Stage B 实际固化写入的 `30,600,306,688` 个 token 中，约 70% token 来自长度为 8K 的窗口，约 20% token 来自 4K 窗口，约 10% token 来自 16K warm-up 窗口。它不是“把所有 8K 窗口都输入训练”，也不是“在所有 8K 窗口中保留 80%”。实际流程是先按 4.2 硬质量过滤、4.3 候选池区域保留比例和 4.4 去冗余得到合格候选池，再在合格候选池内按 stage 的长度 token 配方和 4.5 区域采样目标抽取窗口，直到该 stage 的 token 预算达到目标。
+
+`30,600,306,688` 的来源和计算方式如下:
+
+1. 计划中的 Stage B `token 预算=30B` 指主训练 split 的目标规模，即 train split 约 30B token。
+2. 固化输入时还同时写入 validation 和 test 窗口，用于训练中/训练后评估；当前 Stage B 设计为 val 约 0.3B token、test 约 0.3B token，约等于 train 目标的各 1%。
+3. 因为 `input_ids` 必须按完整窗口写入，且每个 split、长度桶、区域桶都要按完整窗口取整，所以实际写入值不会刚好等于 `30,000,000,000 + 300,000,000 + 300,000,000`，会有少量 rounding overshoot。
+4. Stage B 最终实际写入值记录在 `training_server_transfer/inputs/Stage_B/summary.tsv` 的 `written_tokens` 字段中，即 `30,600,306,688`。
+5. 也可以从 `training_server_transfer/inputs/Stage_B/manifest.tsv` 逐 shard 求和复现: `sum(tokens)=30,600,306,688`，`sum(windows_count)=4,295,686`。
+
+Stage B 的实际 token 构成:
+
+| 组成 | 实际 token |
+|---|---:|
+| train split | 30,000,087,040 |
+| validation split | 300,109,824 |
+| test split | 300,109,824 |
+| 合计 | 30,600,306,688 |
+
+按公式写就是:
+
+```text
+Stage_B_actual_tokens
+  = sum(Stage_B manifest.tsv 中每个 shard 的 tokens)
+  = train_tokens + validation_tokens + test_tokens
+  = 30,000,087,040 + 300,109,824 + 300,109,824
+  = 30,600,306,688
+```
 
 因此需要区分三类比例:
 
@@ -270,15 +297,15 @@ Stage B 的实际抽样逻辑:
 4. 当某个长度桶达到该 stage 的 token 配额后，该长度桶停止继续写入；如果某个高优先级区域候选不足，则按同长度桶内的 fallback 区域顺序补足，而不是强行重复同一窗口。
 5. 物理 shard 只是存储切分，`shard_000001`、`shard_000002` 等不是新的训练阶段，也不改变长度比例或区域比例。
 
-按实际写入 token 估算，Stage B 的 30,600,306,688 token 约对应:
+按长度桶拆分，Stage B 的 `30,600,306,688` token 实际对应:
 
-| 长度桶 | token 目标比例 | 估算 token | 估算等价窗口数 |
+| 长度桶 | token 目标比例 | 实际 token | 等价完整窗口数 |
 |---|---:|---:|---:|
-| 8K | 70% | 约 21.42B | 约 2.61M 个 8K 窗口 |
-| 4K | 20% | 约 6.12B | 约 1.49M 个 4K 窗口 |
-| 16K | 10% | 约 3.06B | 约 0.19M 个 16K 窗口 |
+| 8K | 70% | 21,420,097,536 | 约 2,614,758 个 8K 窗口 |
+| 4K | 20% | 6,120,038,400 | 约 1,494,150 个 4K 窗口 |
+| 16K | 10% | 3,060,170,752 | 约 186,778 个 16K 窗口 |
 
-这些是按 token 比例换算的近似值；实际窗口数以 `inputs/Stage_B/manifest.tsv` 和 `.windows.tsv.gz` 为准，因为最后一个 shard、contig 边界、质量过滤、区域候选不足和去冗余会造成轻微偏差。
+上表的“等价完整窗口数”按 `实际 token / context length` 估算，用于理解规模；精确窗口数以 `inputs/Stage_B/manifest.tsv` 和 `.windows.tsv.gz` 为准，因为 contig 边界、最后一个 shard、质量过滤、区域候选不足和去冗余会造成不同长度桶内部的轻微偏差。
 
 其他 stage 同理:
 
