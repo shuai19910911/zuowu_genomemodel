@@ -63,3 +63,4 @@
 - 2026-06-10 12:45:11 CST: 在 `PROJECT_PLAN.md` 详细说明 Stage B/C1/C2/D 的长度组成比例是 stage 级 token 配方，不是候选池保留率或在某个长度桶内固定抽样比例；补充 Stage B 8K/4K/16K token 和等价窗口数估算。
 - 2026-06-10 12:57:14 CST: 在 `PROJECT_PLAN.md` 补充 Stage B `30,600,306,688` token 的来源: train 约 30B、validation/test 各约 0.3B，并可由 `summary.tsv` 的 `written_tokens` 或 `manifest.tsv` 的 shard token 求和复现。
 - 2026-06-10 13:59:12 CST: 在 `PROJECT_PLAN.md` 进一步解释 Stage B `30B` 是人为设定的训练 token 预算；用“300 个 8K 候选窗口”的例子说明 70% 是最终写入 token 份额，不是候选窗口数量份额。
+- 2026-06-10 14:21:58 CST: 在 `PROJECT_PLAN.md` 补充 Stage B `30B` 预算的估算依据: 模型规模、Stage B 局部语法任务定位、结构注释高质量数据、磁盘体积、GPU 时间和后续 C1/C2/D 扩长训练共同约束。
