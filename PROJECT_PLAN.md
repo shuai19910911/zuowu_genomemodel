@@ -1,6 +1,6 @@
 # CropGenome-FM 作物基因组预训练大模型完整训练计划
 
-更新时间: 2026-06-10 14:21:58 CST
+更新时间: 2026-06-10 18:04:57 CST
 
 ## 1. 最终训练口径
 
@@ -13,7 +13,7 @@
 - 不预生成固定 mask、固定 MLM label、固定 batch 顺序或固定 RC 增强。
 - 在本服务器完成数据处理、候选池构建、split、防泄漏检查，并按 Stage B/C1/C2/D 一次性固化该 stage 的训练输入窗口或 `input_ids`。
 - 训练服务器只搬运 `training_server_transfer/` 数据、配置和小元数据；训练时动态生成 mask、labels、RC 增强和 batch 顺序。
-- 当前已生成 Stage B/C1/C2/D 全部固化输入；如训练服务器磁盘紧张，也可以只保留当前要训练的一个 stage 子目录。
+- 当前正在按“主 context 长度全部保留 + 其他长度受控回放”的新策略重新生成 Stage B/C1/C2/D 固化输入；如训练服务器磁盘紧张，也可以只保留当前要训练的一个 stage 子目录。
 
 当前正式数据:
 
@@ -24,8 +24,8 @@
 | 覆盖属 | 26 |
 | canonical split train/val/test | 192/35/31 |
 | 训练服务器最终搬运目录 | `training_server_transfer/` |
-| 最终搬运目录体积 | 约 50GB |
-| 搬运目录 SHA256 | 2026-06-09 已通过 |
+| 最终搬运目录体积 | 收紧过滤后预计约 60-80GB，最终以重新编码后 `du -sh training_server_transfer` 为准 |
+| 搬运目录 SHA256 | 重新编码完成后刷新 |
 
 训练目标: 训练一个结构注释感知、区域加权、长上下文、反向互补一致的作物基因组基础模型 CropGenome-FM。
 
@@ -245,19 +245,16 @@
 
 每个 stage 的输入数据按一个完整 stage 逻辑生成，物理上拆成多个 shard，方便校验、搬运和断点续传。
 
-| Stage | 长度组成/token 比例 | token 预算 | 实际写入 token | 实际目录大小 |
+| Stage | 新固化策略 | 已生成候选窗口 | 预计写入 token | 预计目录大小 |
 |---|---|---:|---:|---:|
-| Stage B | 70% 8K + 20% 4K + 10% 16K warm-up | 30B | 30,600,306,688 | 29 GB |
-| Stage C1 | 70% 64K + 15% 8K + 10% 16K/32K + 5% 4K | 15B | 15,301,525,504 | 15 GB |
-| Stage C2 | 75% 128K + 15% 64K + 10% 8K/16K | 5B | 5,102,608,384 | 4.8 GB |
-| Stage D | 80% 256K + 15% 128K + 5% 8K/64K | 2B | 2,045,698,048 | 2.0 GB |
+| Stage B | 全部 8K 主候选 + 4K/16K 受控 warm-up/replay | 重新生成中 | 预计 35B-48B | 35-50GB |
+| Stage C1 | 全部 64K 主候选 + 4K/8K/16K/32K 受控 replay | 重新生成中 | 预计 18B-24B | 18-25GB |
+| Stage C2 | 全部 128K 主候选 + 8K/16K/64K 受控 replay | 重新生成中 | 预计 5B-7B | 5-8GB |
+| Stage D | 全部 256K 主候选 + 8K/64K/128K 受控 replay | 重新生成中 | 预计 2B-3B | 2-4GB |
 
-这里的“长度组成/token 比例”是 stage 级 token 配方，不是候选池保留率，也不是训练 batch 区域采样比例。以 Stage B 为例，`70% 8K + 20% 4K + 10% 16K warm-up` 的含义是: Stage B 实际固化写入的 `30,600,306,688` 个 token 中，约 70% token 来自长度为 8K 的窗口，约 20% token 来自 4K 窗口，约 10% token 来自 16K warm-up 窗口。它不是“把所有 8K 窗口都输入训练”，也不是“在所有 8K 窗口中保留 80%”。实际流程是先按 4.2 硬质量过滤、4.3 候选池区域保留比例和 4.4 去冗余得到合格候选池，再在合格候选池内按 stage 的长度 token 配方和 4.5 区域采样目标抽取窗口，直到该 stage 的 token 预算达到目标。
+这里的“主候选全部保留”指: 在 `stage_windows/<Stage>/windows.candidates.tsv.gz` 中已经通过硬质量过滤、区域保留比例、去冗余和 split 防泄漏的候选窗口里，每个 stage 的主 context 长度不再按旧 token 预算截断。Stage B 的主 context 是 8K，因此全部 8K 候选都写入 Stage B；Stage C1 全部写入 64K 候选；Stage C2 全部写入 128K 候选；Stage D 全部写入 256K 候选。其他长度仍是辅助 replay/warm-up，继续按 stage 配方控制，避免短上下文或辅助上下文把主训练目标淹没。
 
-最简单理解:
-
-- 当前方案是“先定每个 stage 要训练多少 token，再从候选池里抽够这些 token”。
-- 不是“先数有多少个 8K/4K/16K 候选窗口，再让这些候选窗口数量决定 stage 大小”。
+按收紧后的候选生成和编码过滤估算，四个 stage 合计约 `60B-82B` token，训练服务器搬运目录预计约 `60-80GB`。估算基于 `oversample=1.5`、低价值区域下采样、长 context 更严格 N/连续 N 过滤、`uint8 input_ids`、gzip 压缩窗口元数据、manifest 和 SHA256 文件开销；最终大小以重新编码完成后的 `summary.tsv` 和 `du -sh training_server_transfer` 为准。
 - Stage B 的 `30B` 是人为设定的正式预训练预算，用来控制训练计算量、训练服务器磁盘、训练时间和局部功能学习强度。
 - Stage B 的 `70% 8K` 是在这个预算内分配 token: train 预算 30B 中，约 21B token 给 8K，约 6B token 给 4K，约 3B token 给 16K。
 
@@ -438,23 +435,27 @@ training_server_transfer/
 
 N 比例:
 
-- train 默认 `N <= 5%`。
-- `5%-10%` 只允许稀缺小属或稀缺功能区域低权重救援，且需要在 sampling index 中记录 `rescued_by_low_abundance=true`。
-- validation/test 必须 `N <= 5%`，不做救援。
+- 第一版正式训练不再使用 `5%-10%` N 救援。
+- CDS、splice、UTR、TES、promoter core 等核心功能窗口默认 `N <= 1%`。
+- promoter distal、ordinary gene_body、background 等低价值区域默认 `N <= 0.5%`。
+- 64K/128K/256K 长 context 窗口统一要求 `N <= 0.5%`。
+- validation/test 使用同等或更严格标准，不做救援。
 
 连续 N:
 
-- 任意连续 `N >= 1 kb` 的窗口丢弃。
 - CDS、splice、start/stop 监督窗口中连续 `N >= 100 bp` 丢弃。
+- promoter distal、ordinary gene_body、background 中连续 `N >= 100 bp` 丢弃。
+- 64K/128K/256K 长 context 窗口中连续 `N >= 50 bp` 丢弃。
 
 有效碱基:
 
-- 普通预训练窗口要求 `A/C/G/T >= 90%`。
-- 关键监督窗口要求 `A/C/G/T >= 98%`，包括 CDS frame、splice donor/acceptor、start/stop codon、TSS/TES probe。
+- 核心功能窗口要求 `A/C/G/T >= 98%`。
+- promoter distal、ordinary gene_body、background 要求 `A/C/G/T >= 99.5%`。
 
 低复杂度:
 
-- 单一碱基比例 `> 80%` 的窗口丢弃。
+- 核心功能窗口单一碱基比例 `> 75%` 丢弃。
+- promoter distal、ordinary gene_body、background 和长 context 窗口单一碱基比例 `> 72%` 丢弃。
 - dust/entropy 标记为低复杂度的纯背景窗口丢弃。
 - CDS/splice/start/stop 若局部复杂度偏低但注释可靠，保留监督标签，同时降低 MLM mask 比例并记录低复杂度标记。
 
@@ -480,17 +481,17 @@ contig 边缘:
 | start/stop codon neighborhood | 100% | start/stop 上下游至少 `+/-2 kb` 进入候选池 |
 | UTR | 100% | 已注释 5UTR/3UTR 全部保留；transcript boundary 周边窗口全部保留 |
 | promoter/TSS core | 100% | TSS upstream `0-5 kb` 全部保留 |
-| promoter/TSS distal | 15% | TSS upstream `5-20 kb` 只保留高质量代表窗口 |
+| promoter/TSS distal | 约 8%-10% | TSS upstream `5-20 kb` 只保留高质量代表窗口；实现上对 distal promoter 做稳定哈希下采样 |
 | weak promoter | 100% of weak window | 无可靠 TSS 时，只用 gene upstream `2 kb` 作为弱 promoter 标签 |
 | intron boundary | 100% | exon-intron boundary 两侧 `2 kb` 全部保留 |
-| ordinary intron interior | 10% | 普通 intron 内部随机分层保留 |
-| long intron interior | 5% | `>20 kb` 长 intron 内部优先保留 GC/复杂度正常、`N <= 2%` 的窗口 |
+| ordinary intron interior | 5%-8% | 普通 intron 内部随机分层保留，优先高质量窗口 |
+| long intron interior | 2%-3% | `>20 kb` 长 intron 内部优先保留 GC/复杂度正常、`N <= 0.5%-1%` 的窗口 |
 | TE/repeat annotated | 50% | 只有可靠 repeat 注释时启用 |
 | gene-proximal TE/repeat | 100% | 距 gene body 或 promoter `20 kb` 内的 TE/repeat 全部保留 |
 | TE boundary | 100% | TE 边界上下游 `+/-2 kb` 全部保留 |
-| gene-proximal intergenic | 10% | 距任意 gene `20 kb` 内，优先 `N <= 2%`、非低复杂度、完整覆盖窗口 |
-| distal intergenic / far noncoding | 3%-5% | `N <= 2%`、无长 N、非低复杂度、非高度重复、GC 在本 genome `5%-95%` 分位范围内 |
-| random genome coverage | 1%-2% | 从通过 hard filter 的全基因组窗口中额外抽样，避免完全丢失背景分布 |
+| gene-proximal intergenic | 约 5% | 距任意 gene `20 kb` 内，优先 `N <= 0.5%-1%`、非低复杂度、完整覆盖窗口 |
+| distal intergenic / far noncoding | 1%-2% | `N <= 0.5%-1%`、无长 N、非低复杂度、非高度重复、GC 在本 genome `5%-95%` 分位范围内 |
+| random genome coverage | 0.5%-1% | 从通过 hard filter 的全基因组窗口中额外抽样，避免完全丢失背景分布 |
 
 TE/repeat 规则:
 

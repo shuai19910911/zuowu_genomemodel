@@ -1,6 +1,6 @@
 # training_server_transfer 目录结构和搬运说明
 
-更新时间: 2026-06-10 11:17:00 CST
+更新时间: 2026-06-10 18:04:57 CST
 
 ## 当前结论
 
@@ -19,7 +19,7 @@ cd training_server_transfer
 sha256sum -c SHA256SUMS
 ```
 
-当前最终目录约 `50GB`，已包含简洁训练脚本目录 `scripts/`、正式训练配置和 `zuowu_genomemodel` 环境导出文件；全目录 SHA256 校验已于 2026-06-10 通过。
+当前正在按“主 context 长度候选全部保留 + 其他长度受控回放 + 更严格窗口质量过滤”的新策略重新生成输入。预计最终目录约 `60-80GB`，已包含简洁训练脚本目录 `scripts/`、正式训练配置和 `zuowu_genomemodel` 环境导出文件；全目录 SHA256 会在重新编码完成后刷新。
 
 ## 简约目录结构
 
@@ -74,10 +74,10 @@ training_server_transfer/
 
 | 文件 | 主 context | 长度组成 |
 |---|---:|---|
-| `stage_B_mix.yaml` | 8K | 70% 8K + 20% 4K + 10% 16K |
-| `stage_C1_mix.yaml` | 64K | 70% 64K + 15% 8K + 10% 16K/32K + 5% 4K |
-| `stage_C2_mix.yaml` | 128K | 75% 128K + 15% 64K + 10% 8K/16K |
-| `stage_D_mix.yaml` | 256K | 80% 256K + 15% 128K + 5% 8K/64K |
+| `stage_B_mix.yaml` | 8K | 全部 8K 主候选 + 4K/16K 受控 warm-up/replay |
+| `stage_C1_mix.yaml` | 64K | 全部 64K 主候选 + 4K/8K/16K/32K 受控 replay |
+| `stage_C2_mix.yaml` | 128K | 全部 128K 主候选 + 8K/16K/64K 受控 replay |
+| `stage_D_mix.yaml` | 256K | 全部 256K 主候选 + 8K/64K/128K 受控 replay |
 
 新增训练配置:
 
@@ -133,23 +133,18 @@ training_server_transfer/
 
 已尝试在登录节点用 pip 安装 `mamba-ssm`，但其源码构建强制编译多个 GPU 架构，`cicc` 被系统终止；当前导出环境不包含 `mamba-ssm`，训练脚本会自动使用 `hyena_lite` 后端。若训练服务器有充足编译资源，可在训练服务器上补装 `mamba-ssm` 后启用 Mamba2 后端。
 
-## 已生成 stage 输入
+## 预计重新生成 stage 输入
 
-| stage | 写入 token | 窗口数 | shard 数 | 目录大小 |
+以下为 2026-06-10 18:04:57 CST 根据收紧后的候选比例和编码过滤估算。最终数值以重新编码后的 `inputs/<Stage>/summary.tsv`、`manifest.tsv` 和 `du` 为准。
+
+| stage | 新固化策略 | 候选窗口 | 预计写入 token | 预计目录大小 |
 |---|---:|---:|---:|---:|
-| Stage_B | 30,600,306,688 | 4,295,686 | 31 | 29GB |
-| Stage_C1 | 15,301,525,504 | 700,433 | 16 | 15GB |
-| Stage_C2 | 5,102,608,384 | 87,591 | 6 | 4.8GB |
-| Stage_D | 2,045,698,048 | 15,612 | 3 | 2.0GB |
+| Stage_B | 全部 8K 主候选 + 4K/16K 受控补充 | 重新生成中 | 35B-48B | 35-50GB |
+| Stage_C1 | 全部 64K 主候选 + 4K/8K/16K/32K 受控补充 | 重新生成中 | 18B-24B | 18-25GB |
+| Stage_C2 | 全部 128K 主候选 + 8K/16K/64K 受控补充 | 重新生成中 | 5B-7B | 5-8GB |
+| Stage_D | 全部 256K 主候选 + 8K/64K/128K 受控补充 | 重新生成中 | 2B-3B | 2-4GB |
 
-质量过滤结果:
-
-| stage | failed_quality | missing_contig_in_fasta |
-|---|---:|---:|
-| Stage_B | 1,513 | 0 |
-| Stage_C1 | 254 | 0 |
-| Stage_C2 | 32 | 0 |
-| Stage_D | 4 | 0 |
+预计四个 stage 合计约 `60B-82B` token，搬运目录预计约 `60-80GB`。这里的候选窗口不是原始 genome 全量窗口，而是已经经过硬质量过滤、区域采样、去冗余和 split 防泄漏后的 stage 候选池。
 
 ## 不在搬运目录中的本地中间文件
 
