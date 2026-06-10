@@ -88,3 +88,9 @@ mamba env create -n zuowu_genomemodel -f configs/zuowu_genomemodel_env.yml
 - `numpy 2.2.6`
 - `torch 2.5.1`
 - `torch.version.cuda 12.4`
+- `cuda-nvcc 12.4.131`
+
+说明:
+
+- 登录节点无 GPU，`torch.cuda.is_available()` 在本节点返回 `False` 属于预期；CUDA build 已由 `torch.version.cuda=12.4` 和 `nvcc --version` 验证。
+- 已尝试安装 `mamba-ssm`，但其源码构建在登录节点强制编译多个 GPU 架构，`cicc` 被系统终止；当前训练脚本会自动使用 `hyena_lite` 后端。若训练服务器有 A100/H100 且编译资源充足，可在该服务器环境中再安装 `mamba-ssm` 以启用 Mamba2 后端。

@@ -1,6 +1,6 @@
 # training_server_transfer 目录结构和搬运说明
 
-更新时间: 2026-06-09 21:42:00 CST
+更新时间: 2026-06-10 11:17:00 CST
 
 ## 当前结论
 
@@ -19,7 +19,7 @@ cd training_server_transfer
 sha256sum -c SHA256SUMS
 ```
 
-当前最终目录约 `50GB`，已包含简洁训练脚本目录 `scripts/` 和正式训练配置；全目录 SHA256 校验已于 2026-06-09 通过。
+当前最终目录约 `50GB`，已包含简洁训练脚本目录 `scripts/`、正式训练配置和 `zuowu_genomemodel` 环境导出文件；全目录 SHA256 校验已于 2026-06-10 通过。
 
 ## 简约目录结构
 
@@ -88,7 +88,7 @@ training_server_transfer/
 | `train_stage_C1.json` | Stage C1 训练配置 |
 | `train_stage_C2.json` | Stage C2 训练配置 |
 | `train_stage_D.json` | Stage D 训练配置 |
-| `zuowu_genomemodel_env.yml` | 已安装训练环境的 mamba 导出文件，含 numpy、CUDA PyTorch 等 |
+| `zuowu_genomemodel_env.yml` | 已安装训练环境的 mamba 导出文件，含 numpy、CUDA PyTorch、CUDA nvcc、基础构建工具等 |
 
 ### `metadata/`
 
@@ -126,6 +126,12 @@ training_server_transfer/
 | `train.py` | 正式预训练入口，动态 mask、动态 labels、RC augmentation、checkpoint |
 | `run_stage.sh` | 统一启动脚本，默认调用 `mamba run -n zuowu_genomemodel` |
 | `requirements.txt` | 训练依赖摘要 |
+
+### 环境说明
+
+`configs/zuowu_genomemodel_env.yml` 来自当前 `zuowu_genomemodel` 环境，核心版本为 `numpy 2.2.6`、`torch 2.5.1`、`torch.version.cuda 12.4`、`cuda-nvcc 12.4.131`。登录节点没有 GPU，因此 `torch.cuda.is_available()` 返回 `False` 属于预期。
+
+已尝试在登录节点用 pip 安装 `mamba-ssm`，但其源码构建强制编译多个 GPU 架构，`cicc` 被系统终止；当前导出环境不包含 `mamba-ssm`，训练脚本会自动使用 `hyena_lite` 后端。若训练服务器有充足编译资源，可在训练服务器上补装 `mamba-ssm` 后启用 Mamba2 后端。
 
 ## 已生成 stage 输入
 

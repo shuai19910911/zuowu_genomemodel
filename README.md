@@ -59,3 +59,4 @@
 - 2026-06-09 21:10:00 CST: Stage B/C1/C2/D 固化输入全部完成并整理为简约 `training_server_transfer/`；总目录约 50GB，Stage_B/C1/C2/D 分别约 29GB/15GB/4.8GB/2.0GB，`sha256sum -c SHA256SUMS` 全部通过，可整体搬运到训练服务器。
 - 2026-06-09 21:42:00 CST: 在 `training_server_transfer/` 新增简洁训练脚本目录 `scripts/` 和正式训练配置 `configs/model_large.json`、`configs/train_stage_*.json`；完成语法检查、stage package quick check 和全目录 SHA256 校验。
 - 2026-06-10 09:45:00 CST: 在 `zuowu_genomemodel` 环境安装 `numpy 2.2.6`、CUDA PyTorch `2.5.1` (`torch.version.cuda=12.4`) 和 `torchrun`；导出 `training_server_transfer/configs/zuowu_genomemodel_env.yml`，完成训练脚本 tiny dry-run、package quick check 和全目录 SHA256 校验。
+- 2026-06-10 11:17:00 CST: 为 `zuowu_genomemodel` 补装 CUDA `nvcc 12.4.131` 和基础构建工具，并重新导出环境到 `training_server_transfer/configs/zuowu_genomemodel_env.yml`；尝试安装 `mamba-ssm`，但登录节点源码构建强制编译多架构导致 `cicc` 被系统终止，当前训练脚本使用 `hyena_lite` 后端；重新完成 package quick check、tiny dry-run 和全目录 SHA256 校验。
