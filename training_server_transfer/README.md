@@ -60,7 +60,7 @@ training_server_transfer/
 - dynamic mask、reverse-complement augmentation、batch shuffle 在训练服务器在线完成；这里没有固化 mask/labels。
 - split 已按 canonical assembly accession 固定，避免同一 assembly 的窗口同时进入 train/val/test。
 - Stage 顺序建议为 B -> C1 -> C2 -> D；也可以只搬运当前要训练的 stage 子目录以减少训练服务器占用。
-- 当前输入正在按“主 context 长度候选全部保留 + 其他长度受控回放 + 更严格窗口质量过滤”的策略重新生成。预计 Stage_B/Stage_C1/Stage_C2/Stage_D 分别约 35-50GB、18-25GB、5-8GB、2-4GB，四个 stage 合计约 60-80GB；最终以重新编码后的 `inputs/<Stage>/summary.tsv`、`MANIFEST.tsv` 和 `SHA256SUMS` 为准。
+- 当前输入已按“主 context 长度候选全部保留 + 其他长度受控回放 + 更严格窗口质量过滤”的策略生成完成。实际 Stage_B/Stage_C1/Stage_C2/Stage_D 分别约 39GB、20GB、6.5GB、2.6GB，四个 stage 合计约 67G；`MANIFEST.tsv` 和 `SHA256SUMS` 已刷新并通过校验。
 - 搬运后先运行 `sha256sum -c SHA256SUMS`，再启动训练。
 
 训练脚本:

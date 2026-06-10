@@ -65,3 +65,4 @@
 - 2026-06-10 13:59:12 CST: 在 `PROJECT_PLAN.md` 进一步解释 Stage B `30B` 是人为设定的训练 token 预算；用“300 个 8K 候选窗口”的例子说明 70% 是最终写入 token 份额，不是候选窗口数量份额。
 - 2026-06-10 14:21:58 CST: 在 `PROJECT_PLAN.md` 补充 Stage B `30B` 预算的估算依据: 模型规模、Stage B 局部语法任务定位、结构注释高质量数据、磁盘体积、GPU 时间和后续 C1/C2/D 扩长训练共同约束。
 - 2026-06-10 18:04:57 CST: 按用户确认改为“主 context 候选全部保留 + 更严格窗口质量过滤”；收紧 promoter distal、gene_body、background 保留比例和 N/连续 N/低复杂度阈值，预计最终搬运目录约 60-80GB。
+- 2026-06-10 23:47:01 CST: 完成新策略下 Stage B/C1/C2/D 输入生成；实际写入 41.24B/20.47B/6.90B/2.78B token，`training_server_transfer/` 总体约 67G；package quick check、Stage_D 训练 dry-run 和全目录 `sha256sum -c SHA256SUMS` 均通过。

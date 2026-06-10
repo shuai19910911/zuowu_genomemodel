@@ -24,8 +24,8 @@
 | 覆盖属 | 26 |
 | canonical split train/val/test | 192/35/31 |
 | 训练服务器最终搬运目录 | `training_server_transfer/` |
-| 最终搬运目录体积 | 收紧过滤后预计约 60-80GB，最终以重新编码后 `du -sh training_server_transfer` 为准 |
-| 搬运目录 SHA256 | 重新编码完成后刷新 |
+| 最终搬运目录体积 | 67G (`du -sh training_server_transfer`, 2026-06-10 23:47:01 CST) |
+| 搬运目录 SHA256 | 已刷新并通过 `sha256sum -c SHA256SUMS` |
 
 训练目标: 训练一个结构注释感知、区域加权、长上下文、反向互补一致的作物基因组基础模型 CropGenome-FM。
 
@@ -245,82 +245,33 @@
 
 每个 stage 的输入数据按一个完整 stage 逻辑生成，物理上拆成多个 shard，方便校验、搬运和断点续传。
 
-| Stage | 新固化策略 | 已生成候选窗口 | 预计写入 token | 预计目录大小 |
+| Stage | 新固化策略 | 实际写入窗口 | 实际写入 token | 实际目录大小 |
 |---|---|---:|---:|---:|
-| Stage B | 全部 8K 主候选 + 4K/16K 受控 warm-up/replay | 重新生成中 | 预计 35B-48B | 35-50GB |
-| Stage C1 | 全部 64K 主候选 + 4K/8K/16K/32K 受控 replay | 重新生成中 | 预计 18B-24B | 18-25GB |
-| Stage C2 | 全部 128K 主候选 + 8K/16K/64K 受控 replay | 重新生成中 | 预计 5B-7B | 5-8GB |
-| Stage D | 全部 256K 主候选 + 8K/64K/128K 受控 replay | 重新生成中 | 预计 2B-3B | 2-4GB |
+| Stage B | 全部 8K 主候选 + 4K/16K 受控 warm-up/replay | 5,594,781 | 41,242,505,216 | 39GB |
+| Stage C1 | 全部 64K 主候选 + 4K/8K/16K/32K 受控 replay | 779,304 | 20,470,165,504 | 20GB |
+| Stage C2 | 全部 128K 主候选 + 8K/16K/64K 受控 replay | 101,293 | 6,898,204,672 | 6.5GB |
+| Stage D | 全部 256K 主候选 + 8K/64K/128K 受控 replay | 18,400 | 2,777,841,664 | 2.6GB |
 
 这里的“主候选全部保留”指: 在 `stage_windows/<Stage>/windows.candidates.tsv.gz` 中已经通过硬质量过滤、区域保留比例、去冗余和 split 防泄漏的候选窗口里，每个 stage 的主 context 长度不再按旧 token 预算截断。Stage B 的主 context 是 8K，因此全部 8K 候选都写入 Stage B；Stage C1 全部写入 64K 候选；Stage C2 全部写入 128K 候选；Stage D 全部写入 256K 候选。其他长度仍是辅助 replay/warm-up，继续按 stage 配方控制，避免短上下文或辅助上下文把主训练目标淹没。
 
-按收紧后的候选生成和编码过滤估算，四个 stage 合计约 `60B-82B` token，训练服务器搬运目录预计约 `60-80GB`。估算基于 `oversample=1.5`、低价值区域下采样、长 context 更严格 N/连续 N 过滤、`uint8 input_ids`、gzip 压缩窗口元数据、manifest 和 SHA256 文件开销；最终大小以重新编码完成后的 `summary.tsv` 和 `du -sh training_server_transfer` 为准。
-- Stage B 的 `30B` 是人为设定的正式预训练预算，用来控制训练计算量、训练服务器磁盘、训练时间和局部功能学习强度。
-- Stage B 的 `70% 8K` 是在这个预算内分配 token: train 预算 30B 中，约 21B token 给 8K，约 6B token 给 4K，约 3B token 给 16K。
+按收紧后的候选生成和编码过滤，四个 stage 实际合计 `71,388,717,056` token，训练服务器搬运目录为 `67G`。这个结果不是旧版固定 30B/15B/5B/2B token 预算，也不是原始 genome 全量窗口；它来自“主 context 合格候选全部保留 + 辅助长度受控 replay/warm-up”的实际写盘结果。计算方式是读取每个 `training_server_transfer/inputs/<Stage>/summary.tsv` 的 `written_tokens` 字段，或从对应 `manifest.tsv` 对每个 shard 的 `tokens` 求和复现。
 
-Stage B `30B` 的性质: 它不是从“候选池里有多少窗口”直接计算出来的，也不是基因组总长度乘某个固定比例得到的；它是根据训练目标和资源约束设定的首阶段 token budget。后续 `30,600,306,688` 才是按这个预算实际写盘后，从 manifest/summary 统计出来的实际 token 数。
+当前 Stage B 的 `41,242,505,216` token 来源:
 
-Stage B `30B` 的估算依据:
-
-| 约束 | 估算逻辑 | 对 30B 的影响 |
-|---|---|---|
-| 模型规模 | 当前 Large 目标约 300M-450M 参数；正式预训练不能只给几亿 token，否则模型只记住局部片段，表示学习不足 | Stage B 至少需要十亿级到数十亿级 token |
-| 训练阶段定位 | Stage B 只负责 8K 局部 DNA 语法、CDS、splice、TSS/TES，不承担全部长程调控学习；C1/C2/D 还会继续训练 | Stage B 不需要一次做到 80B 以上，30B 作为第一阶段下限更稳 |
-| 数据质量 | 当前只用结构注释完整 crop genome，并对 CDS/splice/promoter 等功能区加权；有效 token 密度高于随机全基因组切片 | 可以用 30B 做正式第一阶段，而不是盲目扩大到全量背景 |
-| 磁盘约束 | `uint8 input_ids` 约 1 byte/token；30B train + val/test 后 Stage B 约 29GB，四个 stage 总体约 50GB | 30B 能保证训练服务器搬运压力可控 |
-| GPU 时间 | 之前估算 Stage B 30B-80B 在 4-8 x 80GB 上约 5-18 天；选择 30B 是该范围低端，先保证能完整跑通正式阶段 | 30B 是资源可承受的正式起点 |
-| 后续扩长 | Stage C1/C2/D 会继续提供 64K/128K/256K token，Stage B 不需要独自覆盖全部上下文学习 | 避免 Stage B 过大导致后续长上下文预算被挤压 |
-
-因此，Stage B 的预算选择逻辑是:
-
-```text
-先确定模型和训练阶段:
-  CropGenome-FM-Large 第一阶段 8K 局部语法预训练
-
-再确定可承受训练规模:
-  Stage B 目标区间 30B-80B token
-
-考虑训练服务器磁盘、GPU 时间和后续 C1/C2/D 还要训练:
-  选择区间低端 30B 作为当前正式第一版 Stage B train token budget
-
-再加 validation/test:
-  train 30B + val 0.3B + test 0.3B
-
-最后按完整窗口写盘，得到实际:
-  30,600,306,688 token
-```
-
-如果后续训练服务器 GPU 更充足，可以把 Stage B 从 30B 扩展到 50B 或 80B；如果 GPU/时间紧张，也可以保持 30B 不变，把主要新增预算留给 Stage C1/C2 的长上下文。
-
-换成用户提出的例子: 如果 Stage B 的 8K 候选窗口只有 300 个，每个 8K 窗口约 8192 token，那么这 300 个 8K 窗口总共只有 `300 x 8192 = 2,457,600` token。它们不会天然“占 Stage B 的 70%”。在当前方案里，Stage B train split 的 8K 配额约是 `30B x 70% = 21B` token，约等于 `21B / 8192 = 约 2,563,477` 个 8K 窗口。也就是说:
-
-- 如果 8K 合格候选窗口远多于 2,563,477 个，就从中按区域比例、物种/属平衡和去冗余规则抽到约 2,563,477 个等价 8K 窗口，不会全用。
-- 如果 8K 合格候选窗口只有 300 个，那 300 个可以全部用上，但远远不够 70% 配额；剩余配额必须从同长度桶的其他合格窗口、相邻区域 fallback 或重新调整 stage 预算/比例来补，不会把 300 个窗口强行解释为 70%。
-- 因此，“70%”约束的是最终写入数据中的 token 份额，不是候选窗口集合中的数量份额。
-
-为什么不采用“所有 8K 候选窗口在 Stage B 中占 70%”这种理解:
-
-- 候选窗口数量由基因组大小、注释密度、过滤强度和去冗余决定，会导致 stage 总 token 数不可控。
-- 如果候选 8K 很多，训练服务器磁盘和训练时间会失控；如果候选 8K 很少，Stage B 会过小，达不到正式预训练规模。
-- 不同长度窗口 token 数不同，按窗口数混合会让 token 预算偏掉；例如 1 个 16K 窗口等于 2 个 8K 窗口或 4 个 4K 窗口。
-- 大模型训练通常以 token budget 控制训练量，而不是以原始候选窗口数量控制训练量。
-
-`30,600,306,688` 的来源和计算方式如下:
-
-1. 计划中的 Stage B `token 预算=30B` 指主训练 split 的目标规模，即 train split 约 30B token。
-2. 固化输入时还同时写入 validation 和 test 窗口，用于训练中/训练后评估；当前 Stage B 设计为 val 约 0.3B token、test 约 0.3B token，约等于 train 目标的各 1%。
-3. 因为 `input_ids` 必须按完整窗口写入，且每个 split、长度桶、区域桶都要按完整窗口取整，所以实际写入值不会刚好等于 `30,000,000,000 + 300,000,000 + 300,000,000`，会有少量 rounding overshoot。
-4. Stage B 最终实际写入值记录在 `training_server_transfer/inputs/Stage_B/summary.tsv` 的 `written_tokens` 字段中，即 `30,600,306,688`。
-5. 也可以从 `training_server_transfer/inputs/Stage_B/manifest.tsv` 逐 shard 求和复现: `sum(tokens)=30,600,306,688`，`sum(windows_count)=4,295,686`。
+1. 先生成 Stage B 候选池，候选必须通过结构注释完整、split 防泄漏、硬质量过滤、区域保留比例和去冗余。
+2. Stage B 的主 context 是 8K；所有通过过滤的 8K 主候选都写入，而不是再按 30B 预算截断。
+3. 4K 和 16K 仍作为辅助 replay/warm-up，按配置受控补充，用于保留短 motif/CDS/splice 信号并提前接触稍长上下文。
+4. 写入时按完整窗口取整，并同时包含 train/validation/test split，所以最终 token 数由实际候选、过滤失败、quota 达成和完整窗口长度共同决定。
+5. 最终值记录在 `training_server_transfer/inputs/Stage_B/summary.tsv`: `written_tokens=41242505216`，`written_windows=5594781`。
 
 Stage B 的实际 token 构成:
 
 | 组成 | 实际 token |
 |---|---:|
-| train split | 30,000,087,040 |
-| validation split | 300,109,824 |
-| test split | 300,109,824 |
-| 合计 | 30,600,306,688 |
+| train split | 40,435,101,696 |
+| validation split | 403,083,264 |
+| test split | 404,320,256 |
+| 合计 | 41,242,505,216 |
 
 按公式写就是:
 
@@ -328,8 +279,8 @@ Stage B 的实际 token 构成:
 Stage_B_actual_tokens
   = sum(Stage_B manifest.tsv 中每个 shard 的 tokens)
   = train_tokens + validation_tokens + test_tokens
-  = 30,000,087,040 + 300,109,824 + 300,109,824
-  = 30,600,306,688
+  = 40,435,101,696 + 403,083,264 + 404,320,256
+  = 41,242,505,216
 ```
 
 因此需要区分三类比例:
@@ -345,16 +296,16 @@ Stage B 的实际抽样逻辑:
 1. 先从所有通过 QC、split、防泄漏、区域保留和去冗余的候选窗口中，按 `context_bucket=8K/4K/16K` 分桶。
 2. 对每个长度桶内部，再按 4.5 的区域目标比例抽样，例如 CDS、splice、promoter/TSS、UTR、TES、intron、high-quality intergenic、random background。
 3. 每抽到一个 8K 窗口，向 Stage B 写入约 8192 token；每抽到一个 4K 窗口，写入约 4096 token；每抽到一个 16K 窗口，写入约 16384 token。
-4. 当某个长度桶达到该 stage 的 token 配额后，该长度桶停止继续写入；如果某个高优先级区域候选不足，则按同长度桶内的 fallback 区域顺序补足，而不是强行重复同一窗口。
+4. 当前方案中 8K 主 context 合格候选全部写入；4K/16K 辅助长度达到受控 replay/warm-up 配额后停止继续写入。
 5. 物理 shard 只是存储切分，`shard_000001`、`shard_000002` 等不是新的训练阶段，也不改变长度比例或区域比例。
 
-按长度桶拆分，Stage B 的 `30,600,306,688` token 实际对应:
+按长度桶拆分，Stage B 的 `41,242,505,216` token 实际对应:
 
-| 长度桶 | token 目标比例 | 实际 token | 等价完整窗口数 |
-|---|---:|---:|---:|
-| 8K | 70% | 21,420,097,536 | 约 2,614,758 个 8K 窗口 |
-| 4K | 20% | 6,120,038,400 | 约 1,494,150 个 4K 窗口 |
-| 16K | 10% | 3,060,170,752 | 约 186,778 个 16K 窗口 |
+| 长度桶 | 当前角色 | 实际 token | 等价完整窗口数 |
+|---|---|---:|---:|
+| 8K | 主 context 全部合格候选 | 32,062,283,776 | 约 3,913,853 个 8K 窗口 |
+| 4K | 受控 replay | 6,120,034,304 | 约 1,494,149 个 4K 窗口 |
+| 16K | 受控 warm-up | 3,060,187,136 | 约 186,779 个 16K 窗口 |
 
 上表的“等价完整窗口数”按 `实际 token / context length` 估算，用于理解规模；精确窗口数以 `inputs/Stage_B/manifest.tsv` 和 `.windows.tsv.gz` 为准，因为 contig 边界、最后一个 shard、质量过滤、区域候选不足和去冗余会造成不同长度桶内部的轻微偏差。
 
@@ -371,7 +322,7 @@ Stage B 的实际抽样逻辑:
 
 - `input_ids` 使用 `uint8`，约 1 byte/token。
 - `.windows.tsv.gz`、manifest、summary、metadata 和 SHA256 是额外开销。
-- 当前四个 stage 已全部生成，`training_server_transfer/` 总体约 50GB。
+- 当前四个 stage 已全部生成，`training_server_transfer/` 总体约 67GB。
 - 第一版不保存固定 mask/label/batch order/RC 结果。
 
 本服务器生成目录:
@@ -411,8 +362,8 @@ training_server_transfer/
 
 训练服务器磁盘估算:
 
-- 当前四个 stage 全部搬运，输入和小元数据约 50GB。
-- 若每次只保留一个 stage，最大 Stage B 约 29GB。
+- 当前四个 stage 全部搬运，输入和小元数据约 67GB。
+- 若每次只保留一个 stage，最大 Stage B 约 39GB。
 - 加 checkpoint、cache、logs、临时文件，训练服务器建议至少 800GB 可用空间；若保留多份 checkpoint 或多实验并行，建议 1TB-1.5TB。
 - 若使用 8 x 80GB GPU 训练 Large 模型，checkpoint 和 optimizer state 会成为主要额外空间来源，需要严格只保留最近 checkpoint 和 best checkpoint。
 
