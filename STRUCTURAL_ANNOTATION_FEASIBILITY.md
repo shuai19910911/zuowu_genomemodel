@@ -77,3 +77,4 @@ analysis/structural_annotation_feasibility/
 ## 执行进展
 
 - 2026-06-11 10:02:58 CST: 已按本文件筛出的可做 assembly 启动正式批处理，不对全部 genome 目录盲目处理。结构扫描对 237 个 targets 运行，提交到 q07/q08，资源为每任务 2 核、8G 内存、高并发 array，用于生成 telomere/subtelomere、centromere-like/pericentromere-like、repeat-rich 和 satellite proxy 注释。EDTA 对 236 个 targets 运行，提交到 q07/q08，资源为每任务 8 核、48G 内存、每分区 9 个并发，用于生成 TE family、TE boundary 和 repeat 注释。`EDTA2.0` 环境只用于调用既有软件，不在该环境内安装或改动软件。
+- 2026-06-11 14:05:52 CST: 根据 EDTA issue 281 检查输入序列 ID 风险，确认旧 EDTA 中间 `.fa.mod` 中已有纯数字 ID。为避免 `RunGRF.py` 因纯数字或超长 ID 失败，旧 EDTA array 已取消，正式结果改用 `structural_annotation/edta_safe/`。安全版流程在运行 EDTA 前把每条序列改名为 `z000001`、`z000002` 等长度 <=13 且非纯数字的 ID，并保存 `*.edta_safe.seqid_map.tsv` 用于回溯原始 contig。安全版 EDTA q07 job ID 为 `8551051`，每任务 8 核、48G，array throttle 66；后续汇总 job ID 为 `8551052`。
