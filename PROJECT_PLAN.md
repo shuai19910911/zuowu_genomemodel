@@ -209,6 +209,13 @@
 
 除常规基因结构区域外，后续版本增加可选的 structural-genome annotation layer。该层不替代 CDS、splice、promoter 等功能标签，而是在可靠证据存在时作为额外 `region_bucket`、`structure_flags`、`repeat_family_id` 和下游 probe 来源。
 
+当前 258 个 canonical assembly 的结构注释可行性初评见 [STRUCTURAL_ANNOTATION_FEASIBILITY.md](STRUCTURAL_ANNOTATION_FEASIBILITY.md)。基于现有 contig/QC 元数据，第一批建议:
+
+- 228 个 assembly 作为 TE + telomere + centromere + satellite 全套候选。
+- 236 个 assembly 可做 TE/repeat 和 satellite/tandem repeat 自注释。
+- 229 个 assembly 可做 telomere/subtelomere 候选和 centromere/pericentromere 候选。
+- 21 个 assembly 暂不做结构增强，只保留已有 gene/CDS/splice/promoter/TES 等注释训练。
+
 | 区域 | 定义和来源 | 第一版处理口径 |
 |---|---|---|
 | telomere | contig/scaffold 端部富集植物端粒 motif，如 `TTTAGGG/CCCTAAA` 串联重复；优先使用 T2T assembly 或显式 telomere 注释 | contig 末端 `0-50 kb` 内检测 motif density 和 tandem repeat；只有 motif 密度达阈值时标为 telomere，不把普通 contig edge 伪标为 telomere |

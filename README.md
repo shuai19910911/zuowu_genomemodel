@@ -31,7 +31,7 @@
 - TE family、TE insertion boundary、telomere/subtelomere、centromere/pericentromere、satellite repeat 等结构基因组任务。
 - 跨属留一评测和作物小样本迁移。
 
-详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)，其中包含数据过滤、严格防泄漏 split、区域加权采样、模型输入、loss、训练资源、搬运数据体积、下游任务和评测结果记录表；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)；技术路线图见 [TECHNICAL_ROADMAP.md](TECHNICAL_ROADMAP.md)。
+详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)，其中包含数据过滤、严格防泄漏 split、区域加权采样、模型输入、loss、训练资源、搬运数据体积、下游任务和评测结果记录表；结构基因组自注释可行性见 [STRUCTURAL_ANNOTATION_FEASIBILITY.md](STRUCTURAL_ANNOTATION_FEASIBILITY.md)；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)；技术路线图见 [TECHNICAL_ROADMAP.md](TECHNICAL_ROADMAP.md)。
 训练服务器搬运目录结构和每个文件用途见 [TRANSFER_DIRECTORY_STRUCTURE.md](TRANSFER_DIRECTORY_STRUCTURE.md)。
 
 ## 集群使用边界
@@ -68,3 +68,4 @@
 - 2026-06-10 18:04:57 CST: 按用户确认改为“主 context 候选全部保留 + 更严格窗口质量过滤”；收紧 promoter distal、gene_body、background 保留比例和 N/连续 N/低复杂度阈值，预计最终搬运目录约 60-80GB。
 - 2026-06-10 23:47:01 CST: 完成新策略下 Stage B/C1/C2/D 输入生成；实际写入 41.24B/20.47B/6.90B/2.78B token，`training_server_transfer/` 总体约 67G；package quick check、Stage_D 训练 dry-run 和全目录 `sha256sum -c SHA256SUMS` 均通过。
 - 2026-06-11 08:20:04 CST: 更新训练计划，新增结构基因组增强层；将 telomere/subtelomere、centromere/pericentromere、TE family、TE boundary、satellite/tandem repeat、rDNA/organellar insertion、segmental duplication 和 synteny-breakpoint 纳入候选池、输入字段、loss、下游任务和评测记录模板。
+- 2026-06-11 09:04:34 CST: 基于现有 assembly/contig/QC 元数据完成结构基因组自注释可行性初评；258 个 canonical assembly 中，236 个可做 TE/repeat 和 satellite/tandem repeat，229 个可做 telomere/centromere 候选，228 个可作为第一批结构增强全套候选。
