@@ -16,7 +16,7 @@
 
 主模型采用结构注释感知、区域加权、长上下文、单碱基分辨率、反向互补等变的 Mamba2/Hyena + periodic attention 路线，而不是短窗口测试模型。正式训练重点:
 
-1. 预处理只使用 263 行结构注释完整作物 assembly manifest，按 258 个 canonical assembly accession 防泄漏 split，构建 CDS、splice、UTR、promoter/TSS、TES、gene body、high-quality background 区域；TE/repeat 只在有可靠注释时启用。
+1. 预处理只使用 263 行结构注释完整作物 assembly manifest，按 258 个 canonical assembly accession 防泄漏 split，构建 CDS、splice、UTR、promoter/TSS、TES、gene body、high-quality background 区域；TE/repeat、端粒、着丝粒、satellite/tandem repeat、rDNA、organellar insertion、segmental duplication 等结构基因组信息只在有可靠证据时启用。
 2. 本服务器完成数据处理、候选池、split、防泄漏检查，并按 Stage B/C1/C2/D 固化每个 stage 的训练输入窗口或 `input_ids`。
 3. 训练服务器只接收 `training_server_transfer/` 目录中的当前 stage 数据、配置和必要索引；训练时动态生成 mask、MLM labels、RC 增强和 batch 顺序。
 4. 训练上下文从 8K 扩展到 64K/128K，资源允许再到 256K。
@@ -28,6 +28,7 @@
 - lncRNA/mRNA 分类。
 - ATAC/open chromatin、组织特异表达相关序列预测。
 - SNP/indel/SV 零样本或微调变异效应评分。
+- TE family、TE insertion boundary、telomere/subtelomere、centromere/pericentromere、satellite repeat 等结构基因组任务。
 - 跨属留一评测和作物小样本迁移。
 
 详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)，其中包含数据过滤、严格防泄漏 split、区域加权采样、模型输入、loss、训练资源、搬运数据体积、下游任务和评测结果记录表；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)；技术路线图见 [TECHNICAL_ROADMAP.md](TECHNICAL_ROADMAP.md)。
@@ -66,3 +67,4 @@
 - 2026-06-10 14:21:58 CST: 在 `PROJECT_PLAN.md` 补充 Stage B `30B` 预算的估算依据: 模型规模、Stage B 局部语法任务定位、结构注释高质量数据、磁盘体积、GPU 时间和后续 C1/C2/D 扩长训练共同约束。
 - 2026-06-10 18:04:57 CST: 按用户确认改为“主 context 候选全部保留 + 更严格窗口质量过滤”；收紧 promoter distal、gene_body、background 保留比例和 N/连续 N/低复杂度阈值，预计最终搬运目录约 60-80GB。
 - 2026-06-10 23:47:01 CST: 完成新策略下 Stage B/C1/C2/D 输入生成；实际写入 41.24B/20.47B/6.90B/2.78B token，`training_server_transfer/` 总体约 67G；package quick check、Stage_D 训练 dry-run 和全目录 `sha256sum -c SHA256SUMS` 均通过。
+- 2026-06-11 08:20:04 CST: 更新训练计划，新增结构基因组增强层；将 telomere/subtelomere、centromere/pericentromere、TE family、TE boundary、satellite/tandem repeat、rDNA/organellar insertion、segmental duplication 和 synteny-breakpoint 纳入候选池、输入字段、loss、下游任务和评测记录模板。

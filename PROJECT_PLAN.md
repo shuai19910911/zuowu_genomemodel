@@ -1,6 +1,6 @@
 # CropGenome-FM 作物基因组预训练大模型完整训练计划
 
-更新时间: 2026-06-10 18:04:57 CST
+更新时间: 2026-06-11 08:20:04 CST
 
 ## 1. 最终训练口径
 
@@ -34,7 +34,7 @@
 1. 本服务器读取 263 行完整注释 crop assembly manifest，并折叠为 258 个 canonical assembly accession。
 2. 本服务器流式扫描 FASTA，建立 contig 质量索引。
 3. 本服务器解析 GFF3/GTF，建立 gene、transcript、exon、CDS、UTR、intron、TSS、TES 区域索引。
-4. 本服务器构建 promoter、splice flank、TES/polyA、高质量 intergenic 等训练区域。
+4. 本服务器构建 promoter、splice flank、TES/polyA、高质量 intergenic 等训练区域，并在可靠证据存在时增加端粒、着丝粒/pericentromere、TE/repeat、satellite/tandem repeat、rDNA、organellar insertion、segmental duplication 和 synteny-breakpoint 等结构基因组区域。
 5. 本服务器按 assembly/species/genus/gene-family 严格 split，先 split 后采样，防止泄漏。
 6. 本服务器按 4.2-4.5 规则构建候选池、去冗余、区域采样和 context bucket 配方。
 7. 本服务器按 Stage B/C1/C2/D 分别一次性固化该 stage 的输入窗口或 `input_ids`，但不固化 mask/label/batch order/RC。
@@ -54,9 +54,9 @@
 | `raw_links/` | 指向原始 `.fna.gz/.gff.gz/.gtf.gz` 的路径表或软链接清单，仅本服务器使用 | 否 | < 1 GB |
 | `data_manifests/` | assembly manifest、split、属/物种统计，本服务器中间目录 | 否，最终只搬运 `metadata/` 摘要 | < 1 GB |
 | `sequence_index/` | contig 长度、GC、N、softmask、header、offset，本服务器中间目录 | 否，最终只搬运 QC 摘要 | 约 2.2 GB |
-| `annotation_index/` | gene、transcript、exon、CDS、UTR、TSS/TES，本服务器中间目录 | 否，最终只搬运 QC 摘要 | 约 47 GB |
+| `annotation_index/` | gene、transcript、exon、CDS、UTR、TSS/TES、可选结构基因组注释，本服务器中间目录 | 否，最终只搬运 QC 摘要 | 约 47 GB，加入 repeat/centromere/telomere 后可能增加 |
 | `sampling_index/` | 区域候选池、权重表、过滤规则、split map，本服务器中间目录 | 否，最终只搬运候选汇总 | 约 7.3 GB |
-| `training_server_transfer/` | 专门给用户传到训练服务器的简约目录，包含 configs、metadata、inputs、manifest 和 SHA256 | 是 | 约 50 GB |
+| `training_server_transfer/` | 专门给用户传到训练服务器的简约目录，包含 configs、metadata、inputs、manifest 和 SHA256 | 是 | 约 67 GB |
 | `configs/` | 数据、模型、训练配置 | 是 | < 1 GB |
 | `logs/` | 本服务器预处理日志和训练服务器训练日志 | 可选 | 20-50 GB |
 | `checkpoints/` | 最近 checkpoint 和 best inference 权重，训练服务器产生 | 不从本服务器搬运 | 100-300 GB |
@@ -205,6 +205,39 @@
 | high-quality intergenic | 远离 gene、低 N、低 repeat、GC 正常、非 gap 区 |
 | background | 少量随机 genome 区域，防止模型只见注释区域 |
 
+### 3.5.1 结构基因组增强区域
+
+除常规基因结构区域外，后续版本增加可选的 structural-genome annotation layer。该层不替代 CDS、splice、promoter 等功能标签，而是在可靠证据存在时作为额外 `region_bucket`、`structure_flags`、`repeat_family_id` 和下游 probe 来源。
+
+| 区域 | 定义和来源 | 第一版处理口径 |
+|---|---|---|
+| telomere | contig/scaffold 端部富集植物端粒 motif，如 `TTTAGGG/CCCTAAA` 串联重复；优先使用 T2T assembly 或显式 telomere 注释 | contig 末端 `0-50 kb` 内检测 motif density 和 tandem repeat；只有 motif 密度达阈值时标为 telomere，不把普通 contig edge 伪标为 telomere |
+| subtelomere | telomere 内侧 `50 kb-500 kb` 或物种自适应长度区域，常含 TE、快速演化基因和结构变异 | 作为长上下文区域保留，重点用于 64K/128K/256K 阶段 |
+| centromere core | CENH3/Hi-C/遗传图谱/T2T 注释支持的 centromere 区域，或明显 centromeric satellite 阵列 | 只有外部注释或强 satellite 阵列证据时启用；低置信候选只标为 centromere_like，不进入严格监督标签 |
+| pericentromere | centromere 两侧 repeat-rich、低重组、TE-rich 区域 | 若无明确边界，使用 centromere core 上下游 `0.5-2 Mb` 或 species-specific 边界，低权重进入长上下文训练 |
+| TE/repeat family | RepeatMasker/EDTA/RepeatModeler/现成 repeat GFF 注释；区分 LTR/Gypsy/Copia/LINE/SINE/DNA transposon/Helitron 等 | 有可靠 repeat annotation 才启用；TE family 作为 `repeat_family_id`，不覆盖功能区主标签 |
+| TE insertion boundary | TE interval 起止点上下游 `+/-2 kb` | 100% 保留高质量边界，用于学习 TE 插入、调控边界和结构变异信号 |
+| intact LTR candidate | 完整 LTR retrotransposon 或 LTR pair 注释 | 若有 EDTA/LTRharvest 结果，单独作为 TE 子任务；否则不伪造 |
+| satellite/tandem repeat | TRF/ULTRA/RepeatMasker 标注的 tandem repeat 和 satellite repeat | 区分低复杂度垃圾窗口与高置信 satellite；高置信 satellite 可用于 centromere/telomere 辅助标签 |
+| rDNA/organellar insertion | 45S/5S rDNA cluster、chloroplast/mitochondrial insertion 到核基因组片段 | 作为特殊重复/结构区域，避免误当普通 gene-proximal intergenic |
+| segmental duplication | self-alignment/minimap2/MCScan 或已有注释支持的大段重复 | 高相似重复区用于去冗余和变异/拷贝数相关下游任务 |
+| synteny breakpoint | 跨物种共线性断点、倒位/易位边界 | 作为后期比较基因组增强任务；第一版只预留字段，不强制生成 |
+
+结构基因组层的证据等级:
+
+| 等级 | 证据 | 可用于 |
+|---|---|---|
+| high | 外部 GFF/BED 注释、T2T 注释、CENH3/Hi-C/遗传图谱、EDTA/RepeatMasker family 注释一致 | 候选池保留、region label、辅助监督和下游任务 |
+| medium | motif density、tandem repeat、GC/coverage/softmask pattern 等序列证据强，但缺少外部实验证据 | 候选池保留和弱标签；不用于严格监督 benchmark |
+| low | 只有 contig 位置或低复杂度特征 | 只能作为过滤/质量 flag，不作为 telomere/centromere/TE 正例 |
+
+关键原则:
+
+- 没有结构注释的 assembly 仍可用于 gene/CDS/splice 等已可靠区域，但不启用 TE/centromere/telomere 监督标签。
+- 端粒和着丝粒在非 T2T assembly 中容易缺失或断裂；只在证据达标时使用，避免把 scaffold 边缘或 gap 区误标。
+- TE/repeat 需要 family-level 注释才进入 TE family 子任务；只有 softmask 而无 family 时只作为 repeat-rich flag。
+- 结构区域优先服务长上下文阶段 C1/C2/D，不应挤占 CDS/splice 等高置信核心功能 token。
+
 输出:
 
 - `annotation_index/regions.parquet`
@@ -289,7 +322,7 @@ Stage_B_actual_tokens
 |---|---|---|---|
 | 候选池区域保留比例 | 本服务器预处理阶段 | distal intergenic 只保留 3%-5% | 决定哪些原始窗口有资格进入候选池，用于压缩数据和去掉低价值背景 |
 | stage 长度 token 比例 | 本服务器 stage 固化阶段 | Stage B 中 70% token 来自 8K | 决定一个 stage 内不同 context length 对总 token 的贡献 |
-| 训练 batch 区域采样比例 | stage 固化和训练 loader 统计阶段 | 当前无 TE 模式下 CDS 28%、splice 18% | 决定训练 token 在不同功能区域上的目标分布 |
+| 训练 batch 区域采样比例 | stage 固化和训练 loader 统计阶段 | 模式 S 含 TE/端粒/着丝粒；模式 B 无可靠结构注释 | 决定训练 token 在不同功能区域上的目标分布 |
 
 Stage B 的实际抽样逻辑:
 
@@ -440,6 +473,13 @@ contig 边缘:
 | TE/repeat annotated | 50% | 只有可靠 repeat 注释时启用 |
 | gene-proximal TE/repeat | 100% | 距 gene body 或 promoter `20 kb` 内的 TE/repeat 全部保留 |
 | TE boundary | 100% | TE 边界上下游 `+/-2 kb` 全部保留 |
+| high-confidence telomere | 100% | motif density 达标或有 telomere 注释的端粒窗口全部保留；contig 末端但无 motif 证据不标为 telomere |
+| subtelomere | 30%-50% | telomere 内侧高质量窗口，优先保留 TE/gene-rich、低 N、非 gap 片段 |
+| centromere core | 100% | 有 CENH3/Hi-C/T2T/satellite 强证据的核心着丝粒窗口全部保留 |
+| pericentromere | 20%-40% | centromere 两侧 repeat-rich 区域分层保留，长 context 优先 |
+| satellite/tandem repeat high-confidence | 30%-50% | 高置信 satellite/tandem repeat 保留为结构区域；低复杂度但无结构证据的窗口仍按低复杂度过滤 |
+| rDNA/organellar insertion | 100% high-confidence; 20% weak | 高置信 rDNA/叶绿体/线粒体核插入全部保留，弱证据仅低权重保留 |
+| segmental duplication | 20%-40% | 大段重复/拷贝数相关区域保留代表窗口，避免同一 assembly 内重复过采样 |
 | gene-proximal intergenic | 约 5% | 距任意 gene `20 kb` 内，优先 `N <= 0.5%-1%`、非低复杂度、完整覆盖窗口 |
 | distal intergenic / far noncoding | 1%-2% | `N <= 0.5%-1%`、无长 N、非低复杂度、非高度重复、GC 在本 genome `5%-95%` 分位范围内 |
 | random genome coverage | 0.5%-1% | 从通过 hard filter 的全基因组窗口中额外抽样，避免完全丢失背景分布 |
@@ -449,6 +489,8 @@ TE/repeat 规则:
 - 有 repeat 注释的 assembly 才启用 TE/repeat 候选池。
 - 无 repeat 注释 genome 不把 intergenic 伪标为 non-repeat 或 TE/repeat。
 - TE/repeat 只作为区域标签和采样层，不覆盖 CDS、splice、UTR、promoter 等高优先级功能标签。
+- telomere/centromere/satellite 只在 high 或 medium 证据下进入候选池；low 证据只作为 quality/structure flag。
+- 如果同一窗口同时命中 CDS/splice/promoter 与 TE 或结构区域，主 `region_bucket` 仍按 CDS/splice/promoter 等功能区优先，结构信息写入 `structure_flags`。
 
 ### 4.4 去冗余和代表性控制
 
@@ -465,7 +507,25 @@ TE/repeat 规则:
 
 区域采样参考 `douke_genome` 项目的思路: 优先保留 CDS、splice、promoter/TSS、UTR 等功能区和边界区；intron/intergenic 降低比例；TE/repeat 只有在存在可靠 TE/repeat 注释时进入，不允许把普通 intergenic 伪标为 non-repeat 或 TE。参考: https://github.com/shuai19910911/douke_genome/blob/main/PLAN.md
 
-训练 batch 的目标区域比例分为两种模式。
+训练 batch 的目标区域比例分为三种模式。
+
+模式 S: 有可靠 TE/repeat + telomere/centromere/satellite 等结构注释时使用。该模式适合 T2T assembly、已有 repeat annotation 或后续本服务器补齐 EDTA/RepeatMasker/TRF 等注释后的版本。
+
+| 区域 | 采样比例 | loss 权重 | 目的 |
+|---|---:|---:|---|
+| CDS/protein-coding exon | 22% | 1.50 | 密码子、ORF、保守编码结构 |
+| splice donor/acceptor | 14% | 2.00 | 剪接位点和外显子边界 |
+| promoter/TSS | 13% | 1.40 | 启动子和表达调控 |
+| UTR | 8% | 1.20 | 翻译调控、mRNA 稳定性 |
+| TES/polyA | 5% | 1.20 | 转录终止和 polyA |
+| intron/gene body | 9% | 0.90 | 长程 gene body 和调控上下文 |
+| TE/repeat family | 10% | 0.85 | TE family、repeat grammar、TE 调控背景 |
+| TE boundary/intact LTR | 4% | 1.10 | TE 插入边界、完整 LTR、结构变异相关信号 |
+| telomere/subtelomere | 4% | 0.90 | 染色体末端重复、subtelomeric 快速演化区域 |
+| centromere/pericentromere/satellite | 5% | 0.85 | 着丝粒卫星重复、低重组 repeat-rich 长上下文 |
+| rDNA/organellar insertion/segmental duplication | 2% | 0.80 | 特殊重复、核质插入、大段重复 |
+| high-quality intergenic | 3% | 0.60 | 高质量非编码背景 |
+| random background | 1% | 0.50 | 保留 genome-wide 分布 |
 
 模式 A: 有可靠 TE/repeat 注释时使用。
 
@@ -496,7 +556,7 @@ TE/repeat 规则:
 
 这是 batch sampler 的目标比例，不是 genome 的真实比例。每个 epoch 记录实际采样比例并做偏差修正。
 
-当前默认采用模式 B，除非后续为当前 crop assembly 补齐可靠 TE/repeat 注释或外部 repeat annotation。
+当前默认采用模式 B，除非后续为当前 crop assembly 补齐可靠 TE/repeat 注释或外部 repeat annotation。若补齐 telomere/centromere/satellite 等结构注释，则切换到模式 S。
 
 ## 5. 严格防泄漏 split
 
@@ -579,6 +639,8 @@ TE/repeat 规则:
 ```text
 input_ids:       [L] uint8, 或 sequence window
 region_ids:      [L] uint8
+structure_flags: [L] uint16 optional, telomere/centromere/satellite/TE/rDNA/duplication 等多标签位标记
+repeat_family_id:[L] int32 optional, TE/repeat family；未知或未启用为 -1
 region_weights:  [L] fp16/bf16 base value
 quality_scores:  [L] optional fp16 or compact flags
 metadata:        assembly_id, species_id, genus_id, contig_id, start, end, strand, split, context_bucket
@@ -591,6 +653,8 @@ input_ids:       [B, L] int64
 labels_mlm:      [B, L] int64, 非 mask 位点为 -100
 loss_mask:       [B, L] bool
 region_ids:      [B, L] uint8, 来自固化输入
+structure_flags: [B, L] uint16 optional
+repeat_family_id:[B, L] int32 optional
 region_weights:  [B, L] fp16/bf16, 可在 base value 上动态调整
 quality_scores:  [B, L] optional fp16, 来自固化输入或 flags
 rc_flag:         [B] bool
@@ -620,6 +684,14 @@ token vocabulary:
 
 IUPAC ambiguous bases 默认转为 N。N、PAD、低质量碱基不参与主 loss。
 
+结构标签编码:
+
+| 字段 | 含义 |
+|---|---|
+| `structure_flags` | 位标记，不互斥；可同时表示 `TE`, `TE_boundary`, `telomere`, `subtelomere`, `centromere`, `pericentromere`, `satellite`, `tandem_repeat`, `rDNA`, `organellar_insertion`, `segmental_duplication`, `synteny_breakpoint` |
+| `repeat_family_id` | TE/repeat family 编号；仅在 RepeatMasker/EDTA/RepeatModeler 或外部 GFF 能给出 family/class 时启用 |
+| `structure_confidence` | optional，high/medium/low 编码；low 不用于监督正例，只用于过滤和分析 |
+
 context:
 
 - Stage B: 8192。
@@ -635,6 +707,7 @@ context:
 
 - single-base token embedding。
 - region embedding。
+- structure flag embedding 和 repeat family embedding，只有结构注释可靠时启用。
 - optional strand/quality embedding。
 - RC-equivariant bidirectional Mamba2/Hyena backbone。
 - 每 4-6 层插入 local/global sparse attention。
@@ -642,6 +715,8 @@ context:
 - SwiGLU/gated MLP。
 - MLM head。
 - causal auxiliary head。
+- optional structure multi-label head: telomere、subtelomere、centromere、pericentromere、satellite、TE boundary、rDNA、segmental duplication 等。
+- optional TE/repeat family head: 只在 family-level repeat annotation 可靠时启用。
 - region-aware probe/contrastive head。
 
 推荐配置:
@@ -672,6 +747,8 @@ L_total =
   + 0.10 * L_causal_next_token
   + 0.05 * L_reverse_complement_consistency
   + 0.05 * L_region_contrastive_optional
+  + 0.03 * L_structure_multilabel_optional
+  + 0.02 * L_repeat_family_optional
 ```
 
 ### 9.1 Region-weighted MLM
@@ -695,6 +772,15 @@ L_total =
 ### 9.3 Reverse-complement consistency
 
 同一窗口 forward 与 reverse-complement 的 embedding、masked logits 或 variant score 应一致，用于降低 DNA 方向偏置。
+
+### 9.4 Structure and repeat auxiliary losses
+
+结构辅助 loss 只在 high/medium 证据标签存在时启用，且权重低于主 MLM，避免模型为学习重复分类而牺牲 CDS/splice/TSS 等核心功能。
+
+- `L_structure_multilabel_optional`: 多标签 BCE/focal loss，标签包括 telomere、subtelomere、centromere、pericentromere、satellite/tandem repeat、TE boundary、rDNA、organellar insertion、segmental duplication。
+- `L_repeat_family_optional`: TE/repeat family classification，只有 EDTA/RepeatMasker/RepeatModeler 或外部 repeat GFF 能提供 family/class 时启用。
+- low confidence 结构标签不作为正例监督，只用于分组 loss 统计和错误分析。
+- 对 telomere/centromere/satellite 这类高度重复区域，MLM mask 使用较长 span 和较低 loss 权重，防止模型过度记忆简单重复。
 
 ## 10. 训练阶段、资源和时间
 
@@ -722,15 +808,15 @@ CPU 总体: 3-7 天，取决于是否一次性生成全部 Stage B/C1/C2/D 输�
 - Stage C1 从 Stage B checkpoint 继续训练到 64K。
 - Stage C2 从 Stage C1 checkpoint 继续训练到 128K。
 - Stage D 从 Stage C2 checkpoint 继续做 256K midtraining，资源允许后执行。
-- 每个阶段设置一个主 context length，同时混入少量短 context replay，防止短程功能位点能力退化。
-- 长度比例按 token 数统计，不按 batch 数统计。
+- 每个阶段设置一个主 context length；当前固化输入采用“主 context 合格候选全部写入 + 辅助 context 受控 replay/warm-up”。
+- 长度组成以 `summary.tsv` 和 `manifest.tsv` 实际 token 为准，不再使用旧版固定 token 预算截断主 context。
 
-| 阶段 | 主 context | 长度组成/token 比例 | token 预算 | 推荐 GPU | 预计时间 | 目标 |
+| 阶段 | 主 context | 长度组成逻辑 | 已固化 token | 推荐 GPU | 预计时间 | 目标 |
 |---|---:|---|---:|---:|---:|---|
-| Stage B | 8K | 70% 8K + 20% 4K + 10% 16K warm-up | 30B-80B | 4-8 x 80GB | 5-18 天 | 局部 motif、CDS、splice、TSS/TES |
-| Stage C1 | 64K | 70% 64K + 15% 8K + 10% 16K/32K + 5% 4K | 15B-40B | 8 x 80GB | 7-18 天 | gene body、promoter-gene、长 intron |
-| Stage C2 | 128K | 75% 128K + 15% 64K + 10% 8K/16K | 5B-20B | 8 x 80GB | 5-14 天 | 远端调控和结构上下文 |
-| Stage D | 256K | 80% 256K + 15% 128K + 5% 8K/64K | 2B-10B | 8-16 x 80GB | 4-14 天 | 资源允许后做长上下文 midtraining |
+| Stage B | 8K | 全部 8K 主候选 + 4K/16K 受控 warm-up/replay | 41.24B | 4-8 x 80GB | 5-18 天 | 局部 motif、CDS、splice、TSS/TES、TE boundary 初步表示 |
+| Stage C1 | 64K | 全部 64K 主候选 + 4K/8K/16K/32K 受控 replay | 20.47B | 8 x 80GB | 7-18 天 | gene body、promoter-gene、长 intron、subtelomere/pericentromere |
+| Stage C2 | 128K | 全部 128K 主候选 + 8K/16K/64K 受控 replay | 6.90B | 8 x 80GB | 5-14 天 | 远端调控、TE-rich region、centromere/subtelomere 上下文 |
+| Stage D | 256K | 全部 256K 主候选 + 8K/64K/128K 受控 replay | 2.78B | 8-16 x 80GB | 4-14 天 | 资源允许后做染色体结构长上下文 midtraining |
 
 不采用完全多长度混合的原因:
 
@@ -743,9 +829,9 @@ CPU 总体: 3-7 天，取决于是否一次性生成全部 Stage B/C1/C2/D 输�
 本服务器生成 stage 输入时使用两级抽样:
 
 1. 先抽 `context_bucket`: `4K`, `8K`, `16K`, `32K`, `64K`, `128K`, `256K`。
-2. 再在该长度桶内按区域比例抽 `region_bucket`: CDS、splice、TSS、UTR、TES、intron、TE/repeat、intergenic、background。
+2. 再在该长度桶内按区域比例抽 `region_bucket`: CDS、splice、TSS、UTR、TES、intron、TE/repeat、telomere/subtelomere、centromere/pericentromere、satellite、intergenic、background。
 
-执行口径: context bucket 的比例按 token 计数，不按窗口数计数。例如 Stage B 的 `70% 8K` 表示 Stage B 总 token 中约 70% 来自 8K 窗口；它不是保留所有 8K 候选，也不是在 8K 候选中固定抽 70% 或 80%。若 8K 候选池远大于配额，只抽到 token 配额为止；若某个区域在 8K 桶中候选不足，按同长度桶内预设 fallback 区域补齐，并在 `summary.tsv` 中记录偏差。
+执行口径: 当前版本不再用旧版 `70% 8K` 作为 Stage B 主 context 截断预算。Stage B 的 8K、Stage C1 的 64K、Stage C2 的 128K、Stage D 的 256K 都是该 stage 的主 context；主 context 中通过质量过滤、区域规则、去冗余和 split 防泄漏的候选全部写入。4K/8K/16K/32K/64K/128K 等非主长度只作为受控 replay 或 warm-up，防止短程功能 probe 退化，并在 `summary.tsv` 中记录实际 token 偏差。
 
 训练服务器 dataloader 读取已经固化的 stage 输入，并在训练时组织 batch:
 
@@ -774,6 +860,8 @@ CPU 总体: 3-7 天，取决于是否一次性生成全部 Stage B/C1/C2/D 输�
 | CDS frame/start-stop probe | 编码区语法 | 不明显低于 Stage B checkpoint |
 | TSS/TES probe | 中程调控能力 | C1 后应优于 Stage B 或至少不退化 |
 | long intron/promoter-gene probe | 长程上下文能力 | C1/C2 应较 Stage B 有提升 |
+| TE boundary / repeat family probe | 重复序列和插入边界表示 | 启用 TE 注释后应优于随机初始化和 DNABERT-2 embedding |
+| telomere/centromere/satellite probe | 染色体结构区域表示 | 只在 high-confidence 标签上评估；C2/D 应优于 Stage B |
 | RC consistency | 双链一致性 | 长阶段不能退化 |
 | tokens/s 和 GPU memory | 工程可训练性 | 达到可持续训练吞吐，无频繁 OOM |
 
@@ -810,6 +898,14 @@ CPU 总体: 3-7 天，取决于是否一次性生成全部 Stage B/C1/C2/D 输�
 | chromatin/open region | ATAC/DNase peaks | matched closed regions | species/tissue holdout | AUROC, AUPRC | 接入标签后，长上下文可能优于短窗口模型 |
 | expression proxy | promoter/gene body -> expression bin | matched genes | tissue/species holdout | Spearman, AUROC | 依赖外部表达标签，作为中后期任务 |
 | variant effect | ref/alt 功能变异 | neutral/matched variants | gene/LD block holdout | AUROC, Spearman | causal likelihood + RC consistency，预计优于纯 MLM embedding |
+| TE family classification | family-level TE/repeat annotation | other repeat families + matched non-repeat | assembly/species holdout | macro-F1, AUROC | 结构区域预训练和 repeat family embedding 应优于普通 DNA embedding |
+| TE insertion boundary | TE 起止边界 +/-2kb | TE 内部、matched intergenic | family + species holdout | AUROC, AUPRC, boundary F1 | TE boundary 专门采样，预计优于未显式建模 TE 的基线 |
+| intact LTR / solo LTR | intact LTR 注释 | fragmented/solo/other repeat | assembly holdout | AUROC, macro-F1 | 长上下文可利用 LTR pair 和内部结构 |
+| telomere/subtelomere detection | high-confidence telomere/subtelomere | contig edge non-telomere + distal intergenic | assembly holdout；低置信不进测试 | AUROC, AUPRC | motif + 长上下文结合，预计优于只看 k-mer density 的规则模型 |
+| centromere/pericentromere detection | CENH3/Hi-C/T2T/satellite 支持区域 | matched repeat-rich non-centromere | species/assembly holdout | AUROC, AUPRC | 通过 satellite、TE 和长程重复上下文，预计优于短窗口模型 |
+| satellite/tandem repeat class | high-confidence tandem/satellite repeat | low-complexity non-satellite + random repeat | assembly holdout | macro-F1 | 区分结构性卫星重复和低复杂度垃圾窗口 |
+| rDNA / organellar insertion | 45S/5S rDNA、cp/mt nuclear insertion | matched repeat/intergenic | assembly holdout | AUROC, AUPRC | 减少特殊重复被误学为普通 intergenic |
+| segmental duplication / CNV-prone region | self-alignment 或已有 duplication 注释 | unique matched regions | assembly/species holdout | AUROC, AUPRC | 对大段重复和变异热点有更好表征 |
 
 ## 12. 基线比较
 
@@ -828,14 +924,35 @@ CPU 总体: 3-7 天，取决于是否一次性生成全部 Stage B/C1/C2/D 输�
 3. CDS/UTR/intron 区域分类。
 4. promoter/TES 严格 holdout。
 5. gene-family holdout 下的 lncRNA/mRNA。
+6. TE insertion boundary 和 TE family classification，前提是 repeat annotation 可靠。
+7. telomere/centromere/satellite probe，前提是 high-confidence 结构标签足够。
 
 不保证全面超过的任务:
 
 - expression regression。
 - chromatin/open region 跨组织泛化。
 - 农艺变异 effect size 排序。
+- telomere/centromere 跨物种泛化；这类区域高度物种特异，必须报告按物种/属分层结果。
 
 所有“优于基线”的说法必须以后续严格 benchmark 为准。
+
+### 12.1 结构基因组增强的文献和工具依据
+
+本计划纳入 telomere、centromere、TE/repeat、satellite/tandem repeat 等信息的原因:
+
+- AgroNT 已证明植物基因组 foundation model 可用于 regulatory annotation、promoter/terminator、gene expression 和 variant prioritization 等任务；本项目在此基础上增加结构注释感知和更长 context。
+- EDTA/RepeatMasker/RepeatModeler 是植物 TE/repeat 注释的主要候选工具；其中 EDTA 面向 de novo TE annotation 和高质量非冗余 TE library 构建。
+- Tandem Repeats Finder、TRASH、RepeatOBserver 等工具可用于 tandem repeat/satellite repeat 探测，适合支持 telomere、centromere 和 satellite 弱标签。
+- T2T 植物基因组研究显示，完整 assembly 能解析普通参考基因组常缺失的 telomere、centromere、satellite arrays、rDNA cluster 和 repeat-rich 结构区域；这类区域应作为长上下文模型的关键补充。
+
+可参考资料:
+
+- AgroNT edible plant genome foundation model: https://www.nature.com/articles/s42003-024-06465-2
+- EDTA TE annotation: https://github.com/oushujun/EDTA
+- TRASH tandem repeat annotation: https://pmc.ncbi.nlm.nih.gov/articles/PMC10199239/
+- Tandem Repeats Finder: https://tandem.bu.edu/trf/trf.html
+- Plant centromere structure/evolution review: https://genome.cshlp.org/content/34/2/161
+- T2T wheat genome example: https://www.nature.com/articles/s41588-025-02137-x
 
 ## 13. 评测结果记录与更新规则
 
@@ -861,6 +978,14 @@ results/
     chromatin_open_region/
     expression_proxy/
     variant_effect/
+    te_family/
+    te_boundary/
+    intact_ltr/
+    telomere_subtelomere/
+    centromere_pericentromere/
+    satellite_tandem_repeat/
+    rdna_organellar_insertion/
+    segmental_duplication/
   baselines/
     cnn/
     dnabert2/
@@ -892,7 +1017,7 @@ GitHub 文档只记录:
 预训练阶段必须记录:
 
 - train/val loss。
-- 按区域分组 loss: CDS、splice、promoter/TSS、TES、UTR、intron、intergenic。
+- 按区域分组 loss: CDS、splice、promoter/TSS、TES、UTR、intron、TE/repeat、telomere/subtelomere、centromere/pericentromere、satellite、intergenic。
 - 按属/物种分组 val loss。
 - RC consistency 指标。
 - tokens/s 和 GPU 显存峰值。
@@ -913,6 +1038,14 @@ GitHub 文档只记录:
 | 待填 | chromatin/open region | species/tissue holdout | CropGenome-FM | 待填 | 待填 | 待填 | - | 待填 | 待填 | 待填 | 待填 |
 | 待填 | expression proxy | tissue/species holdout | CropGenome-FM | 待填 | 待填 | 待填 | Spearman 待填 | 待填 | 待填 | 待填 | 待填 |
 | 待填 | variant effect | gene/LD block holdout | CropGenome-FM | 待填 | 待填 | 待填 | Spearman 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | TE family classification | assembly/species holdout | CropGenome-FM | 待填 | 待填 | 待填 | macro-F1 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | TE insertion boundary | family + species holdout | CropGenome-FM | 待填 | 待填 | 待填 | boundary F1 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | intact LTR / solo LTR | assembly holdout | CropGenome-FM | 待填 | 待填 | 待填 | macro-F1 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | telomere/subtelomere | assembly holdout | CropGenome-FM | 待填 | 待填 | 待填 | high-confidence only | 待填 | 待填 | 待填 | 待填 |
+| 待填 | centromere/pericentromere | species/assembly holdout | CropGenome-FM | 待填 | 待填 | 待填 | high-confidence only | 待填 | 待填 | 待填 | 待填 |
+| 待填 | satellite/tandem repeat | assembly holdout | CropGenome-FM | 待填 | 待填 | 待填 | macro-F1 待填 | 待填 | 待填 | 待填 | 待填 |
+| 待填 | rDNA/organellar insertion | assembly holdout | CropGenome-FM | 待填 | 待填 | 待填 | - | 待填 | 待填 | 待填 | 待填 |
+| 待填 | segmental duplication | assembly/species holdout | CropGenome-FM | 待填 | 待填 | 待填 | - | 待填 | 待填 | 待填 | 待填 |
 
 ### 13.4 基线比较记录表
 
