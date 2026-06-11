@@ -69,3 +69,4 @@
 - 2026-06-10 23:47:01 CST: 完成新策略下 Stage B/C1/C2/D 输入生成；实际写入 41.24B/20.47B/6.90B/2.78B token，`training_server_transfer/` 总体约 67G；package quick check、Stage_D 训练 dry-run 和全目录 `sha256sum -c SHA256SUMS` 均通过。
 - 2026-06-11 08:20:04 CST: 更新训练计划，新增结构基因组增强层；将 telomere/subtelomere、centromere/pericentromere、TE family、TE boundary、satellite/tandem repeat、rDNA/organellar insertion、segmental duplication 和 synteny-breakpoint 纳入候选池、输入字段、loss、下游任务和评测记录模板。
 - 2026-06-11 09:04:34 CST: 基于现有 assembly/contig/QC 元数据完成结构基因组自注释可行性初评；258 个 canonical assembly 中，236 个可做 TE/repeat 和 satellite/tandem repeat，229 个可做 telomere/centromere 候选，228 个可作为第一批结构增强全套候选。
+- 2026-06-11 10:02:58 CST: 按“只处理可做结构注释的 assembly”启动正式结构注释批处理；q07/q08 提交结构扫描 237 个 targets，2 核 8G array 高并发运行，用于 telomere/subtelomere、centromere-like/pericentromere-like、repeat-rich 和 satellite proxy；同时提交 EDTA 236 个 targets，8 核 48G array 运行，用于 TE family、TE boundary 和 repeat 注释。任务 job ID: 结构扫描 `8541368`/`8541367`，EDTA `8541135`/`8541134`。

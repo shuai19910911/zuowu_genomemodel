@@ -73,3 +73,7 @@ analysis/structural_annotation_feasibility/
 2. 对 236 个 TE/satellite 可做 assembly 分批跑 EDTA 或 RepeatModeler/RepeatMasker；大基因组如 Hordeum、Triticum、Saccharum 单独排队。
 3. 着丝粒不要直接当 high-confidence 标签，只先生成 `centromere_like` 和 `pericentromere_like`，后续有 CENH3/Hi-C/T2T 注释时再升级。
 4. 结构增强训练时只把 high/medium 证据写入 `structure_flags`；low 证据只作为 QC flag，不做监督正例。
+
+## 执行进展
+
+- 2026-06-11 10:02:58 CST: 已按本文件筛出的可做 assembly 启动正式批处理，不对全部 genome 目录盲目处理。结构扫描对 237 个 targets 运行，提交到 q07/q08，资源为每任务 2 核、8G 内存、高并发 array，用于生成 telomere/subtelomere、centromere-like/pericentromere-like、repeat-rich 和 satellite proxy 注释。EDTA 对 236 个 targets 运行，提交到 q07/q08，资源为每任务 8 核、48G 内存、每分区 9 个并发，用于生成 TE family、TE boundary 和 repeat 注释。`EDTA2.0` 环境只用于调用既有软件，不在该环境内安装或改动软件。
