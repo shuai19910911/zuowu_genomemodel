@@ -157,6 +157,7 @@ metadata:        assembly_id, species_id, genus_id, contig_id, start, end, stran
 | Hyena long DNA | HyenaDNA, Evo 2 | 单碱基、长上下文、likelihood 评分 | 工程复杂 | 主体方向 |
 | RC Mamba/Caduceus | Caduceus, PlantCAD | DNA 双链归纳偏置强 | 需要适配区域加权和长上下文 | 主体方向 |
 | Transformer-Mamba2 hybrid | HybriDNA | 注意力 + SSM 互补 | 显存和实现复杂 | periodic attention |
+| Explicit cross-strand DNA LM | CrossDNA | 显式双分支建模 forward 与 reverse-complement，并通过轻量 cross-strand communication 做动态双链信息交换；方向鲁棒性和 enhancer 等调控任务表现更强 | 当前公开实现主要是 2K/human reference 预训练和小参数模型；需适配作物长上下文、区域加权和结构注释 | v1.1 升级方向 |
 | 监督长调控模型 | AlphaGenome, Enformer, Borzoi | 调控预测强 | 依赖大规模标签，不是纯预训练 | 下游头和评测参考 |
 
 ### 5.2 推荐 block
@@ -182,6 +183,40 @@ metadata:        assembly_id, species_id, genus_id, contig_id, start, end, stran
 | precision | bf16 |
 | optimizer | AdamW |
 | context | 8K -> 64K -> 128K -> 256K |
+
+### 5.3 CrossDNA 启发的 v1.1 双链交互升级
+
+2026 年 Nature Machine Intelligence 文章 `Explicit dynamic cross-strand interactions for DNA sequence language modelling` 提出 CrossDNA，其关键区别是把 DNA 双链关系从“数据增强或 RC 等变约束”升级为“显式、动态的跨链交互”。文章和官方代码显示，CrossDNA 使用 duplex-inspired dual-branch 架构，同时处理 forward 与 reverse-complement 视图，并通过 lightweight cross-strand communication module 建立链间通信；同时结合 recurrent long-context backbone 和 sliding-window attention。
+
+对 CropGenome-FM 的启发:
+
+1. 当前 v1-backbone 的 RC augmentation 和 `L_RC_consistency` 仍属于隐式双链建模，只约束方向一致，不显式让 forward/RC 两个视图交换信息。
+2. v1.1 应在 Stage B checkpoint 之后引入 `CrossStrandBlock`，而不是中断当前训练重来。这样可保留已学到的作物局部语法，再做 cross-strand continued pretraining。
+3. 推荐 block 形式:
+
+```text
+forward ids x_f
+reverse-complement ids x_rc
+
+h_f  = shared_or_tied_backbone_block(x_f)
+h_rc = shared_or_tied_backbone_block(x_rc)
+
+c_f, c_rc = CrossStrandCommunication(h_f, h_rc)
+h_f  = h_f  + gated(c_f)
+h_rc = h_rc + gated(c_rc)
+
+fused = orientation_invariant_pool(h_f, reverse_back(h_rc))
+```
+
+4. `CrossStrandCommunication` 第一版只用轻量实现: low-rank cross attention、gated token-wise fusion 或每 N 层一次的 local cross-attention；不在每层全量 cross-attention，避免 8K/64K 长上下文显存爆炸。
+5. 作物场景中，显式双链交互优先用于 enhancer/promoter、splice、TSS/TES、motif orientation、variant effect 和 strand-biased annotation 任务；结构区域如 TE boundary、telomere、centromere-like 也可评估方向鲁棒性。
+6. 新增评测指标: `cross_strand_delta = |score(x) - score(RC(x))|`，以及 forward/RC embedding cosine、variant effect RC consistency、enhancer/promoter orientation robustness。
+
+实施顺序:
+
+- v1: 当前已启动的 `v1-backbone` Stage_B 继续训练，不中断。
+- v1.1: 从 Stage_B checkpoint 做 8K cross-strand midtraining，先只打开每 4-6 层一次的轻量 cross-strand communication。
+- v1.2: 如果 v1.1 在 RC consistency、enhancer/promoter、splice 和 variant effect probe 上优于 v1，再把 cross-strand block 带入 C1/C2 长上下文阶段。
 
 ## 6. 输出
 

@@ -717,6 +717,7 @@ context:
 - structure flag embedding 和 repeat family embedding，只有结构注释可靠时启用。
 - optional strand/quality embedding。
 - RC-equivariant bidirectional Mamba2/Hyena backbone。
+- v1.1 可升级为 CrossDNA 启发的显式动态 cross-strand 双分支结构，在 forward 与 reverse-complement 分支之间加入轻量链间通信。
 - 每 4-6 层插入 local/global sparse attention。
 - RMSNorm。
 - SwiGLU/gated MLP。
@@ -779,6 +780,47 @@ L_total =
 ### 9.3 Reverse-complement consistency
 
 同一窗口 forward 与 reverse-complement 的 embedding、masked logits 或 variant score 应一致，用于降低 DNA 方向偏置。
+
+### 9.3.1 CrossDNA 启发的显式 cross-strand objective
+
+文献 `Explicit dynamic cross-strand interactions for DNA sequence language modelling` 的核心启发是: DNA language model 不应只依赖 RC augmentation 或静态 RC consistency，而应让 forward strand 与 reverse-complement strand 在模型内部显式、动态交互。CrossDNA 的 duplex-inspired dual-branch 思路可作为 CropGenome-FM v1.1 的升级方向。
+
+本项目采用保守升级:
+
+1. 不停止当前 `v1-backbone` Stage B。当前训练继续作为正式 backbone checkpoint。
+2. Stage B 达到可用 checkpoint 后，新增 `v1.1-cross-strand-midtraining`:
+   - 输入同一窗口的 `x_forward` 和 `x_reverse_complement`。
+   - 两个分支共享或部分共享 embedding/backbone 参数。
+   - 每 4-6 层加入一次轻量 `CrossStrandCommunication`。
+   - 将 RC 分支 hidden state reverse 回 forward 坐标后做 gated fusion。
+3. 训练目标在原有 loss 上加入:
+
+```text
+L_cross_strand =
+  L_MLM_forward
+  + L_MLM_reverse_complement
+  + 0.03 * L_cross_strand_embedding_alignment
+  + 0.02 * L_cross_strand_logit_alignment
+```
+
+4. 若显存紧张，cross-strand midtraining 先使用:
+   - 8K context。
+   - micro_batch_size 减半。
+   - cross-strand communication 只在少数层启用。
+   - 不在 64K/128K 阶段立即全量启用。
+5. 只有当 v1.1 在 RC consistency、splice、promoter/TSS、enhancer/open chromatin、variant effect 等 probe 上优于 v1-backbone，才把 cross-strand block 纳入 C1/C2 长上下文训练。
+
+预期收益:
+
+- 降低方向偏置，比单纯 RC augmentation 更稳定。
+- 对 motif orientation、双链互补相关的调控模式、剪接边界和变异效应评分更有利。
+- 对 enhancer/promoter 这类文章中强调的调控序列任务，预计比当前隐式 RC consistency 版本更强。
+
+风险:
+
+- 显式双分支会增加约 1.5-2 倍显存和计算量。
+- 若 cross-strand communication 太频繁，8K/64K 训练吞吐会明显下降。
+- 作物长基因组和 repeat-rich 区域比 human 2K benchmark 更复杂，必须用本项目的跨属/跨 assembly holdout probe 验证，不能直接假设收益。
 
 ### 9.4 Structure and repeat auxiliary losses
 
