@@ -37,7 +37,7 @@
 ## 集群使用边界
 
 - 当前环境是 Slurm 登录节点。
-- CPU 任务由用户或后续脚本提交到 `q07` 或 `q08`，每个计算节点最多 30 核、150G 内存，每批最多 6 个命令，例如 `sbatch -p q07 -c 30 run.sh`。
+- CPU 任务只允许提交到 `q07`，每个计算节点最多 30 核、150G 内存，每批最多 6 个命令，例如 `sbatch -p q07 -c 30 run.sh`；未运行的 CPU 任务不得再提交到 `q08/cu/q04/q05`。
 - Python 环境使用 `mamba` 环境 `zuowu_genomemodel`。
 - GPU 训练命令先只生成给用户执行，例如 `CUDA_VISIBLE_DEVICES=1,2 python train.py ...`；暂不由本会话直接启动 GPU 训练。
 
