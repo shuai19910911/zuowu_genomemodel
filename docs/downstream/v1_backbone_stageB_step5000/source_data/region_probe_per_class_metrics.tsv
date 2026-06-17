@@ -1,0 +1,15 @@
+class	support	tp	fp	fn	precision	recall	f1	version_id	task	probe	method
+coding	8	6	19	2	0.24	0.75	0.363636	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	CropGenome-FM v1 frozen embedding
+splice	8	0	5	8	0	0	0	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	CropGenome-FM v1 frozen embedding
+promoter	8	0	1	8	0	0	0	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	CropGenome-FM v1 frozen embedding
+utr	8	0	6	8	0	0	0	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	CropGenome-FM v1 frozen embedding
+tes	8	2	8	6	0.2	0.25	0.222222	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	CropGenome-FM v1 frozen embedding
+gene_body	8	1	1	7	0.5	0.125	0.2	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	CropGenome-FM v1 frozen embedding
+background	8	4	3	4	0.571429	0.5	0.533333	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	CropGenome-FM v1 frozen embedding
+coding	8	2	5	6	0.285714	0.25	0.266667	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+splice	8	0	13	8	0	0	0	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+promoter	8	2	5	6	0.285714	0.25	0.266667	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+utr	8	0	0	8	0	0	0	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+tes	8	0	1	8	0	0	0	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+gene_body	8	6	18	2	0.25	0.75	0.375	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+background	8	1	3	7	0.25	0.125	0.166667	v1_backbone_stageB_step5000	region_bucket_classification	nearest_centroid	1-mer composition baseline

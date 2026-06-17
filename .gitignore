@@ -9,6 +9,9 @@ stage_windows/
 training_server_transfer/*
 !training_server_transfer/README.md
 local_intermediate_not_for_transfer/
+analysis/
+structural_annotation/
+.ssh_known_hosts
 scripts/
 slurm/
 configs/local*

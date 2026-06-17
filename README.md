@@ -31,7 +31,7 @@
 - TE family、TE insertion boundary、telomere/subtelomere、centromere/pericentromere、satellite repeat 等结构基因组任务。
 - 跨属留一评测和作物小样本迁移。
 
-详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)，其中包含数据过滤、严格防泄漏 split、区域加权采样、模型输入、loss、训练资源、搬运数据体积、下游任务和评测结果记录表；结构基因组自注释可行性见 [STRUCTURAL_ANNOTATION_FEASIBILITY.md](STRUCTURAL_ANNOTATION_FEASIBILITY.md)；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)；技术路线图见 [TECHNICAL_ROADMAP.md](TECHNICAL_ROADMAP.md)。
+详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)，其中包含数据过滤、严格防泄漏 split、区域加权采样、模型输入、loss、训练资源、搬运数据体积、下游任务和评测结果记录表；结构基因组自注释可行性见 [STRUCTURAL_ANNOTATION_FEASIBILITY.md](STRUCTURAL_ANNOTATION_FEASIBILITY.md)；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)；技术路线图见 [TECHNICAL_ROADMAP.md](TECHNICAL_ROADMAP.md)；训练和下游指标见 [docs/TRAINING_METRICS.md](docs/TRAINING_METRICS.md) 与 [docs/downstream/README.md](docs/downstream/README.md)。
 训练服务器搬运目录结构和每个文件用途见 [TRANSFER_DIRECTORY_STRUCTURE.md](TRANSFER_DIRECTORY_STRUCTURE.md)。
 
 ## 集群使用边界
