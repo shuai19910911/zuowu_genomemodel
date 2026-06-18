@@ -58,7 +58,25 @@
 
 未生成 SVG（可缩放矢量图）文件，符合本次约束。
 
-## 6. 限制和下一步
+## 6. 128 bp 公平对照补充
+
+为和 formal CaduceusRC（反向互补一致性正式版）step1000 做公平比较，额外用同一批采样规模重跑了 128 bp（碱基对）CPU-bounded probe（CPU 限定探针）。该结果不覆盖上面的 512 bp（碱基对）结果。
+
+| 方法 | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别平均召回） | train n（训练样本数） | test n（测试样本数） |
+|---|---:|---:|---:|---:|---:|
+| CropGenome-FM v1 frozen embedding | 0.196429 | 0.166405 | 0.196429 | 56 | 56 |
+| 1-mer composition baseline | 0.178571 | 0.147429 | 0.178571 | 56 | 56 |
+| Delta（模型 - 基线） | +0.017858 | +0.018976 | +0.017858 | - | - |
+
+128 bp 图和源数据:
+
+- Figure PNG（位图预览）: [`figures/region_probe_128bp_overview.png`](figures/region_probe_128bp_overview.png)
+- Figure PDF（矢量图）: [`figures/region_probe_128bp_overview.pdf`](figures/region_probe_128bp_overview.pdf)
+- Metrics source data（指标源数据）: [`source_data/region_probe_128bp_metrics_summary.tsv`](source_data/region_probe_128bp_metrics_summary.tsv)
+- Per-class source data（分类别源数据）: [`source_data/region_probe_128bp_per_class_metrics.tsv`](source_data/region_probe_128bp_per_class_metrics.tsv)
+- Sample count source data（样本数源数据）: [`source_data/region_probe_128bp_sample_counts.tsv`](source_data/region_probe_128bp_sample_counts.tsv)
+
+## 7. 限制和下一步
 
 - 这是 first-pass sanity probe（第一轮合理性探针），不是正式 benchmark（基准评测）。
 - 因 GPU2（2号显卡）正在跑正式训练，本次不抢占 GPU，只做 CPU-bounded（CPU 限定）评测。

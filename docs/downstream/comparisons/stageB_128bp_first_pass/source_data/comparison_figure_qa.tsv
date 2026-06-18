@@ -1,0 +1,6 @@
+item	value
+backend	R/ggplot2/ragg
+exports	PDF and 600-dpi PNG
+source_data	model_comparison_metrics.tsv
+svg_policy	No SVG generated
+claim_boundary	128 bp CPU-bounded first-pass probe; not final benchmark
