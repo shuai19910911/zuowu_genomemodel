@@ -1,0 +1,6 @@
+item	value
+backend	R/ggplot2/grid/ragg
+exports	PDF and 600-dpi PNG
+source_data	metrics_summary.tsv; per_class_metrics.tsv; sample_counts.tsv
+svg_policy	No SVG generated
+claim_boundary	First-pass CPU-bounded probe; not final benchmark

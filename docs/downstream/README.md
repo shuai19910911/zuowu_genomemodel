@@ -7,19 +7,23 @@
 | Version ID | 状态 | checkpoint（模型存档点） | 说明 | 下游结果 |
 |---|---|---|---|---|
 | `v1_backbone_stageB_step5000` | 已完成 first-pass probe（第一轮探针评测） | `training_server_transfer/runs/Stage_B/checkpoints/step_00005000.pt` | 上一版 legacy HyenaLite（旧版长卷积序列模型）Stage_B（第二阶段预训练）checkpoint；保留 512 bp（碱基对）结果，并补充 128 bp 公平对照 | [`v1_backbone_stageB_step5000/`](v1_backbone_stageB_step5000/) |
-| `formal_caduceus_rc_stageB_step1000` | 已完成 first-pass probe（第一轮探针评测） | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00001000.pt` | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第一个 checkpoint；CPU-bounded（CPU 限定）128 bp 公平对照 | [`formal_caduceus_rc_stageB_step1000/`](formal_caduceus_rc_stageB_step1000/) |
-| `formal_caduceus_rc_stageB_mb5` | 继续训练中 | 后续 step2000/step3000 待填 | 当前正式 CaduceusRC（反向互补一致性）Stage_B，micro-batch（单次显卡小批量）=5，GPU2（2号显卡）训练 | 待后续 checkpoint 追加 |
+| `formal_caduceus_rc_stageB_step1000` | 已完成 128 bp first-pass probe（第一轮探针评测） | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00001000.pt` | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第一个 checkpoint；CPU-bounded（CPU 限定）128 bp 公平对照 | [`formal_caduceus_rc_stageB_step1000/`](formal_caduceus_rc_stageB_step1000/) |
+| `formal_caduceus_rc_stageB_step2000` | 已完成 128 bp first-pass probe（第一轮探针评测） | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00002000.pt` | 同口径追加评测；Macro-F1（类别平均 F1）低于 baseline（基线），提示小样本波动 | [`formal_caduceus_rc_stageB_step2000/`](formal_caduceus_rc_stageB_step2000/) |
+| `formal_caduceus_rc_stageB_step3000` | 已完成 128 bp first-pass probe（第一轮探针评测） | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00003000.pt` | 同口径追加评测；Macro-F1（类别平均 F1）恢复到高于 baseline（基线），但低于 step1000 | [`formal_caduceus_rc_stageB_step3000/`](formal_caduceus_rc_stageB_step3000/) |
+| `formal_caduceus_rc_stageB_mb5` | 继续训练中 | 后续 step4000/step5000 待填 | 当前正式 CaduceusRC（反向互补一致性）Stage_B，micro-batch（单次显卡小批量）=5，GPU2（2号显卡）训练 | 待后续 checkpoint 追加 |
 
 ## 当前已提交的下游任务
 
 | 任务 | 数据 | 方法 | 当前结论 |
 |---|---|---|---|
-| region_bucket_classification（功能区域桶分类） | Stage_B（第二阶段）held-out test split（保留测试划分）窗口；7 类：coding（编码区）、splice（剪接区域）、promoter（启动子）、UTR（非翻译区）、TES（转录终止区域）、gene_body（基因主体）、background（背景区域） | frozen embedding nearest-centroid probe（冻结表示最近质心探针）对比 1-mer composition baseline（单碱基组成基线） | 128 bp（碱基对）公平口径下，formal CaduceusRC step1000 的 Macro-F1（类别平均 F1）为 0.200834，高于 v1 step5000 的 0.166405，也高于 1-mer baseline（单碱基组成基线）的 0.147429；仍属于 first-pass probe（第一轮探针），不是正式 benchmark（基准评测） |
+| region_bucket_classification（功能区域桶分类） | Stage_B（第二阶段）held-out test split（保留测试划分）窗口；7 类：coding（编码区）、splice（剪接区域）、promoter（启动子）、UTR（非翻译区）、TES（转录终止区域）、gene_body（基因主体）、background（背景区域） | frozen embedding nearest-centroid probe（冻结表示最近质心探针）对比 1-mer composition baseline（单碱基组成基线） | 128 bp（碱基对）公平口径下，formal CaduceusRC step1000/2000/3000 的 Macro-F1（类别平均 F1）分别为 0.200834 / 0.088710 / 0.176644；baseline（基线）为 0.147429。当前趋势仍不稳定，只能作为 first-pass probe（第一轮探针）观察，不是正式 benchmark（基准评测）。 |
 
-## 跨版本对比
+## 跨版本和趋势对比
 
-- 128 bp 公平对比图: [`comparisons/stageB_128bp_first_pass/figures/stageB_128bp_comparison.png`](comparisons/stageB_128bp_first_pass/figures/stageB_128bp_comparison.png)
-- 128 bp 公平对比源数据: [`comparisons/stageB_128bp_first_pass/source_data/model_comparison_metrics.tsv`](comparisons/stageB_128bp_first_pass/source_data/model_comparison_metrics.tsv)
+- v1 vs formal step1000 128 bp 公平对比图: [`comparisons/stageB_128bp_first_pass/figures/stageB_128bp_comparison.png`](comparisons/stageB_128bp_first_pass/figures/stageB_128bp_comparison.png)
+- v1 vs formal step1000 128 bp 公平对比源数据: [`comparisons/stageB_128bp_first_pass/source_data/model_comparison_metrics.tsv`](comparisons/stageB_128bp_first_pass/source_data/model_comparison_metrics.tsv)
+- formal CaduceusRC step1000/2000/3000 128 bp 趋势图: [`comparisons/formal_caduceus_rc_128bp_step_trend/figures/formal_caduceus_rc_128bp_step_trend.png`](comparisons/formal_caduceus_rc_128bp_step_trend/figures/formal_caduceus_rc_128bp_step_trend.png)
+- formal CaduceusRC step1000/2000/3000 128 bp 趋势源数据: [`comparisons/formal_caduceus_rc_128bp_step_trend/source_data/step_trend_metrics.tsv`](comparisons/formal_caduceus_rc_128bp_step_trend/source_data/step_trend_metrics.tsv)
 
 ## 图和源数据规则
 

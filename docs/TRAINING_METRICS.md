@@ -1,6 +1,6 @@
 # Training and downstream metrics
 
-更新时间: 2026-06-18 09:34:36 CST
+更新时间: 2026-06-19 21:29 CST
 
 ## 术语白话说明
 
@@ -17,26 +17,42 @@
 |---|---|---|---:|---|---|
 | `v1_backbone_stageB_step5000` | 已停止，作为上一版对照 | `training_server_transfer/runs/Stage_B/checkpoints/step_00005000.pt` | 5000 | legacy HyenaLite（旧版长卷积序列模型）Stage_B（第二阶段预训练）；保留 512 bp（碱基对）结果，并补充 128 bp 公平对照 | [`docs/downstream/v1_backbone_stageB_step5000/`](downstream/v1_backbone_stageB_step5000/) |
 | `formal_caduceus_rc_stageB_step1000` | checkpoint 已评估，训练继续 | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00001000.pt` | 1000 | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第一个 checkpoint | [`docs/downstream/formal_caduceus_rc_stageB_step1000/`](downstream/formal_caduceus_rc_stageB_step1000/) |
-| `formal_caduceus_rc_stageB_mb5` | 正在训练 | 后续 checkpoint 待填 | 1220 | 当前正式 CaduceusRC（反向互补一致性）Stage_B，micro-batch（单次显卡小批量）=5，GPU2（2号显卡）训练 | step2000/step3000 待追加 |
+| `formal_caduceus_rc_stageB_step2000` | checkpoint 已评估，训练继续 | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00002000.pt` | 2000 | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第二个 checkpoint | [`docs/downstream/formal_caduceus_rc_stageB_step2000/`](downstream/formal_caduceus_rc_stageB_step2000/) |
+| `formal_caduceus_rc_stageB_step3000` | checkpoint 已评估，训练继续 | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00003000.pt` | 3000 | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第三个 checkpoint | [`docs/downstream/formal_caduceus_rc_stageB_step3000/`](downstream/formal_caduceus_rc_stageB_step3000/) |
+| `formal_caduceus_rc_stageB_mb5` | 正在训练 | 后续 checkpoint 待填 | 3860 | 当前正式 CaduceusRC（反向互补一致性）Stage_B，micro-batch（单次显卡小批量）=5，GPU2（2号显卡）训练 | step4000/step5000 待追加 |
 
 ## 2. 当前正式 CaduceusRC Stage_B 状态
 
 - 训练日志: `training_server_transfer/logs/formal_caduceus_rc_stage_B_gpu2_mb5_20260617_170004.log`
 - 当前训练状态: 正在运行
 - 当前 GPU: `gpu10` 的 GPU2（2号显卡）
-- 当前 step: `1220`
-- 当前 train loss: `1.249460`
-- 当前 MLM loss（masked language modeling，遮盖碱基预测损失）: `1.249364`
-- 当前 RC loss（reverse-complement consistency，反向互补一致性损失）: `0.003212`
-- 当前 learning rate（学习率）: `2.44e-05`
-- 最近 validation（验证）: step `1000`，val loss `1.244846`，val MLM loss `1.244806`，val RC loss `0.001336`
-- 最新 checkpoint（模型存档点）: `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00001000.pt`
+- 当前 step: `3860`
+- 当前 train loss: `1.073802`
+- 当前 MLM loss（masked language modeling，遮盖碱基预测损失）: `1.070998`
+- 当前 RC loss（reverse-complement consistency，反向互补一致性损失）: `0.093446`
+- 当前 learning rate（学习率）: `7.72e-05`
+- 最近 validation（验证）: step `3000`，val loss `1.191384`，val MLM loss `1.190400`，val RC loss `0.032809`
+- 最新 checkpoint（模型存档点）: `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00003000.pt`
 
 ## 3. 下游 first-pass probe 结果
 
 任务: `region_bucket_classification`（功能区域桶分类）。
 
-### 3.1 128 bp 公平对比
+### 3.1 128 bp formal CaduceusRC checkpoint trend（训练步趋势）
+
+| checkpoint（模型存档点） | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别平均召回） | Delta Macro-F1 vs baseline（相对基线） |
+|---|---:|---:|---:|---:|
+| step1000 | 0.214286 | 0.200834 | 0.214286 | +0.053405 |
+| step2000 | 0.125000 | 0.088710 | 0.125000 | -0.058719 |
+| step3000 | 0.214286 | 0.176644 | 0.214286 | +0.029215 |
+
+1-mer composition baseline（单碱基组成基线）Macro-F1（类别平均 F1）为 0.147429。
+
+结论: 训练 loss（损失）和 validation loss（验证损失）继续下降，说明预训练主任务在学习；但 128 bp（碱基对）小样本 probe（探针评测）趋势不稳定，step2000 低于 baseline（基线），step3000 恢复到高于 baseline（基线）但仍低于 step1000。因此目前只能说“有早期区域表示信号，但下游小测波动较大”，不能写成正式 benchmark（基准评测）胜利。
+
+详细趋势见: [`docs/downstream/comparisons/formal_caduceus_rc_128bp_step_trend/`](downstream/comparisons/formal_caduceus_rc_128bp_step_trend/)
+
+### 3.2 128 bp v1 vs formal step1000 公平对比
 
 | 方法 | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别平均召回） | Delta Macro-F1 vs baseline（相对基线提升） |
 |---|---:|---:|---:|---:|
@@ -44,11 +60,9 @@
 | v1 backbone step5000 | 0.196429 | 0.166405 | 0.196429 | +0.018976 |
 | formal CaduceusRC step1000 | 0.214286 | 0.200834 | 0.214286 | +0.053405 |
 
-结论: 在相同 128 bp（碱基对）CPU-bounded first-pass probe（CPU 限定第一轮探针）口径下，formal CaduceusRC step1000 的 Macro-F1（类别平均 F1）高于旧 v1 step5000 和 1-mer composition baseline（单碱基组成基线）。这说明正式 CaduceusRC 的早期 checkpoint 已经出现更强的区域表示信号；但该结论仍不能写成正式 benchmark（基准评测）胜利。
-
 详细对比见: [`docs/downstream/comparisons/stageB_128bp_first_pass/`](downstream/comparisons/stageB_128bp_first_pass/)
 
-### 3.2 v1 512 bp 历史结果
+### 3.3 v1 512 bp 历史结果
 
 | 方法 | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别平均召回） |
 |---|---:|---:|---:|

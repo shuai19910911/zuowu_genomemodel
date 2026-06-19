@@ -1,0 +1,15 @@
+class	support	tp	fp	fn	precision	recall	f1	version_id	task	probe	method
+coding	8	0	3	8	0	0	0	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	CropGenome-FM formal CaduceusRC frozen embedding
+splice	8	0	2	8	0	0	0	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	CropGenome-FM formal CaduceusRC frozen embedding
+promoter	8	3	10	5	0.230769	0.375	0.285714	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	CropGenome-FM formal CaduceusRC frozen embedding
+utr	8	1	4	7	0.2	0.125	0.153846	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	CropGenome-FM formal CaduceusRC frozen embedding
+tes	8	1	6	7	0.142857	0.125	0.133333	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	CropGenome-FM formal CaduceusRC frozen embedding
+gene_body	8	3	8	5	0.272727	0.375	0.315789	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	CropGenome-FM formal CaduceusRC frozen embedding
+background	8	4	11	4	0.266667	0.5	0.347826	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	CropGenome-FM formal CaduceusRC frozen embedding
+coding	8	0	2	8	0	0	0	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+splice	8	1	10	7	0.0909091	0.125	0.105263	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+promoter	8	0	2	8	0	0	0	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+utr	8	1	1	7	0.5	0.125	0.2	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+tes	8	2	3	6	0.4	0.25	0.307692	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+gene_body	8	5	22	3	0.185185	0.625	0.285714	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	1-mer composition baseline
+background	8	1	6	7	0.142857	0.125	0.133333	formal_caduceus_rc_stageB_step3000	region_bucket_classification	nearest_centroid	1-mer composition baseline
