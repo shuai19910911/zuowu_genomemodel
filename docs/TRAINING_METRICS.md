@@ -1,6 +1,6 @@
 # Training and downstream metrics
 
-更新时间: 2026-06-20 07:40 CST
+更新时间: 2026-06-20 08:18 CST
 
 ## 术语白话说明
 
@@ -20,27 +20,36 @@
 | `formal_caduceus_rc_stageB_step2000` | checkpoint 已评估，训练继续 | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00002000.pt` | 2000 | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第二个 checkpoint | [`docs/downstream/formal_caduceus_rc_stageB_step2000/`](downstream/formal_caduceus_rc_stageB_step2000/) |
 | `formal_caduceus_rc_stageB_step3000` | checkpoint 已评估，训练继续 | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00003000.pt` | 3000 | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第三个 checkpoint | [`docs/downstream/formal_caduceus_rc_stageB_step3000/`](downstream/formal_caduceus_rc_stageB_step3000/) |
 | `formal_caduceus_rc_stageB_step4000` | checkpoint 已产生，暂不跑小样本 probe | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00004000.pt` | 4000 | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第四个 checkpoint；先记录训练/验证指标，等待 step5000 后再做同口径 probe（探针评测） | 待 step5000 一并趋势解释 |
-| `formal_caduceus_rc_stageB_mb5` | 正在训练 | 后续 checkpoint 待填 | 4620 | 当前正式 CaduceusRC（反向互补一致性）Stage_B，micro-batch（单次显卡小批量）=5，GPU2（2号显卡）训练 | step5000 待追加 |
+| `formal_caduceus_rc_stageB_mb5` | 正在训练 | 后续 checkpoint 待填 | 4660 | 当前正式 CaduceusRC（反向互补一致性）Stage_B，micro-batch（单次显卡小批量）=5，GPU2（2号显卡）训练 | step5000 待追加 |
 
 ## 2. 当前正式 CaduceusRC Stage_B 状态
 
 - 训练日志: `training_server_transfer/logs/formal_caduceus_rc_stage_B_gpu2_mb5_20260617_170004.log`
 - 当前训练状态: 正在运行
 - 当前 GPU: `gpu10` 的 GPU2（2号显卡）
-- 当前 step: `4620`
-- 当前 train loss: `1.116680`
-- 当前 MLM loss（masked language modeling，遮盖碱基预测损失）: `1.114170`
-- 当前 RC loss（reverse-complement consistency，反向互补一致性损失）: `0.083661`
-- 当前 learning rate（学习率）: `9.24e-05`
+- 当前 step: `4660`
+- 当前 train loss: `1.133583`
+- 当前 MLM loss（masked language modeling，遮盖碱基预测损失）: `1.131287`
+- 当前 RC loss（reverse-complement consistency，反向互补一致性损失）: `0.076531`
+- 当前 learning rate（学习率）: `9.32e-05`
 - 最近 validation（验证）: step `4000`，val loss `1.157540`，val MLM loss `1.155714`，val RC loss `0.060867`
 - 最新 checkpoint（模型存档点）: `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00004000.pt`
 - 按最近速度估算，step5000 checkpoint（模型存档点）约在 `2026-06-20 12:49 CST` 出现。
 
-## 3. 下游 first-pass probe 结果
+## 3. 训练 loss curve（损失曲线）
+
+- Loss curve PNG（损失曲线位图预览）: [`docs/training_curves/formal_caduceus_rc_stageB/figures/formal_caduceus_rc_stageB_loss_curve.png`](training_curves/formal_caduceus_rc_stageB/figures/formal_caduceus_rc_stageB_loss_curve.png)
+- Loss curve PDF（损失曲线矢量图）: [`docs/training_curves/formal_caduceus_rc_stageB/figures/formal_caduceus_rc_stageB_loss_curve.pdf`](training_curves/formal_caduceus_rc_stageB/figures/formal_caduceus_rc_stageB_loss_curve.pdf)
+- Loss curve source data（损失曲线源数据）: [`docs/training_curves/formal_caduceus_rc_stageB/source_data/formal_caduceus_rc_stageB_loss_curve.tsv`](training_curves/formal_caduceus_rc_stageB/source_data/formal_caduceus_rc_stageB_loss_curve.tsv)
+- Loss summary source data（损失摘要源数据）: [`docs/training_curves/formal_caduceus_rc_stageB/source_data/formal_caduceus_rc_stageB_loss_summary.tsv`](training_curves/formal_caduceus_rc_stageB/source_data/formal_caduceus_rc_stageB_loss_summary.tsv)
+
+当前曲线包含 466 个 train loss（训练损失）记录点和 4 个 validation loss（验证损失）记录点。train loss（训练损失）和 validation loss（验证损失）整体下降，说明预训练主任务仍在学习；这仍不等价于正式 downstream benchmark（下游基准评测）已经稳定提升。
+
+## 4. 下游 first-pass probe 结果
 
 任务: `region_bucket_classification`（功能区域桶分类）。
 
-### 3.1 128 bp formal CaduceusRC checkpoint trend（训练步趋势）
+### 4.1 128 bp formal CaduceusRC checkpoint trend（训练步趋势）
 
 | checkpoint（模型存档点） | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别平均召回） | Delta Macro-F1 vs baseline（相对基线） |
 |---|---:|---:|---:|---:|
@@ -54,7 +63,7 @@
 
 详细趋势见: [`docs/downstream/comparisons/formal_caduceus_rc_128bp_step_trend/`](downstream/comparisons/formal_caduceus_rc_128bp_step_trend/)
 
-### 3.2 128 bp v1 vs formal step1000 公平对比
+### 4.2 128 bp v1 vs formal step1000 公平对比
 
 | 方法 | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别平均召回） | Delta Macro-F1 vs baseline（相对基线提升） |
 |---|---:|---:|---:|---:|
@@ -64,7 +73,7 @@
 
 详细对比见: [`docs/downstream/comparisons/stageB_128bp_first_pass/`](downstream/comparisons/stageB_128bp_first_pass/)
 
-### 3.3 v1 512 bp 历史结果
+### 4.3 v1 512 bp 历史结果
 
 | 方法 | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别平均召回） |
 |---|---:|---:|---:|
@@ -73,7 +82,7 @@
 
 v1 512 bp（碱基对）结果保留为历史记录，但不直接和 formal 128 bp（碱基对）结果混用；跨版本比较以 128 bp 公平对照为准。
 
-## 4. GitHub 记录规则
+## 5. GitHub 记录规则
 
 - GitHub 只保存轻量 README、TSV（表格源数据）、PNG/PDF 图和 QA（质量检查）表。
 - 不上传 checkpoint（模型存档点）、embedding（向量表示）、逐样本大预测文件、训练输入 shard（分片）或日志大文件。

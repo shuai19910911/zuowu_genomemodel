@@ -1,0 +1,16 @@
+item	value
+run_id	formal_caduceus_rc_stageB_mb5
+log_path	training_server_transfer/logs/formal_caduceus_rc_stage_B_gpu2_mb5_20260617_170004.log
+train_points	466
+validation_points	4
+first_train_step	10
+latest_train_step	4660
+latest_train_loss	1.13358318806
+latest_train_mlm_loss	1.13128727674
+latest_train_rc_loss	0.0765309826072
+latest_learning_rate	9.32e-05
+latest_validation_step	4000
+latest_validation_loss	1.15753963636
+latest_validation_mlm_loss	1.15571362199
+latest_validation_rc_loss	0.0608672737289
+remote_log_mtime	2026-06-20 08:12:38
