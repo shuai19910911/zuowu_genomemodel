@@ -1,6 +1,6 @@
 # Training and downstream metrics
 
-更新时间: 2026-06-20 08:18 CST
+更新时间: 2026-06-22 10:45 CST
 
 ## 术语白话说明
 
@@ -19,22 +19,23 @@
 | `formal_caduceus_rc_stageB_step1000` | checkpoint 已评估，训练继续 | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00001000.pt` | 1000 | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第一个 checkpoint | [`docs/downstream/formal_caduceus_rc_stageB_step1000/`](downstream/formal_caduceus_rc_stageB_step1000/) |
 | `formal_caduceus_rc_stageB_step2000` | checkpoint 已评估，训练继续 | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00002000.pt` | 2000 | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第二个 checkpoint | [`docs/downstream/formal_caduceus_rc_stageB_step2000/`](downstream/formal_caduceus_rc_stageB_step2000/) |
 | `formal_caduceus_rc_stageB_step3000` | checkpoint 已评估，训练继续 | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00003000.pt` | 3000 | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第三个 checkpoint | [`docs/downstream/formal_caduceus_rc_stageB_step3000/`](downstream/formal_caduceus_rc_stageB_step3000/) |
-| `formal_caduceus_rc_stageB_step4000` | checkpoint 已产生，暂不跑小样本 probe | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00004000.pt` | 4000 | 当前正式 CaduceusRC（反向互补一致性）Stage_B 第四个 checkpoint；先记录训练/验证指标，等待 step5000 后再做同口径 probe（探针评测） | 待 step5000 一并趋势解释 |
-| `formal_caduceus_rc_stageB_mb5` | 正在训练 | 后续 checkpoint 待填 | 4660 | 当前正式 CaduceusRC（反向互补一致性）Stage_B，micro-batch（单次显卡小批量）=5，GPU2（2号显卡）训练 | step5000 待追加 |
+| `formal_caduceus_rc_stageB_step4000` | checkpoint 已产生，未跑小样本 probe | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00004000.pt` | 4000 | 记录训练/验证指标；下游趋势以 step5000/8000 追加 probe 为准 | 待需要时补评 |
+| `formal_caduceus_rc_stageB_step5000` | checkpoint 已评估，训练继续 | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00005000.pt` | 5000 | 当前同口径小样本 probe（探针评测）最高点 | [`docs/downstream/formal_caduceus_rc_stageB_step5000/`](downstream/formal_caduceus_rc_stageB_step5000/) |
+| `formal_caduceus_rc_stageB_step8000` | checkpoint 已评估，训练继续 | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00008000.pt` | 8000 | 最新已评估 checkpoint（模型存档点） | [`docs/downstream/formal_caduceus_rc_stageB_step8000/`](downstream/formal_caduceus_rc_stageB_step8000/) |
+| `formal_caduceus_rc_stageB_mb5` | 正在训练 | 后续 checkpoint 待填 | 8380 | 当前正式 CaduceusRC（反向互补一致性）Stage_B，micro-batch（单次显卡小批量）=5，GPU2（2号显卡）训练 | step9000/step10000 待追加 |
 
 ## 2. 当前正式 CaduceusRC Stage_B 状态
 
 - 训练日志: `training_server_transfer/logs/formal_caduceus_rc_stage_B_gpu2_mb5_20260617_170004.log`
 - 当前训练状态: 正在运行
 - 当前 GPU: `gpu10` 的 GPU2（2号显卡）
-- 当前 step: `4660`
-- 当前 train loss: `1.133583`
-- 当前 MLM loss（masked language modeling，遮盖碱基预测损失）: `1.131287`
-- 当前 RC loss（reverse-complement consistency，反向互补一致性损失）: `0.076531`
-- 当前 learning rate（学习率）: `9.32e-05`
-- 最近 validation（验证）: step `4000`，val loss `1.157540`，val MLM loss `1.155714`，val RC loss `0.060867`
-- 最新 checkpoint（模型存档点）: `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00004000.pt`
-- 按最近速度估算，step5000 checkpoint（模型存档点）约在 `2026-06-20 12:49 CST` 出现。
+- 当前 step: `8380`
+- 当前 train loss: `0.995245`
+- 当前 MLM loss（masked language modeling，遮盖碱基预测损失）: `0.991729`
+- 当前 RC loss（reverse-complement consistency，反向互补一致性损失）: `0.117178`
+- 当前 learning rate（学习率）: `1.68e-04`
+- 最近 validation（验证）: step `8000`，val loss `1.122568`，val MLM loss `1.119921`，val RC loss `0.088235`
+- 最新 checkpoint（模型存档点）: `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00008000.pt`
 
 ## 3. 训练 loss curve（损失曲线）
 
@@ -43,7 +44,7 @@
 - Loss curve source data（损失曲线源数据）: [`docs/training_curves/formal_caduceus_rc_stageB/source_data/formal_caduceus_rc_stageB_loss_curve.tsv`](training_curves/formal_caduceus_rc_stageB/source_data/formal_caduceus_rc_stageB_loss_curve.tsv)
 - Loss summary source data（损失摘要源数据）: [`docs/training_curves/formal_caduceus_rc_stageB/source_data/formal_caduceus_rc_stageB_loss_summary.tsv`](training_curves/formal_caduceus_rc_stageB/source_data/formal_caduceus_rc_stageB_loss_summary.tsv)
 
-当前曲线包含 466 个 train loss（训练损失）记录点和 4 个 validation loss（验证损失）记录点。train loss（训练损失）和 validation loss（验证损失）整体下降，说明预训练主任务仍在学习；这仍不等价于正式 downstream benchmark（下游基准评测）已经稳定提升。
+当前曲线包含 590 个 train loss（训练损失）记录点和 6 个 validation loss（验证损失）记录点。train loss（训练损失）和 validation loss（验证损失）总体下降，说明预训练主任务仍在学习；这仍不等价于正式 downstream benchmark（下游基准评测）已经稳定提升。
 
 ## 4. 下游 first-pass probe 结果
 
@@ -56,10 +57,12 @@
 | step1000 | 0.214286 | 0.200834 | 0.214286 | +0.053405 |
 | step2000 | 0.125000 | 0.088710 | 0.125000 | -0.058719 |
 | step3000 | 0.214286 | 0.176644 | 0.214286 | +0.029215 |
+| step5000 | 0.267857 | 0.242750 | 0.267857 | +0.095321 |
+| step8000 | 0.232143 | 0.208736 | 0.232143 | +0.061307 |
 
 1-mer composition baseline（单碱基组成基线）Macro-F1（类别平均 F1）为 0.147429。
 
-结论: 训练 loss（损失）和 validation loss（验证损失）继续下降，说明预训练主任务在学习；但 128 bp（碱基对）小样本 probe（探针评测）趋势不稳定，step2000 低于 baseline（基线），step3000 恢复到高于 baseline（基线）但仍低于 step1000。因此目前只能说“有早期区域表示信号，但下游小测波动较大”，不能写成正式 benchmark（基准评测）胜利。
+结论: 训练 loss（损失）和 validation loss（验证损失）总体下降，说明预训练主任务仍在学习；128 bp（碱基对）小样本 probe（探针评测）中，step5000/8000 都高于 baseline（基线），其中 step5000 当前最高。但该 probe（探针评测）仍有波动，不能写成正式 benchmark（基准评测）胜利。
 
 详细趋势见: [`docs/downstream/comparisons/formal_caduceus_rc_128bp_step_trend/`](downstream/comparisons/formal_caduceus_rc_128bp_step_trend/)
 

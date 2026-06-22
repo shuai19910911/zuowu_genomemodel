@@ -1,8 +1,8 @@
 item	value
 backend	R/ggplot2/ragg
-input_rows	470
-train_rows	466
-validation_rows	4
+input_rows	598
+train_rows	590
+validation_rows	6
 exports	PDF and 600-dpi PNG
 svg_policy	No SVG generated
-visual_qa_note	Compressed 183 mm x 62 mm GitHub-preview-friendly three-facet plot; legend moved to bottom after visual QA
+visual_qa_note	Updated through latest available log snapshot; compressed GitHub-preview-friendly three-facet plot

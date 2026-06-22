@@ -4,4 +4,4 @@ exports	PDF and 600-dpi PNG
 source_data	step_trend_metrics.tsv
 svg_policy	No SVG generated
 claim_boundary	First-pass CPU-bounded trend; not final benchmark
-visual_qa_note	Legend shortened for readability; exact method names remain in source data
+visual_qa_note	Updated through step8000; legend moved to bottom and height compressed after visual QA
