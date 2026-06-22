@@ -1,8 +1,17 @@
 # Hermes 交接文档: zuowu_genomemodel
 
-更新时间: 2026-06-16 13:10 CST  
+更新时间: 2026-06-22 12:30 CST
 项目目录: `/home/user/zhangzhishuai/myhermes/zuowu_genomemodel`  
 GitHub: `git@github.com:shuai19910911/zuowu_genomemodel.git`
+
+## 0. 2026-06-22 最新状态覆盖说明
+
+- GPU Stage_B（第二阶段训练）formal CaduceusRC（正式反向互补一致性模型）训练已按用户要求停止；GPU2（2号显卡）上的目标训练进程树已退出，停止后 GPU2 显存占用为 0 MiB。
+- 停止时最后 train step（训练步）为 8500；最新完整 checkpoint（模型存档点）是 `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00008000.pt`。
+- validation loss（验证损失）最低点是 step5000，val loss（验证损失）为 1.079774；step8000 val loss（验证损失）为 1.122568。
+- 128 bp（128 个碱基对）downstream probe（下游探针评测）最高点是 step5000，Macro-F1（类别平均 F1）为 0.242750；step8000 Macro-F1（类别平均 F1）为 0.208736，仍高于 1-mer baseline（单碱基组成基线）0.147429。
+- 最终评价文档: `docs/TRAINING_EVALUATION_STOP_20260622.md`。
+- 当前结论: 不建议继续盲目延长同一配置；下一步优先对 step5000 和 step8000 做更大样本、更长序列长度的正式 downstream benchmark（下游基准评测）。
 
 ## 1. 交接给 Hermes 的一句话
 

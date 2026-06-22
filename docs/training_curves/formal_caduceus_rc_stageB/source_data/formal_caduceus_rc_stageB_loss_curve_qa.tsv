@@ -5,4 +5,4 @@ train_rows	590
 validation_rows	6
 exports	PDF and 600-dpi PNG
 svg_policy	No SVG generated
-visual_qa_note	Updated through latest available log snapshot; compressed GitHub-preview-friendly three-facet plot
+visual_qa_note	Final stopped-run loss curve through step8500; latest complete checkpoint step8000

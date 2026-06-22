@@ -12,7 +12,7 @@
 | `formal_caduceus_rc_stageB_step3000` | 已完成 128 bp first-pass probe（第一轮探针评测） | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00003000.pt` | 同口径追加评测；Macro-F1（类别平均 F1）恢复到高于 baseline（基线） | [`formal_caduceus_rc_stageB_step3000/`](formal_caduceus_rc_stageB_step3000/) |
 | `formal_caduceus_rc_stageB_step5000` | 已完成 128 bp first-pass probe（第一轮探针评测） | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00005000.pt` | 当前同口径小样本 probe（探针评测）最高点，Macro-F1（类别平均 F1）=0.242750 | [`formal_caduceus_rc_stageB_step5000/`](formal_caduceus_rc_stageB_step5000/) |
 | `formal_caduceus_rc_stageB_step8000` | 已完成 128 bp first-pass probe（第一轮探针评测） | `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00008000.pt` | 最新已评估 checkpoint（模型存档点）；Macro-F1（类别平均 F1）=0.208736，高于 baseline（基线）但低于 step5000 | [`formal_caduceus_rc_stageB_step8000/`](formal_caduceus_rc_stageB_step8000/) |
-| `formal_caduceus_rc_stageB_mb5` | 继续训练中 | 后续 step9000/step10000 待填 | 当前正式 CaduceusRC（反向互补一致性）Stage_B，micro-batch（单次显卡小批量）=5，GPU2（2号显卡）训练 | 待后续 checkpoint 追加 |
+| `formal_caduceus_rc_stageB_mb5` | 已按用户要求停止 | 最新完整 checkpoint（模型存档点）为 `training_server_transfer/runs/Stage_B_formal_caduceus_rc/checkpoints/step_00008000.pt`；停止时最后 train step（训练步）8500 | 当前正式 CaduceusRC（反向互补一致性）Stage_B，micro-batch（单次显卡小批量）=5；step5000 是当前 validation loss（验证损失）和 128 bp probe（探针评测）双指标最佳候选 | [`../TRAINING_EVALUATION_STOP_20260622.md`](../TRAINING_EVALUATION_STOP_20260622.md) |
 
 ## 当前已提交的下游任务
 
