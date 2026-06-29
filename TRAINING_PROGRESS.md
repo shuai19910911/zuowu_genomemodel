@@ -1,14 +1,14 @@
 # CropGenome-FM 训练进展与评估
 
-更新时间: 2026-06-29 09:59 CST
+更新时间: 2026-06-29 12:20 CST
 
-本文件是 GitHub 唯一进展入口。用户只需要看本文件；下游 probe（探针评测）明细、confusion matrix（混淆矩阵）、per-class metrics（逐类别指标）、run manifest（运行清单）和训练日志只保留在本地，不上传 GitHub。
+本文件是 GitHub 唯一进展入口。用户只需要看本文件；本次 2080 GPU 下游 probe（探针评测）只上传轻量 TSV（表格）、JSON（运行清单）和 PNG（位图），不上传 checkpoint（模型存档点）、训练日志、PDF/SVG（矢量图）或原始大数据。
 
 ## 0. 当前一句话结论
 
 `CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）已从 step1000 checkpoint（模型存档点）恢复并继续训练到 step2710；step2000 validation（验证）明显优于 step1000，`checkpoint_best.pt`（最佳模型存档点）已更新到 step2000。
 
-当前最重要结论: 预训练 validation selection loss（验证选择损失）从 step1000 的 1.2375897 降到 step2000 的 1.1890236，训练方向正常。step1000 的轻量下游 probe（探针评测）已完成，但只是早期弱阳性，不是正式 splice/promoter/TES benchmark（剪接/启动子/转录终止基准评测）。
+当前最重要结论: 预训练 validation selection loss（验证选择损失）从 step1000 的 1.2375897 降到 step2000 的 1.1890236，训练方向正常。2080Ti 上复跑的轻量 full-region annotation probe（完整区域注释探针）也显示 step2000 的 embedding Macro-F1（模型向量类别平均 F1）从 0.1742 提升到 0.2053；但这仍是 diagnostic probe（诊断性探针），不是正式 splice/promoter/TES benchmark（剪接/启动子/转录终止基准评测）。
 
 ## 1. 当前训练状态
 
@@ -68,10 +68,11 @@ GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱�
 | validation selection loss（验证选择损失） | step1000: 1.2375897 → step2000: 1.1890236 | 下降 0.0485661，约 3.92%。 | 明确正向，step2000 比 step1000 好。 |
 | validation total loss（验证总损失） | step1000: 1.3238202 → step2000: 1.2675664 | 下降 0.0562538，约 4.25%。 | 与 selection loss 一致，非单一指标偶然。 |
 | 最新 train selection loss（训练选择损失） | step2710: 1.1454023 | 训练单点有噪声；是否真正泛化改善要看 step3000 validation。 | 训练仍应继续到 step3000；不能用单个 train 点替代 validation。 |
-| step1000 下游 embedding probe（向量探针） | Accuracy 0.1964, Macro-F1 0.1764 | 7 类均衡任务，随机/多数类 Accuracy 约 0.1429；比 1-mer baseline（单碱基组成基线）Accuracy 高 0.0089，Macro-F1 高 0.0172。 | 弱阳性，只说明 embedding 有一点信号。 |
-| region head（区域预测头） | Macro-F1 0.0702 | 明显低于 embedding probe 和 1-mer baseline。 | 只能作训练健康检查，不能作为论文主结果。 |
+| step1000 2080 下游 embedding probe（向量探针） | Accuracy 0.2143, Macro-F1 0.1742 | 7 类均衡任务；比 1-mer baseline（单碱基组成基线）Macro-F1 0.1542 高 0.0199。 | 弱阳性，只说明 embedding 有一点信号。 |
+| step2000 2080 下游 embedding probe（向量探针） | Accuracy 0.2589, Macro-F1 0.2053 | 比 step1000 embedding Macro-F1 高 0.0311；比同一 1-mer baseline 高 0.0511。 | 比 step1000 更好，方向一致。 |
+| step2000 region head（区域预测头） | Macro-F1 0.1646 | 比 step1000 region head 0.0777 明显提高，但仍低于 step2000 embedding。 | 只能作训练健康检查，不能作为论文主结果。 |
 
-保守判断: 预训练 loss（损失）在正常改善；step1000 的下游 probe 只能算“早期弱信号”，还远不到“模型已经学到稳定可迁移生物功能”的程度。是否值得继续，关键看 step3000/5000 的 validation（验证）和固定 benchmark（基准评测）是否继续改善。
+保守判断: 预训练 loss（损失）在正常改善；2080Ti 复跑的 step1000→step2000 下游 probe 也同向改善，说明 checkpoint 质量有早期正信号。但 full-region annotation probe 仍然样本小、任务内部构造，不能写成正式下游成功。是否值得继续，关键看 step3000/5000 的 validation（验证）和 CropGenome-Bench v1 固定 benchmark（基准评测）是否继续改善。
 
 ### 4.2 与公开基因组模型指标的尺度参考
 
@@ -89,27 +90,47 @@ GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱�
 
 ## 5. 下游 probe（探针评测）摘要
 
-GitHub 不上传 `docs/training_progress/downstream_evaluations/step_*/...` 明细目录；该目录只在本地保留，供自动 watcher（检查器）判断某个 checkpoint 是否已经评估过。对外只在本节保留最小摘要。
+本节记录已经真实在 gpu05 的 RTX 2080 Ti 上复跑的 lightweight downstream probe（轻量下游探针）。GitHub 只上传轻量 TSV（表格）、JSON（运行清单）和 PNG（位图）；不上传 PDF/SVG（矢量图）、checkpoint（模型存档点）、训练日志或原始大数据。
 
-### 5.1 step1000 full region annotation probe（完整区域注释探针）
+运行环境:
 
-状态: 已完成，2026-06-28 13:31 CST，RTX 2080 Ti 上运行。
+- 机器: `gpu05`，NVIDIA GeForce RTX 2080 Ti。
+- GPU: `CUDA_VISIBLE_DEVICES=0`。
+- 脚本: `scripts/evaluate_v2_checkpoint_region_probe.py`。
+- model config（模型配置）: `training_server_transfer/configs/model_large.json`。第一次误用 `model_large_v2_no_region.json` 会因 checkpoint 含 `region_head` 权重而失败，已改正后复跑。
+- 采样: 每类 train/eval 最多 32 个窗口；共 224 train + 224 eval 样本。
+- 任务边界: 这是 `full_region_annotation_probe`（完整区域注释探针），只用于诊断 embedding（向量表示）和 region head（区域预测头）是否有早期信号，不进入论文主表。
 
-![step1000 downstream probe summary](docs/training_progress/figures/v2_step1000_downstream_probe_summary.png)
+### 5.1 2080Ti step1000 vs step2000 对比
 
-- 图: [docs/training_progress/figures/v2_step1000_downstream_probe_summary.png](docs/training_progress/figures/v2_step1000_downstream_probe_summary.png)
+| checkpoint（模型存档点） | 方法 | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别均衡准确率） | 解释 |
+|---|---|---:|---:|---:|---|
+| step1000 | 1-mer nearest centroid（单碱基组成最近中心基线） | 0.1875 | 0.1542 | 0.1875 | 最低限度序列组成 baseline（基线）。 |
+| step1000 | model embedding nearest centroid（模型向量最近中心） | 0.2143 | 0.1742 | 0.2143 | 比 1-mer Macro-F1 高 0.0199，弱阳性。 |
+| step1000 | model region head argmax（区域预测头直接分类） | 0.1518 | 0.0777 | 0.1518 | 很弱，只能作健康检查。 |
+| step2000 | 1-mer nearest centroid（单碱基组成最近中心基线） | 0.1875 | 0.1542 | 0.1875 | 同一采样和同一 baseline，便于比较 checkpoint。 |
+| step2000 | model embedding nearest centroid（模型向量最近中心） | 0.2589 | 0.2053 | 0.2589 | 比 step1000 高 0.0311；比 1-mer baseline 高 0.0511。 |
+| step2000 | model region head argmax（区域预测头直接分类） | 0.2232 | 0.1646 | 0.2232 | 比 step1000 明显提高，但仍只作辅助健康检查。 |
 
-| 方法 | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别均衡准确率） | 解释 |
-|---|---:|---:|---:|---|
-| 1-mer nearest centroid（单碱基组成最近中心基线） | 0.1875 | 0.1592 | 0.1875 | 最低限度序列组成 baseline（基线）。 |
-| model embedding nearest centroid（模型向量最近中心） | 0.1964 | 0.1764 | 0.1964 | 略高于 1-mer，说明 step1000 表示有弱信号。 |
-| model region head argmax（区域预测头直接分类） | 0.1518 | 0.0702 | 0.1518 | 较弱；region head 只能作健康检查。 |
+结论: step2000 在同一 2080Ti、同一采样、同一 probe 上优于 step1000，和 validation selection loss（验证选择损失）下降方向一致。这个结果支持继续训练到 step3000/5000，但不能单独证明正式下游成功。
 
-评估: step1000 下游结果是弱阳性，不是正式成功。它只能说明 embedding（向量表示）比简单单碱基组成略好；正式结论必须等 splice/promoter/TES 等独立 benchmark（基准评测）和后续 checkpoint 趋势。
+### 5.2 2080Ti 下游结果文件
 
-### 5.2 step2000 下游状态
+step1000:
 
-step2000 checkpoint 已产生，但 step2000 下游 probe 尚未完成。原因是原计划使用 gpu05 的 2080Ti 自动评估，而 gpu05 曾出现 `No route to host`（无法路由到主机）。A100 GPU4 目前被其他用户任务占用 13.4GB 显存且 GPU 利用率 100%，不建议抢占或共用。
+- 图: [docs/training_progress/downstream_evaluations_2080/step_00001000/full_region_annotation_probe/figures/region_probe_macro_f1.png](docs/training_progress/downstream_evaluations_2080/step_00001000/full_region_annotation_probe/figures/region_probe_macro_f1.png)
+- 指标: [docs/training_progress/downstream_evaluations_2080/step_00001000/full_region_annotation_probe/source_data/metrics_summary.tsv](docs/training_progress/downstream_evaluations_2080/step_00001000/full_region_annotation_probe/source_data/metrics_summary.tsv)
+- run manifest（运行清单）: [docs/training_progress/downstream_evaluations_2080/step_00001000/full_region_annotation_probe/run_manifest.json](docs/training_progress/downstream_evaluations_2080/step_00001000/full_region_annotation_probe/run_manifest.json)
+
+step2000:
+
+- 图: [docs/training_progress/downstream_evaluations_2080/step_00002000/full_region_annotation_probe/figures/region_probe_macro_f1.png](docs/training_progress/downstream_evaluations_2080/step_00002000/full_region_annotation_probe/figures/region_probe_macro_f1.png)
+- 指标: [docs/training_progress/downstream_evaluations_2080/step_00002000/full_region_annotation_probe/source_data/metrics_summary.tsv](docs/training_progress/downstream_evaluations_2080/step_00002000/full_region_annotation_probe/source_data/metrics_summary.tsv)
+- run manifest（运行清单）: [docs/training_progress/downstream_evaluations_2080/step_00002000/full_region_annotation_probe/run_manifest.json](docs/training_progress/downstream_evaluations_2080/step_00002000/full_region_annotation_probe/run_manifest.json)
+
+### 5.3 解释边界
+
+这个 2080Ti probe 结果可以写成“checkpoint 质量早期改善的诊断证据”，不能写成“作物基因组基础模型已经在正式下游任务上成功”。正式论文主结论仍必须来自 CropGenome-Bench v1（作物基因组正式基准评测）中的 splice/promoter/TES、跨作物迁移、低样本效率和强外部模型对比。
 
 ## 6. 文件整理规则
 
@@ -117,9 +138,9 @@ step2000 checkpoint 已产生，但 step2000 下游 probe 尚未完成。原因�
 
 1. GitHub 只看 `README.md`、`PROJECT_PLAN.md`、`MODEL_ARCHITECTURE.md`、`TRAINING_PROGRESS.md`。
 2. `docs/training_progress/` 只跟踪少量核心 PNG（位图）曲线和必要 TSV（表格源数据）。
-3. `docs/training_progress/downstream_evaluations/` 只本地保留，不上传 GitHub。
+3. `docs/training_progress/downstream_evaluations_2080/` 只上传本次 2080Ti probe 的轻量 TSV/JSON/PNG；旧 `docs/training_progress/downstream_evaluations/` 明细目录仍只本地保留。
 4. 旧 `docs/downstream/*`、`docs/training_curves/*`、临时 handoff（交接）文档、旧训练指标散表都不再作为 GitHub 入口。
-5. checkpoint（模型存档点）、训练日志、run manifest（运行清单）、per-class/confusion 明细和逐样本预测一律本地保留。
+5. checkpoint（模型存档点）、训练日志、PDF/SVG、逐样本预测和原始大数据一律不上传 GitHub；本次 per-class/confusion TSV 和 run manifest 体积很小，可作为可复核源数据上传。
 
 ## 7. 下一步: CropGenome-Bench v1 正式下游评估
 

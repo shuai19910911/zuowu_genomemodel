@@ -1,0 +1,43 @@
+{
+  "status": "ok",
+  "created_at": "2026-06-29 12:10:32 CST",
+  "checkpoint": "/home/user/zhangzhishuai/myhermes/zuowu_genomemodel/training_server_transfer/runs/Stage_B_cropgenome_fm_v2_stable/checkpoints/step_00002000.pt",
+  "checkpoint_id": "step_00002000",
+  "checkpoint_step": 2000,
+  "device": "cuda",
+  "cuda_device_name": "NVIDIA GeForce RTX 2080 Ti",
+  "train_split": "train",
+  "eval_split": "val",
+  "max_train_per_class": 32,
+  "max_eval_per_class": 32,
+  "train_sample_count": 224,
+  "eval_sample_count": 224,
+  "train_seen_by_class": {
+    "background": 219169,
+    "splice": 1152040,
+    "coding": 1755568,
+    "gene_body": 548536,
+    "tes": 438839,
+    "promoter": 767774,
+    "utr": 603314
+  },
+  "eval_seen_by_class": {
+    "splice": 11501,
+    "coding": 17500,
+    "gene_body": 5473,
+    "promoter": 7652,
+    "tes": 4380,
+    "background": 2154,
+    "utr": 6035
+  },
+  "model_config": "/home/user/zhangzhishuai/myhermes/zuowu_genomemodel/training_server_transfer/configs/model_large.json",
+  "model_name": "CropGenome-FM-v2-Stable-8K",
+  "loaded_keys": 430,
+  "missing_keys": [],
+  "unexpected_keys": [],
+  "skipped_shape_mismatch": [],
+  "metrics_summary": "/home/user/zhangzhishuai/myhermes/zuowu_genomemodel/docs/training_progress/downstream_evaluations_2080/step_00002000/full_region_annotation_probe/source_data/metrics_summary.tsv",
+  "per_class_metrics": "/home/user/zhangzhishuai/myhermes/zuowu_genomemodel/docs/training_progress/downstream_evaluations_2080/step_00002000/full_region_annotation_probe/source_data/per_class_metrics.tsv",
+  "confusion_matrix": "/home/user/zhangzhishuai/myhermes/zuowu_genomemodel/docs/training_progress/downstream_evaluations_2080/step_00002000/full_region_annotation_probe/source_data/confusion_matrix.tsv",
+  "figure_written": true
+}
