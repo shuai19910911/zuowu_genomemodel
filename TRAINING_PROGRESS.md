@@ -6,7 +6,7 @@
 
 ## 0. 当前一句话结论
 
-`CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）已从 step1000 checkpoint（模型存档点）恢复并继续训练到 step2620；step2000 validation（验证）明显优于 step1000，`checkpoint_best.pt`（最佳模型存档点）已更新到 step2000。
+`CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）已从 step1000 checkpoint（模型存档点）恢复并继续训练到 step2710；step2000 validation（验证）明显优于 step1000，`checkpoint_best.pt`（最佳模型存档点）已更新到 step2000。
 
 当前最重要结论: 预训练 validation selection loss（验证选择损失）从 step1000 的 1.2375897 降到 step2000 的 1.1890236，训练方向正常。step1000 的轻量下游 probe（探针评测）已完成，但只是早期弱阳性，不是正式 splice/promoter/TES benchmark（剪接/启动子/转录终止基准评测）。
 
@@ -15,10 +15,10 @@
 | 项目 | 当前值 | 解释 |
 |---|---:|---|
 | 训练版本 | `v2_stable_from_scratch` | v2 Stable（第二版稳健版）正式 from scratch（从头训练）；恢复只用于同一 run（训练轮次）中断续跑。 |
-| 当前 step（训练步） | 2620 | 已超过 step2000，继续向 step3000 前进。 |
-| 最新 train loss（训练损失） | 1.1845277 | 训练损失继续下降，但训练曲线噪声较大。 |
-| 最新 train MLM loss（遮盖碱基预测损失） | 1.0924662 | 主预训练目标继续改善。 |
-| 最新 train selection loss（选择损失） | 1.0945176 | 训练选择损失继续下降。 |
+| 当前 step（训练步） | 2710 | 已超过 step2000，继续向 step3000 前进。 |
+| 最新 train loss（训练损失） | 1.2287162 | 训练曲线噪声较大，单点会上下波动，趋势仍需看滚动中位数和 validation。 |
+| 最新 train MLM loss（遮盖碱基预测损失） | 1.1434011 | 主预训练目标仍在正常训练区间。 |
+| 最新 train selection loss（选择损失） | 1.1454023 | 单点高于 step2620，但曲线判断以滚动趋势和 step3000 validation 为准。 |
 | 最新 validation（验证） | step2000 | 下一次验证/保存是 step3000。 |
 | step2000 val loss（验证总损失） | 1.2675664 | 比 step1000 更好。 |
 | step2000 val selection loss（验证选择损失） | 1.1890236 | 当前 best checkpoint（最佳模型存档点）依据。 |
@@ -67,7 +67,7 @@ GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱�
 |---|---:|---|---|
 | validation selection loss（验证选择损失） | step1000: 1.2375897 → step2000: 1.1890236 | 下降 0.0485661，约 3.92%。 | 明确正向，step2000 比 step1000 好。 |
 | validation total loss（验证总损失） | step1000: 1.3238202 → step2000: 1.2675664 | 下降 0.0562538，约 4.25%。 | 与 selection loss 一致，非单一指标偶然。 |
-| 最新 train selection loss（训练选择损失） | step2620: 1.0945176 | 训练端仍在下降，最近 50 个点的中位数比前 50 个点低约 0.0304。 | 训练还在学；但需要 step3000 validation 确认泛化。 |
+| 最新 train selection loss（训练选择损失） | step2710: 1.1454023 | 训练单点有噪声；是否真正泛化改善要看 step3000 validation。 | 训练仍应继续到 step3000；不能用单个 train 点替代 validation。 |
 | step1000 下游 embedding probe（向量探针） | Accuracy 0.1964, Macro-F1 0.1764 | 7 类均衡任务，随机/多数类 Accuracy 约 0.1429；比 1-mer baseline（单碱基组成基线）Accuracy 高 0.0089，Macro-F1 高 0.0172。 | 弱阳性，只说明 embedding 有一点信号。 |
 | region head（区域预测头） | Macro-F1 0.0702 | 明显低于 embedding probe 和 1-mer baseline。 | 只能作训练健康检查，不能作为论文主结果。 |
 
@@ -121,11 +121,20 @@ step2000 checkpoint 已产生，但 step2000 下游 probe 尚未完成。原因�
 4. 旧 `docs/downstream/*`、`docs/training_curves/*`、临时 handoff（交接）文档、旧训练指标散表都不再作为 GitHub 入口。
 5. checkpoint（模型存档点）、训练日志、run manifest（运行清单）、per-class/confusion 明细和逐样本预测一律本地保留。
 
-## 7. 下一步
+## 7. 下一步: CropGenome-Bench v1 正式下游评估
 
-| 事件 | 要做什么 | 判断标准 |
-|---|---|---|
-| step3000 validation（验证） | 更新本文件和核心曲线 | val selection loss 是否继续低于 1.1890。 |
-| step2000 下游 probe（探针评测） | 等 2080 网络恢复或找到真正空闲 GPU 后运行 | 不抢占别人 GPU；结果只写摘要进本文件。 |
-| step5000 | 进入 early stopping（早停）观察期 | 若 validation 连续无有效改善，再考虑早停或调参。 |
-| 第一轮正式 benchmark（基准评测） | 构建 splice/promoter/TES 等独立任务 | 必须包含 1-mer/CNN/公开模型或可解释基线。 |
+正式任务注册文件: [training_server_transfer/configs/downstream_v2_benchmark.json](training_server_transfer/configs/downstream_v2_benchmark.json)。
+
+目标: 不再只看 step1000 内部 probe（探针），而是建立 CropGenome-Bench v1（作物基因组正式基准），检验 CropGenome-FM 是否在作物任务上优于通用 DNA 大模型。
+
+| 优先级 | 事件 | 要做什么 | 判断标准 |
+|---|---|---|---|
+| P0 | step3000 validation（验证） | 更新本文件和核心曲线 | val selection loss 是否继续低于 1.1890。 |
+| P0 | core gene syntax（核心基因结构语法） | 构建 splice hard-negative、exon/intron/UTR segmentation、TIS/TTS context 三个任务 | 同一 split 下比较 random/majority/k-mer/CNN/DNABERT-2/HyenaDNA/Caduceus/CropGenome-FM。 |
+| P0 | crop regulatory elements（作物调控元件） | 构建 promoter/TSS hard-negative、TES/polyA；ATAC/ACR 只在 assembly QC 通过后加入 | 主指标用 AUPRC/MCC/Macro-F1，不只看 accuracy。 |
+| P0 | transfer and few-shot（迁移与少样本） | 做 species/genus holdout、monocot-to-dicot、1%/5%/10% label panels | 若作物预训练有效，跨作物保留率和少标签增益应高于通用模型。 |
+| P1 | crop-specific structure（作物结构特色） | EDTA 高置信后做 TE boundary；Stage C/D 后做 long-context gene boundary | 标签 QC 未过关前不进主结论。 |
+| P1 | variant/QTL ranking（变异和育种排序） | 只用已发表 processed VCF/GWAS/QTL/eQTL 表做 ref/alt delta 与候选基因排序 | 不下载 WGS/FASTQ/BAM 原始重测序，不重做 variant calling。 |
+| P0 | 公平比较 | 所有模型同一 train/valid/test split、同一输入窗口、同一下游头、5 seeds mean ± std | 只有同任务同协议结果能进入论文主表。 |
+
+论文主结论门槛: 至少 3 个 P0 作物任务完成固定 test（测试集）评估；CropGenome-FM 平均超过最强可运行通用/植物 DNA 模型至少 3% relative improvement（相对提升）；至少一个 species/genus holdout 或 low-homology holdout 中仍保留收益。

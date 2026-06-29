@@ -1,0 +1,255 @@
+{
+  "benchmark_id": "CropGenome-Bench-v1",
+  "version_id": "v2_stable_from_scratch",
+  "purpose": "Formal downstream benchmark to test whether crop-specific genome pretraining improves crop genomic tasks under identical splits, heads, metrics, and tuning budgets.",
+  "plain_purpose_cn": "正式检验作物专用基因组预训练模型是否在作物任务上优于通用 DNA 大模型，而不是只看训练 loss 或内部 probe。",
+  "artifact_policy": {
+    "github_summary_only": true,
+    "local_detail_root": "docs/training_progress/downstream_evaluations",
+    "public_summary_file": "TRAINING_PROGRESS.md",
+    "figure_format": "png_only_no_svg"
+  },
+  "checkpoint_policy": {
+    "eligible_checkpoints": ["step_00003000.pt", "step_00005000.pt", "checkpoint_best.pt"],
+    "checkpoint_selection": "select on validation split only; final test is one-time after task/head/model choices are frozen",
+    "online_probe_policy": "online/full-region probes are health checks only and cannot be used as paper-facing wins"
+  },
+  "fair_comparison_rules": [
+    "same train/valid/test split for all models",
+    "same input window length per task, with 512bp/1kb/2kb/8kb length-controlled panels where useful",
+    "same downstream head family and tuning budget for all frozen-embedding comparisons",
+    "same fine-tuning epoch/step budget and early-stopping rule for full fine-tuning comparisons",
+    "report mean +/- std over 5 seeds for headline tasks",
+    "never compare our custom probe directly to literature metrics from different tasks; literature numbers are scale references only",
+    "all normalization, sampling, and negative construction must be fit from train split only"
+  ],
+  "model_comparison_set": {
+    "ours": [
+      "CropGenome-FM-v2-Stable-8K frozen embedding + task head",
+      "CropGenome-FM-v2-Stable-8K full fine-tuning where GPU budget allows",
+      "CropGenome-FM-v2 no-region auxiliary ablation",
+      "same architecture from-scratch/no-pretrain supervised baseline"
+    ],
+    "public_dna_models": [
+      "DNABERT-2",
+      "Nucleotide Transformer v2 / NT models available locally or via HuggingFace",
+      "HyenaDNA",
+      "Caduceus",
+      "AgroNT or other plant DNA model if weights are accessible"
+    ],
+    "classical_baselines": [
+      "random baseline",
+      "majority-class baseline",
+      "1-mer/2-mer/3-mer composition logistic regression",
+      "k-mer SVM or logistic regression",
+      "small CNN trained from scratch",
+      "GC/length-matched heuristic baseline where biologically relevant"
+    ]
+  },
+  "split_design": {
+    "standard_splits": [
+      "assembly_holdout",
+      "gene_family_holdout_or_orthogroup_holdout",
+      "species_holdout",
+      "genus_holdout_when_sample_count_allows",
+      "low_homology_holdout_by_sequence_identity_bins"
+    ],
+    "few_shot_panels": ["1_percent_labels", "5_percent_labels", "10_percent_labels", "50_percent_labels"],
+    "cross_crop_panels": [
+      "train monocots test dicots",
+      "train dicots test monocots",
+      "rice-to-maize/wheat transfer where labels exist",
+      "maize-to-sorghum transfer where labels exist",
+      "soybean/legume held-out transfer where labels exist"
+    ]
+  },
+  "metric_groups": {
+    "binary_classification": ["AUROC", "AUPRC", "MCC", "F1", "balanced_accuracy", "calibration_ECE"],
+    "multiclass_classification": ["macro_F1", "balanced_accuracy", "per_class_F1", "MCC", "confusion_matrix"],
+    "sequence_labeling": ["token_F1", "boundary_F1", "segment_IoU", "per_class_F1"],
+    "ranking": ["NDCG@10", "NDCG@50", "top_k_recall", "precision@k", "enrichment_fold", "Spearman"],
+    "transfer": ["in_species_score", "cross_species_score", "retention_ratio", "few_shot_gain"]
+  },
+  "task_groups": [
+    {
+      "group_id": "core_gene_syntax",
+      "priority": "P0",
+      "question_cn": "模型是否真正学到作物基因结构语法？",
+      "tasks": [
+        {
+          "task_id": "splice_donor_acceptor_hard_negative",
+          "title_cn": "剪接供体/受体硬负样本识别",
+          "task_type": "binary_classification",
+          "positive_definition": "annotated donor/acceptor junction-centered windows from high-confidence transcripts",
+          "negative_definition": "GT/AG motif-containing non-junction windows matched by GC, length, contig, and distance-to-gene",
+          "primary_metrics": ["AUPRC", "MCC", "AUROC"],
+          "success_threshold": "CropGenome-FM beats best public DNA model and CNN by >=3% relative AUPRC on species_holdout or low_homology_holdout",
+          "plain_explanation_cn": "不能只靠 GT/AG 两个碱基取巧；负样本也含 GT/AG，逼模型学习上下文。"
+        },
+        {
+          "task_id": "exon_intron_utr_segmentation",
+          "title_cn": "外显子/内含子/UTR 序列标注",
+          "task_type": "sequence_labeling",
+          "positive_definition": "token-level labels for exon, intron, 5UTR, 3UTR, intergenic from independent GFF/GTF-derived evaluation set",
+          "negative_definition": "not applicable; multi-class token/segment labeling",
+          "primary_metrics": ["macro_F1", "boundary_F1", "segment_IoU"],
+          "success_threshold": "higher macro_F1 and boundary_F1 than public DNA embeddings under same head",
+          "plain_explanation_cn": "看模型能否按碱基位置画出基因结构边界。"
+        },
+        {
+          "task_id": "tis_tts_context",
+          "title_cn": "翻译起始/终止位点上下文识别",
+          "task_type": "binary_classification",
+          "positive_definition": "annotated CDS start/stop codon-centered windows",
+          "negative_definition": "same-codon or same-frame decoy windows from coding regions",
+          "primary_metrics": ["AUPRC", "MCC", "F1"],
+          "success_threshold": "beats k-mer and public DNA models under gene_family_holdout",
+          "plain_explanation_cn": "检查模型是否学到编码区起止语法，而不是只看 ATG/TAA/TAG/TGA。"
+        }
+      ]
+    },
+    {
+      "group_id": "crop_regulatory_elements",
+      "priority": "P0",
+      "question_cn": "作物专用预训练是否更擅长作物调控元件？",
+      "tasks": [
+        {
+          "task_id": "promoter_tss_hard_negative",
+          "title_cn": "启动子/TSS 识别",
+          "task_type": "binary_classification",
+          "positive_definition": "TSS-centered promoter windows from annotated genes, optionally stratified by tissue expression evidence when available",
+          "negative_definition": "GC/length/accessibility-matched intergenic windows and promoter-shift decoys",
+          "primary_metrics": ["AUPRC", "AUROC", "calibration_ECE"],
+          "success_threshold": ">=3% relative AUPRC over best public model in species_holdout; larger gains expected in few-shot panels",
+          "plain_explanation_cn": "看模型是否识别作物启动子序列，而不是只利用 GC 含量。"
+        },
+        {
+          "task_id": "tes_polya_context",
+          "title_cn": "TES/polyA 转录终止信号识别",
+          "task_type": "binary_classification",
+          "positive_definition": "TES/polyA-centered windows from transcript annotations",
+          "negative_definition": "matched downstream decoy windows and AT-rich non-boundary windows",
+          "primary_metrics": ["AUPRC", "MCC", "AUROC"],
+          "success_threshold": "beats CNN/k-mer/public DNA models on assembly_holdout and species_holdout",
+          "plain_explanation_cn": "终止信号更弱，若能提升说明模型学到非编码上下文。"
+        },
+        {
+          "task_id": "open_chromatin_atac_peak_when_available",
+          "title_cn": "ATAC 开放染色质峰预测（有数据物种）",
+          "task_type": "binary_classification",
+          "positive_definition": "processed ATAC/ACR peaks mapped to sequence windows after assembly compatibility QC",
+          "negative_definition": "GC/mappability/length-matched non-peak windows from same chromosomes",
+          "primary_metrics": ["AUPRC", "AUROC", "MCC"],
+          "success_threshold": "crop pretrained model shows stronger few-shot and cross-crop retention than generic DNA models",
+          "plain_explanation_cn": "ATAC 表示染色质开放区域；这是调控潜力，不是表达本身。"
+        },
+        {
+          "task_id": "stress_or_tissue_responsive_promoter_when_expression_available",
+          "title_cn": "组织/逆境响应启动子活性预测",
+          "task_type": "multilabel_or_multiclass_classification",
+          "positive_definition": "promoters linked to tissue-specific or stress-responsive expression bins from processed expression matrices",
+          "negative_definition": "fold-aware expression-bin negatives and matched non-responsive promoters",
+          "primary_metrics": ["macro_F1", "AUPRC", "Spearman"],
+          "success_threshold": "improves most in low-label panels; report fold-aware expression baselines",
+          "plain_explanation_cn": "把序列和表达证据连接起来，检验调控功能。"
+        }
+      ]
+    },
+    {
+      "group_id": "crop_structural_genomics",
+      "priority": "P1_after_annotation_ready",
+      "question_cn": "模型是否捕捉作物基因组结构特色？",
+      "tasks": [
+        {
+          "task_id": "te_boundary_high_confidence_edta",
+          "title_cn": "高置信 EDTA 转座元件边界识别",
+          "task_type": "binary_classification_or_boundary_detection",
+          "positive_definition": "EDTA high-confidence TE insertion boundaries with family labels",
+          "negative_definition": "TE interior windows and matched non-repeat windows",
+          "primary_metrics": ["boundary_F1", "AUPRC", "family_stratified_F1"],
+          "success_threshold": "run only after EDTA QC passes; compare by TE family and species holdout",
+          "plain_explanation_cn": "转座元件是作物大基因组的重要结构特征，但标签质量必须先过关。"
+        },
+        {
+          "task_id": "gene_boundary_long_context",
+          "title_cn": "长上下文基因边界识别",
+          "task_type": "sequence_labeling",
+          "positive_definition": "gene start/end and flanking regions across 8kb/64kb/128kb panels",
+          "negative_definition": "near-gene decoy boundaries and intergenic segments",
+          "primary_metrics": ["boundary_F1", "segment_IoU", "macro_F1"],
+          "success_threshold": "longer context checkpoints outperform 512bp/1kb truncated inputs",
+          "plain_explanation_cn": "用来证明长上下文不是摆设。"
+        }
+      ]
+    },
+    {
+      "group_id": "crop_variant_and_breeding_relevance",
+      "priority": "P1_when_processed_variants_available",
+      "question_cn": "模型能否帮助解释作物变异和育种候选区域？",
+      "tasks": [
+        {
+          "task_id": "variant_effect_ref_alt_delta",
+          "title_cn": "SNP/indel 变异效应排序",
+          "task_type": "ranking",
+          "positive_definition": "processed trait-associated SNP/indel or eQTL/QTL-linked variants from published tables only",
+          "negative_definition": "matched nearby non-associated variants; no raw WGS/FASTQ/BAM re-calling",
+          "primary_metrics": ["NDCG@10", "top_k_recall", "enrichment_fold", "Spearman"],
+          "success_threshold": "higher top-k enrichment than k-mer, conservation/proximity heuristics, and public DNA models",
+          "plain_explanation_cn": "比较 ref/alt 两个等位序列的模型分数变化，用于排序可能有功能影响的变异。"
+        },
+        {
+          "task_id": "qtl_gwas_candidate_gene_ranking",
+          "title_cn": "QTL/GWAS 区间候选基因排序",
+          "task_type": "ranking",
+          "positive_definition": "known candidate genes or high-confidence curated genes inside crop QTL/GWAS intervals",
+          "negative_definition": "other genes in same interval with matched length/expression availability",
+          "primary_metrics": ["NDCG@10", "precision@k", "enrichment_fold"],
+          "success_threshold": "improves candidate-gene enrichment over distance-to-peak and gene-length/expression baselines",
+          "plain_explanation_cn": "更贴近育种应用：在一个关联区间里把候选基因排到前面。"
+        }
+      ]
+    },
+    {
+      "group_id": "transfer_and_few_shot",
+      "priority": "P0_cross_task_layer",
+      "question_cn": "作物专用预训练的优势是否体现在跨作物和低样本场景？",
+      "tasks": [
+        {
+          "task_id": "leave_one_crop_out_benchmark",
+          "title_cn": "留一作物/属外推评测",
+          "task_type": "transfer_protocol",
+          "positive_definition": "repeat core tasks with one crop species/genus held out",
+          "negative_definition": "same as each underlying task",
+          "primary_metrics": ["cross_species_score", "retention_ratio", "macro_F1_or_AUPRC"],
+          "success_threshold": "higher retention_ratio than public DNA models; this is the main proof of crop-specific pretraining",
+          "plain_explanation_cn": "训练没见过某个作物，测试时还能不能迁移过去。"
+        },
+        {
+          "task_id": "few_label_efficiency",
+          "title_cn": "1%/5%/10% 低标注样本效率",
+          "task_type": "few_shot_protocol",
+          "positive_definition": "subsample labeled training data while keeping validation/test fixed",
+          "negative_definition": "same as each underlying task",
+          "primary_metrics": ["few_shot_gain", "AUPRC", "macro_F1"],
+          "success_threshold": "CropGenome-FM has larger gain over public models at 1%-10% labels than at full labels",
+          "plain_explanation_cn": "基础模型最应该在标注少时有优势。"
+        }
+      ]
+    }
+  ],
+  "paper_claim_gate": {
+    "minimum_for_main_claim": [
+      "at least three P0 tasks completed with fixed test artifacts",
+      "CropGenome-FM beats the strongest available public DNA model on average by >=3% relative on crop-specific held-out tests",
+      "improvement is present in at least one species_holdout or genus_holdout panel",
+      "5-seed mean +/- std is reported for headline tasks",
+      "no-region, no-pretrain, CNN, k-mer, random/majority baselines are included",
+      "custom probes are labeled diagnostic only"
+    ],
+    "strong_claim_target": [
+      ">=5% relative mean improvement over strongest public model across P0 crop tasks",
+      "larger gains under few-shot or cross-crop transfer than in random assembly holdout",
+      "variant/QTL ranking shows top-k enrichment beyond sequence-composition and distance heuristics"
+    ]
+  }
+}
