@@ -1,81 +1,74 @@
-# zuowu_genomemodel
+# CropGenome-FM 作物基因组基础模型
 
-作物基因组预训练大模型项目。目标是基于本地已整理的作物/植物 genome FASTA 和结构注释数据，直接训练正式的作物基因组基础模型，用于跨物种序列表示、调控元件识别、剪接/起始终止位点预测、基因表达相关序列建模、变异效应评分和作物改良候选位点优先级排序。
+更新时间: 2026-06-29 08:20 CST
 
-## 当前数据
+CropGenome-FM（Crop Genome Foundation Model，作物基因组基础模型）是一个面向作物结构注释基因组的 DNA language model（DNA 语言模型）。项目目标不是再做一个通用 DNA 模型，而是用结构注释完整的作物基因组数据训练一个更适合 crop-specific sequence understanding（作物专用序列理解）的长上下文模型，并用独立下游 benchmark（基准评测）证明它在剪接、启动子、终止、基因结构、转座元件边界和跨物种迁移等任务上的价值。
 
-数据说明文件: `/home/user/zhangzhishuai/data/plantDB/genome/README.md`
+## 1. GitHub 只保留的入口
 
-- 当前正式训练只使用带 genome 且至少有 GFF3/GTF 注释的 crop assembly: 263 行 manifest，去重后 258 个 canonical assembly accession。
-- 覆盖属: 26 个。
-- 放弃缺少结构注释的 assembly: 1644 个，暂不进入预训练。
-- 263 个正式数据的 genome gzip 约 214.11 GB，GFF/GTF gzip 合计约 2.89 GB，总压缩体积约 216.99 GB。
-- GitHub 只保存项目介绍、计划、模型结构和进展，不上传基因组、注释、中间索引或训练产物。
+本仓库的 GitHub 可见内容只保留下面几个入口文档和核心图，避免旧实验结果、临时方案、逐 checkpoint（模型存档点）明细和分散图表干扰判断。
 
-## 核心方案
+| 入口 | 用途 | 怎么看 |
+|---|---|---|
+| [PROJECT_PLAN.md](PROJECT_PLAN.md) | 研究详细方案 | 看数据口径、训练分阶段、下游 benchmark（基准评测）、消融和风险控制。 |
+| [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md) | 模型结构解释 | 看 v2 Stable（第二版稳健版）到底输入什么、主干是什么、loss（损失函数）怎么选、哪些不能过度声明。 |
+| [TRAINING_PROGRESS.md](TRAINING_PROGRESS.md) | 唯一训练进展文档 | 所有训练曲线、下游 probe（探针评测）图表、结构注释进度和结论都集中在这里；只看这一个文档即可了解进展。 |
+| [assets/cropgenome_fm_roadmap.svg](assets/cropgenome_fm_roadmap.svg) | 研究方案图 | 对 PROJECT_PLAN 的图形化概览。 |
+| [assets/cropgenome_fm_model_architecture.svg](assets/cropgenome_fm_model_architecture.svg) | 模型架构图 | 对 MODEL_ARCHITECTURE 的图形化概览。 |
 
-主模型采用结构注释感知、区域加权、长上下文、单碱基分辨率、反向互补等变的 Mamba2/Hyena + periodic attention 路线，而不是短窗口测试模型。正式训练重点:
+训练输入 shard（分片）、checkpoint（模型存档点）、原始 genome（基因组序列）、GFF/GTF（结构注释文件）、中间索引、逐样本预测和大日志不上传 GitHub。
 
-1. 预处理只使用 263 行结构注释完整作物 assembly manifest，按 258 个 canonical assembly accession 防泄漏 split，构建 CDS、splice、UTR、promoter/TSS、TES、gene body、high-quality background 区域；TE/repeat、端粒、着丝粒、satellite/tandem repeat、rDNA、organellar insertion、segmental duplication 等结构基因组信息只在有可靠证据时启用。
-2. 本服务器完成数据处理、候选池、split、防泄漏检查，并按 Stage B/C1/C2/D 固化每个 stage 的训练输入窗口或 `input_ids`。
-3. 训练服务器只接收 `training_server_transfer/` 目录中的当前 stage 数据、配置和必要索引；训练时动态生成 mask、MLM labels、RC 增强和 batch 顺序。
-4. 训练上下文从 8K 扩展到 64K/128K，资源允许再到 256K。
+## 2. 当前研究定位
 
-下游任务主要使用当前带注释 crop genome 和外部公开植物功能基因组数据构建:
+### 2.1 做什么
 
-- 剪接 donor/acceptor、TIS/TTS、polyA 位点。
-- promoter/terminator 强度或分类。
-- lncRNA/mRNA 分类。
-- ATAC/open chromatin、组织特异表达相关序列预测。
-- SNP/indel/SV 零样本或微调变异效应评分。
-- TE family、TE insertion boundary、telomere/subtelomere、centromere/pericentromere、satellite repeat 等结构基因组任务。
-- 跨属留一评测和作物小样本迁移。
+- 使用结构注释完整的 crop assembly（作物基因组装版本）构建预训练语料。
+- 在 8K context（8192 碱基上下文）上训练 `CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）。
+- 后续按资源扩展到 64K/128K context（更长基因组上下文）。
+- 重点评估 splice donor/acceptor（剪接供体/受体）、promoter/TSS（启动子/转录起始位点）、TES/polyA（转录终止/多聚腺苷酸化）、exon/intron/UTR（外显子/内含子/非翻译区）、TE boundary（转座元件边界）和跨物种迁移。
 
-详细训练方案见 [PROJECT_PLAN.md](PROJECT_PLAN.md)，其中包含数据过滤、严格防泄漏 split、区域加权采样、模型输入、loss、训练资源、搬运数据体积、下游任务和评测结果记录表；结构基因组自注释可行性见 [STRUCTURAL_ANNOTATION_FEASIBILITY.md](STRUCTURAL_ANNOTATION_FEASIBILITY.md)；模型结构见 [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md)；技术路线图见 [TECHNICAL_ROADMAP.md](TECHNICAL_ROADMAP.md)；训练和下游指标见 [docs/TRAINING_METRICS.md](docs/TRAINING_METRICS.md) 与 [docs/downstream/README.md](docs/downstream/README.md)。
-训练服务器搬运目录结构和每个文件用途见 [TRANSFER_DIRECTORY_STRUCTURE.md](TRANSFER_DIRECTORY_STRUCTURE.md)。
+### 2.2 为什么这样做
 
-## 集群使用边界
+通用 DNA 模型通常依赖人类或混合物种数据，作物基因组具有更强的 repeat（重复序列）、TE（转座元件）、多倍化和注释质量差异。直接使用作物结构注释数据，可以让模型在预训练阶段就更多看到 coding（编码区）、splice（剪接区）、promoter（启动子）、UTR（非翻译区）和 gene body（基因体）等功能区域，而不是只学习无差别全基因组背景。
 
-- 当前环境是 Slurm 登录节点。
-- CPU 任务只允许提交到 `q07`，每个计算节点最多 30 核、150G 内存，每批最多 6 个命令，例如 `sbatch -p q07 -c 30 run.sh`；未运行的 CPU 任务不得再提交到 `q08/cu/q04/q05`。
-- Python 环境使用 `mamba` 环境 `zuowu_genomemodel`。
-- GPU 训练命令先只生成给用户执行，例如 `CUDA_VISIBLE_DEVICES=1,2 python train.py ...`；暂不由本会话直接启动 GPU 训练。
+### 2.3 当前评估
 
-## 执行规则
+当前 v2 Stable（第二版稳健版）已训练到 step2530，step2000 validation selection loss（验证选择损失）降到 1.1890，并更新 `checkpoint_best.pt`（最佳模型存档点）。step1000 lightweight downstream probe（轻量下游探针评测）已完成但只算弱阳性；正式结论仍要等 splice/promoter/TES（剪接/启动子/转录终止）等独立 benchmark（基准评测）。最新状态只看 [TRAINING_PROGRESS.md](TRAINING_PROGRESS.md)。
 
-- 2026-06-14 22:39:46 CST 起，凡是本项目中新生成或修改的训练、数据处理、注释、搬运脚本，正式运行前必须先完成代码逻辑核查、语法检查和最小可行运行检查；若任一检查失败，必须先修正并重新检查，不得直接启动正式任务。
+## 3. 数据和安全边界
 
-## 项目进展
+| 项目 | 当前口径 |
+|---|---|
+| 正式训练数据 | 263 行同时有 genome FASTA（基因组序列）和 GFF3/GTF（结构注释）的 crop assembly manifest（作物组装清单） |
+| 去重后 assembly accession（组装版本号） | 258 个 canonical assembly accession（标准化组装版本） |
+| 覆盖属 | 26 个 |
+| train/val/test split（训练/验证/测试划分） | 192/35/31，按 accession 防泄漏 |
+| 训练服务器输入目录 | `training_server_transfer/`，只在本地/训练服务器使用，不上传 GitHub |
+| GitHub 上传策略 | 只上传入口文档、核心 SVG（矢量图）、少量核心训练 PNG（位图）和必要 TSV（表格源数据）；下游明细目录只本地保留 |
 
-- 2026-06-07 23:26:04 CST: 读取本地 plantDB genome 数据说明，确认第一版可用数据范围；完成第一版文献调研和正式训练方案设计文档。
-- 2026-06-07 23:46:31 CST: 扩展训练方案和模型结构文档，加入端到端预处理、模型输入张量、前沿架构对比、分阶段 CPU/GPU 资源需求和总体训练耗时估算。
-- 2026-06-08 11:42:31 CST: 根据新要求改为只使用结构注释完整 crop genome，放弃无注释 genome；补充区域加权、过滤标准、严格防泄漏 split、下游任务、基线优势预期、跨服务器搬运磁盘估算，并新增技术路线图。
-- 2026-06-08 12:33:50 CST: 将 `assets/cropgenome_fm_roadmap.svg` 从简约概览图扩展为详细技术路线图，覆盖数据口径、QC、区域构建、采样权重、防泄漏 split、token shard、模型输入、架构、loss、训练资源、下游任务和基线优势。
-- 2026-06-08 15:00:51 CST: 根据用户确认，放弃进一步压缩到核心 assembly 的方案；整理最终完整训练计划，采用结构注释完整 crop genome 和跨服务器训练策略。
-- 2026-06-08 18:16:18 CST: 在训练计划中新增评测结果记录表和更新规则，后续预训练、下游任务和基线比较结果都写回 `PROJECT_PLAN.md` 的评测结果章节。
-- 2026-06-08 18:45:35 CST: 参考 `douke_genome` 的区域采样方案，更新为 TE/repeat 注释模式和当前默认无 TE fallback 模式。
-- 2026-06-08 22:19:54 CST: 按用户当前确认的方案更新训练计划: 本服务器固化每个 stage 的输入，训练服务器接收 `training_server_transfer/` 并动态生成 mask/label/RC。
-- 2026-06-08 22:43:02 CST: 开始 CPU 数据处理；因 genome 目录持续下载且可能混入非作物，manifest 阶段加入作物属白名单，今晚实际处理 263 个 crop assembly、26 个属；已提交 cu 分区 FASTA QC、annotation QC 和依赖合并任务。
-- 2026-06-09 08:48:28 CST: FASTA QC 和 annotation QC 均完成 263/263，已在 q07 完成合并；继续按用户要求切换到 q07/q08，已在 q08 提交 region/sampling candidate 构建任务 `8469374`。
-- 2026-06-09 10:28:40 CST: q08 region/sampling candidate 构建完成，q07 split/transfer manifest 和 SHA256 校验完成；生成第一版基础传输包。
-- 2026-06-09 12:52:00 CST: 新增 `TRANSFER_DIRECTORY_STRUCTURE.md`，详细说明训练服务器只需整体搬运 `training_server_transfer/`，并解释最终目录下每个文件的用途、当前已完成内容和仍需生成的 Stage input。
-- 2026-06-09 15:14:03 CST: 完成 263 个 crop assembly 的 seqid alias 修正和新版 region candidates 重建；`features_missing_contig` 从 23,713,267 降到 3,581,382；基础传输包 SHA256 校验通过。
-- 2026-06-09 15:45:00 CST: 修正为 accession-level canonical split，263 行 manifest 折叠为 258 个唯一 assembly accession，train/val/test 为 192/35/31，cross-split duplicate 为 0；已提交 `cu` array `8470511` 生成 Stage B/C1/C2/D 窗口候选，并提交依赖 array `8470515` 在窗口候选完成后编码 `uint8 input_ids`。
-- 2026-06-09 21:10:00 CST: Stage B/C1/C2/D 固化输入全部完成并整理为简约 `training_server_transfer/`；总目录约 50GB，Stage_B/C1/C2/D 分别约 29GB/15GB/4.8GB/2.0GB，`sha256sum -c SHA256SUMS` 全部通过，可整体搬运到训练服务器。
-- 2026-06-09 21:42:00 CST: 在 `training_server_transfer/` 新增简洁训练脚本目录 `scripts/` 和正式训练配置 `configs/model_large.json`、`configs/train_stage_*.json`；完成语法检查、stage package quick check 和全目录 SHA256 校验。
-- 2026-06-10 09:45:00 CST: 在 `zuowu_genomemodel` 环境安装 `numpy 2.2.6`、CUDA PyTorch `2.5.1` (`torch.version.cuda=12.4`) 和 `torchrun`；导出 `training_server_transfer/configs/zuowu_genomemodel_env.yml`，完成训练脚本 tiny dry-run、package quick check 和全目录 SHA256 校验。
-- 2026-06-10 11:17:00 CST: 为 `zuowu_genomemodel` 补装 CUDA `nvcc 12.4.131` 和基础构建工具，并重新导出环境到 `training_server_transfer/configs/zuowu_genomemodel_env.yml`；尝试安装 `mamba-ssm`，但登录节点源码构建强制编译多架构导致 `cicc` 被系统终止，当前训练脚本使用 `hyena_lite` 后端；重新完成 package quick check、tiny dry-run 和全目录 SHA256 校验。
-- 2026-06-10 12:45:11 CST: 在 `PROJECT_PLAN.md` 详细说明 Stage B/C1/C2/D 的长度组成比例是 stage 级 token 配方，不是候选池保留率或在某个长度桶内固定抽样比例；补充 Stage B 8K/4K/16K token 和等价窗口数估算。
-- 2026-06-10 12:57:14 CST: 在 `PROJECT_PLAN.md` 补充 Stage B `30,600,306,688` token 的来源: train 约 30B、validation/test 各约 0.3B，并可由 `summary.tsv` 的 `written_tokens` 或 `manifest.tsv` 的 shard token 求和复现。
-- 2026-06-10 13:59:12 CST: 在 `PROJECT_PLAN.md` 进一步解释 Stage B `30B` 是人为设定的训练 token 预算；用“300 个 8K 候选窗口”的例子说明 70% 是最终写入 token 份额，不是候选窗口数量份额。
-- 2026-06-10 14:21:58 CST: 在 `PROJECT_PLAN.md` 补充 Stage B `30B` 预算的估算依据: 模型规模、Stage B 局部语法任务定位、结构注释高质量数据、磁盘体积、GPU 时间和后续 C1/C2/D 扩长训练共同约束。
-- 2026-06-10 18:04:57 CST: 按用户确认改为“主 context 候选全部保留 + 更严格窗口质量过滤”；收紧 promoter distal、gene_body、background 保留比例和 N/连续 N/低复杂度阈值，预计最终搬运目录约 60-80GB。
-- 2026-06-10 23:47:01 CST: 完成新策略下 Stage B/C1/C2/D 输入生成；实际写入 41.24B/20.47B/6.90B/2.78B token，`training_server_transfer/` 总体约 67G；package quick check、Stage_D 训练 dry-run 和全目录 `sha256sum -c SHA256SUMS` 均通过。
-- 2026-06-11 08:20:04 CST: 更新训练计划，新增结构基因组增强层；将 telomere/subtelomere、centromere/pericentromere、TE family、TE boundary、satellite/tandem repeat、rDNA/organellar insertion、segmental duplication 和 synteny-breakpoint 纳入候选池、输入字段、loss、下游任务和评测记录模板。
-- 2026-06-11 09:04:34 CST: 基于现有 assembly/contig/QC 元数据完成结构基因组自注释可行性初评；258 个 canonical assembly 中，236 个可做 TE/repeat 和 satellite/tandem repeat，229 个可做 telomere/centromere 候选，228 个可作为第一批结构增强全套候选。
-- 2026-06-11 10:02:58 CST: 按“只处理可做结构注释的 assembly”启动正式结构注释批处理；q07/q08 提交结构扫描 237 个 targets，2 核 8G array 高并发运行，用于 telomere/subtelomere、centromere-like/pericentromere-like、repeat-rich 和 satellite proxy；同时提交 EDTA 236 个 targets，8 核 48G array 运行，用于 TE family、TE boundary 和 repeat 注释。任务 job ID: 结构扫描 `8541368`/`8541367`，EDTA `8541135`/`8541134`。
-- 2026-06-11 14:05:52 CST: 根据 EDTA issue 281 风险检查，发现旧 EDTA 中间 `.fa.mod` 已出现纯数字序列 ID；已取消旧 EDTA array，改为先生成 `z000001` 这类长度 <=13 且非纯数字的 EDTA-safe FASTA，并保存原始 contig 映射表后重跑。安全版 EDTA 输出目录为本地 `structural_annotation/edta_safe/`，q07 job ID 为 `8551051`，资源仍为每任务 8 核 48G，array throttle 66；自动汇总 job ID 为 `8551052`。
-- 2026-06-14 23:15:31 CST: 在 GPU 服务器 `gpu10` 启动正式 `v1-backbone` Stage_B 预训练；启动前完成 Stage_B package check、CUDA 可见性检查、GPU 2 空闲检查和 GPU dry-run。正式训练仅暴露 `CUDA_VISIBLE_DEVICES=2`，使用 1 张 NVIDIA A100-SXM4-40GB，远端主进程 PID `111856`，训练日志 `training_server_transfer/logs/v1_backbone_stage_B_gpu2_20260614_230834.log`。
-- 2026-06-15 10:05:41 CST: 调研 Nature Machine Intelligence 文章 `Explicit dynamic cross-strand interactions for DNA sequence language modelling` 和 CrossDNA 官方代码；确认其显式动态 cross-strand 双分支思想可升级当前 RC augmentation/RC consistency 方案。已在 `PROJECT_PLAN.md` 和 `MODEL_ARCHITECTURE.md` 中新增 `v1.1-cross-strand-midtraining` 路线: 当前 `v1-backbone` Stage_B 不停，后续从 Stage_B checkpoint 接续训练轻量 cross-strand communication 模块，并用 RC consistency、splice、promoter/TSS、enhancer/open chromatin、variant effect probe 决定是否进入 C1/C2。
-- 2026-06-15 10:37:53 CST: 新增训练指标看板 `docs/TRAINING_METRICS.md` 和 loss 曲线 `assets/training_metrics/stage_B_loss.svg`；当前 Stage_B 最新记录为 step 920 左右，第一次 validation 在 step 2500，第一次 checkpoint 在 step 5000。后续每到 checkpoint 后同步刷新 GitHub 上的 loss、val loss、learning rate、checkpoint 记录和曲线。
-- 2026-06-15 17:46:04 CST: 检查 `v1-backbone` Stage_B 训练进展，最新日志约 step 1470、train loss 约 1.25、GPU 2 仍 100%；应用户要求将 `training_server_transfer/configs/train_stage_B.json` 的 `save_every` 从 5000 改为 1000。注意当前已运行进程不会动态重读配置，若不中断训练，第一次 checkpoint 仍按旧启动参数在 step 5000；新 `save_every=1000` 会在后续重启或从 checkpoint resume 后生效。
+评估: 这个口径牺牲了 1644 个无结构注释 genome（基因组），但换来更干净的区域标签、更可解释的下游任务和更低的数据泄漏风险。第一版论文叙事应强调“结构注释完整作物基因组预训练 + 独立 benchmark（基准评测）”，而不是宣称数据量最大。
+
+## 4. 当前主模型
+
+当前主线是 `CropGenome-FM-v2-Stable-8K`：
+
+- single-base token（单碱基 token），避免 k-mer（固定长度片段）切词影响单点变异解释。
+- HyenaLite（轻量长卷积序列模型）+ local attention（局部注意力）主干。
+- MLM（masked language modeling，遮盖碱基预测）为主任务。
+- RC consistency（reverse-complement consistency，反向互补一致性）作为小权重正则。
+- weak region auxiliary head（弱监督区域辅助头）只作训练辅助和 sanity check（健康检查），不作为正式创新证据。
+- best checkpoint（最佳模型存档点）和 early stopping（早停）按 `selection_loss = MLM loss + 0.02 * RC loss`（遮盖预测损失 + 小权重反向互补损失）选择。
+
+评估: 这个模型设计偏稳健，不把架构新奇性作为论文主卖点。项目成功与否主要看独立下游 benchmark（基准评测）和跨物种泛化，而不是只看预训练 loss（损失）是否下降。
+
+## 5. 如何判断项目是否在变好
+
+只看 [TRAINING_PROGRESS.md](TRAINING_PROGRESS.md)：
+
+1. v2 Stable（第二版稳健版）train loss（训练损失）是否持续下降。
+2. step1000 之后 validation loss（验证损失）和 selection loss（选择损失）是否下降。
+3. best checkpoint（最佳模型存档点）是否稳定出现，而不是只靠最后一步。
+4. 8K 下游 benchmark（基准评测）是否超过 1-mer composition（单碱基组成）、CNN（卷积神经网络）、公开模型和 no-region（无区域辅助）消融。
+5. TE/repeat（转座元件/重复序列）相关任务是否有可靠 EDTA（转座元件注释软件）证据支撑。
+
+评估: 预训练 loss（损失）下降只是必要条件，不是充分条件；正式结论必须来自冻结表示或微调后的独立下游任务，并且需要基线和消融共同支持。

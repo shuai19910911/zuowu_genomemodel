@@ -1,174 +1,112 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1700" viewBox="0 0 2400 1700" role="img" aria-labelledby="title desc">
-  <title id="title">CropGenome-FM model architecture</title>
-  <desc id="desc">Detailed model-only architecture diagram for crop genome foundation model pretraining.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="920" viewBox="0 0 1400 920" role="img" aria-labelledby="title desc">
+  <title id="title">CropGenome-FM v2 Stable model architecture</title>
+  <desc id="desc">Single-base crop genome model with embeddings, HyenaLite backbone, local attention, MLM head, RC consistency, region auxiliary head, and checkpoint selection.</desc>
   <defs>
     <style>
       .bg { fill: #f8fafc; }
-      .panel { fill: #ffffff; stroke: #253244; stroke-width: 3; }
-      .subpanel { fill: #f1f5f9; stroke: #64748b; stroke-width: 2; }
-      .input { fill: #e0f2fe; stroke: #075985; stroke-width: 2.5; }
-      .embed { fill: #dcfce7; stroke: #166534; stroke-width: 2.5; }
-      .backbone { fill: #fef3c7; stroke: #92400e; stroke-width: 2.5; }
-      .head { fill: #fce7f3; stroke: #9d174d; stroke-width: 2.5; }
-      .stage { fill: #ede9fe; stroke: #5b21b6; stroke-width: 2.5; }
-      .note { fill: #fff7ed; stroke: #c2410c; stroke-width: 2.5; }
-      .text { font-family: Arial, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #0f172a; font-size: 30px; }
-      .small { font-family: Arial, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #1e293b; font-size: 24px; }
-      .tiny { font-family: Arial, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #334155; font-size: 20px; }
-      .title { font-family: Arial, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #0f172a; font-size: 52px; font-weight: 700; }
-      .subtitle { font-family: Arial, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #334155; font-size: 27px; }
-      .label { font-family: Arial, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #0f172a; font-size: 28px; font-weight: 700; }
-      .mono { font-family: Consolas, Menlo, monospace; fill: #0f172a; font-size: 23px; }
-      .arrow { stroke: #334155; stroke-width: 5; fill: none; marker-end: url(#arrowHead); }
-      .arrow2 { stroke: #7c3aed; stroke-width: 5; fill: none; marker-end: url(#arrowHeadPurple); }
-      .dash { stroke: #64748b; stroke-width: 3; fill: none; stroke-dasharray: 10 8; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 24; }
+      .title { fill: #0f172a; font: 700 30px Arial, sans-serif; }
+      .subtitle { fill: #334155; font: 18px Arial, sans-serif; }
+      .box { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 16; }
+      .green { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 16; }
+      .orange { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; rx: 16; }
+      .purple { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 2; rx: 16; }
+      .red { fill: #fef2f2; stroke: #dc2626; stroke-width: 2; rx: 16; }
+      .gray { fill: #f1f5f9; stroke: #64748b; stroke-width: 2; rx: 16; }
+      .txt { fill: #0f172a; font: 700 18px Arial, sans-serif; }
+      .small { fill: #334155; font: 15px Arial, sans-serif; }
+      .tiny { fill: #475569; font: 13px Arial, sans-serif; }
+      .eval { fill: #7f1d1d; font: 700 14px Arial, sans-serif; }
+      .arrow { stroke: #334155; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .thin { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#arrow2); }
     </style>
-    <marker id="arrowHead" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
-      <path d="M0,0 L14,7 L0,14 z" fill="#334155"/>
-    </marker>
-    <marker id="arrowHeadPurple" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
-      <path d="M0,0 L14,7 L0,14 z" fill="#7c3aed"/>
-    </marker>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M 0 0 L 12 6 L 0 12 z" fill="#334155"/></marker>
+    <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker>
   </defs>
+  <rect class="bg" width="1400" height="920"/>
+  <text x="60" y="58" class="title">CropGenome-FM-v2-Stable-8K 模型架构图</text>
+  <text x="60" y="88" class="subtitle">单碱基输入 + HyenaLite（轻量长卷积）+ local attention（局部注意力）+ MLM/RC 主选择指标</text>
 
-  <rect class="bg" x="0" y="0" width="2400" height="1700"/>
+  <rect x="40" y="120" width="1320" height="740" class="panel"/>
 
-  <text class="title" x="120" y="90">CropGenome-FM 纯模型架构图</text>
-  <text class="subtitle" x="120" y="132">同一个模型按 8K 到 64K 到 128K 到 256K 逐阶段继续训练，不是每个 context 单独从零训练一个模型</text>
+  <rect x="75" y="170" width="260" height="145" class="box"/>
+  <text x="100" y="205" class="txt">输入窗口</text>
+  <text x="100" y="235" class="small">input_ids: [B, 8192]</text>
+  <text x="100" y="258" class="small">A/C/G/T/N/MASK/PAD</text>
+  <text x="100" y="281" class="tiny">metadata: assembly, species, contig, start/end</text>
+  <text x="100" y="301" class="eval">评估: 单碱基有利于变异解释</text>
 
-  <rect class="panel" x="90" y="170" width="2220" height="1520" rx="12"/>
+  <rect x="405" y="170" width="260" height="145" class="green"/>
+  <text x="430" y="205" class="txt">嵌入层</text>
+  <text x="430" y="235" class="small">token embedding（碱基嵌入）</text>
+  <text x="430" y="258" class="small">region / quality / position 信息</text>
+  <text x="430" y="281" class="tiny">N/PAD 不进入主 MLM loss</text>
+  <text x="430" y="301" class="eval">评估: 加入结构注释但不直接当结论</text>
 
-  <!-- Input side -->
-  <rect class="input" x="140" y="230" width="430" height="270" rx="10"/>
-  <text class="label" x="170" y="275">1. 在线采样窗口</text>
-  <text class="small" x="170" y="320">来自候选池的高质量片段</text>
-  <text class="tiny" x="170" y="360">context: 8K / 64K / 128K / 256K</text>
-  <text class="tiny" x="170" y="398">区域: CDS, splice, TSS, UTR, intron</text>
-  <text class="tiny" x="170" y="436">metadata: assembly, species, contig, strand</text>
-  <text class="tiny" x="170" y="474">split: train / val / test 严格隔离</text>
+  <rect x="735" y="170" width="300" height="145" class="purple"/>
+  <text x="760" y="205" class="txt">32 层 HyenaLite 主干</text>
+  <text x="760" y="235" class="small">d_model=1024, conv_kernel=127</text>
+  <text x="760" y="258" class="small">long-convolution mixer（长卷积混合器）</text>
+  <text x="760" y="281" class="tiny">gradient checkpointing（梯度检查点）节省显存</text>
+  <text x="760" y="301" class="eval">评估: 稳定处理 8K，比全注意力省显存</text>
 
-  <rect class="input" x="140" y="550" width="430" height="260" rx="10"/>
-  <text class="label" x="170" y="595">2. 单碱基 tokenization</text>
-  <text class="mono" x="170" y="640">A=0 C=1 G=2 T=3 N=4</text>
-  <text class="mono" x="170" y="678">MASK=5 PAD=6 BOS=7 EOS=8</text>
-  <text class="tiny" x="170" y="723">mask span 按区域动态设置</text>
-  <text class="tiny" x="170" y="760">N, PAD, 低质量位点不计 loss</text>
+  <rect x="1090" y="170" width="220" height="145" class="orange"/>
+  <text x="1115" y="205" class="txt">局部注意力</text>
+  <text x="1115" y="235" class="small">every 4 layers</text>
+  <text x="1115" y="258" class="small">8 heads, chunk=512</text>
+  <text x="1115" y="281" class="tiny">补充局部精确相互作用</text>
+  <text x="1115" y="301" class="eval">评估: 提升剪接/边界任务潜力</text>
 
-  <rect class="input" x="140" y="860" width="430" height="255" rx="10"/>
-  <text class="label" x="170" y="905">3. RC 双链处理</text>
-  <text class="tiny" x="170" y="950">forward 序列和 reverse-complement</text>
-  <text class="tiny" x="170" y="988">共享参数编码</text>
-  <text class="tiny" x="170" y="1026">训练时加入 RC consistency</text>
-  <text class="tiny" x="170" y="1064">推理时可做双向平均或一致性打分</text>
+  <path class="arrow" d="M 335 242 L 400 242"/>
+  <path class="arrow" d="M 665 242 L 730 242"/>
+  <path class="arrow" d="M 1035 242 L 1085 242"/>
 
-  <!-- Embedding -->
-  <rect class="embed" x="690" y="250" width="470" height="410" rx="10"/>
-  <text class="label" x="725" y="300">4. 输入 embedding 融合</text>
-  <text class="tiny" x="725" y="350">token embedding: 单碱基词表</text>
-  <text class="tiny" x="725" y="390">region embedding: CDS / splice / TSS / UTR</text>
-  <text class="tiny" x="725" y="430">strand embedding: plus / minus / unknown</text>
-  <text class="tiny" x="725" y="470">quality embedding: N 比例, 低复杂度, rescue</text>
-  <text class="tiny" x="725" y="510">species or genus embedding: 可选</text>
-  <text class="tiny" x="725" y="550">position scheme: 长上下文相对位置或卷积状态</text>
-  <text class="mono" x="725" y="610">x0 = Etok + Eregion + Estrand + Equal</text>
+  <rect x="190" y="410" width="270" height="150" class="green"/>
+  <text x="215" y="445" class="txt">MLM head（遮盖预测头）</text>
+  <text x="215" y="475" class="small">15% mask probability</text>
+  <text x="215" y="498" class="small">预测被遮盖 A/C/G/T/N</text>
+  <text x="215" y="521" class="tiny">主 loss weight = 1.0</text>
+  <text x="215" y="542" class="eval">评估: 预训练主目标，最重要</text>
 
-  <rect class="embed" x="690" y="730" width="470" height="290" rx="10"/>
-  <text class="label" x="725" y="780">5. 训练标记张量</text>
-  <text class="mono" x="725" y="830">input_ids, labels_mlm</text>
-  <text class="mono" x="725" y="868">loss_mask, region_ids</text>
-  <text class="mono" x="725" y="906">region_weights, rc_flag</text>
-  <text class="tiny" x="725" y="960">batch 内按目标区域比例动态采样</text>
+  <rect x="565" y="410" width="270" height="150" class="orange"/>
+  <text x="590" y="445" class="txt">RC consistency（反向互补一致性）</text>
+  <text x="590" y="475" class="small">weight = 0.02</text>
+  <text x="590" y="498" class="small">forward/RC 表示方向一致</text>
+  <text x="590" y="521" class="tiny">不把它夸大成唯一创新</text>
+  <text x="590" y="542" class="eval">评估: 小权重约束，防止压过 MLM</text>
 
-  <!-- Backbone -->
-  <rect class="backbone" x="1270" y="210" width="620" height="835" rx="12"/>
-  <text class="label" x="1310" y="260">6. 长上下文 backbone</text>
-  <text class="subtitle" x="1310" y="305">RC-equivariant bidirectional Mamba2 / Hyena</text>
+  <rect x="940" y="410" width="270" height="150" class="red"/>
+  <text x="965" y="445" class="txt">Region auxiliary head（区域辅助头）</text>
+  <text x="965" y="475" class="small">7 类区域: background/coding/...</text>
+  <text x="965" y="498" class="small">weight = 0.05, smoothing=0.05</text>
+  <text x="965" y="521" class="tiny">只作 weak supervision（弱监督）</text>
+  <text x="965" y="542" class="eval">评估: 不能作为正式下游证据</text>
 
-  <rect class="subpanel" x="1320" y="350" width="520" height="115" rx="8"/>
-  <text class="small" x="1350" y="393">Block 1: local convolution / SSM mixer</text>
-  <text class="tiny" x="1350" y="432">捕获 motif, codon, splice dinucleotide</text>
+  <path class="thin" d="M 885 315 C 820 365 340 365 325 405"/>
+  <path class="thin" d="M 885 315 C 840 365 700 365 700 405"/>
+  <path class="thin" d="M 885 315 C 950 365 1075 365 1075 405"/>
 
-  <rect class="subpanel" x="1320" y="495" width="520" height="115" rx="8"/>
-  <text class="small" x="1350" y="538">Block 2: bidirectional sequence mixing</text>
-  <text class="tiny" x="1350" y="577">forward 和 reverse-complement 参数约束</text>
+  <rect x="190" y="650" width="315" height="135" class="gray"/>
+  <text x="215" y="685" class="txt">训练选择指标</text>
+  <text x="215" y="715" class="small">selection loss = MLM + 0.02 × RC</text>
+  <text x="215" y="738" class="small">region loss 不参与 best checkpoint</text>
+  <text x="215" y="761" class="eval">评估: 防止区域标签驱动虚高</text>
 
-  <rect class="subpanel" x="1320" y="640" width="520" height="115" rx="8"/>
-  <text class="small" x="1350" y="683">Periodic global attention</text>
-  <text class="tiny" x="1350" y="722">每 4 到 6 层插入一次，补充长程依赖</text>
+  <rect x="555" y="650" width="315" height="135" class="gray"/>
+  <text x="580" y="685" class="txt">Checkpoint 与早停</text>
+  <text x="580" y="715" class="small">save/eval every 1000 steps</text>
+  <text x="580" y="738" class="small">early stop: min_steps=5000, patience=3</text>
+  <text x="580" y="761" class="eval">评估: 用验证集控制训练长度</text>
 
-  <rect class="subpanel" x="1320" y="785" width="520" height="115" rx="8"/>
-  <text class="small" x="1350" y="828">FFN / gated MLP + norm + residual</text>
-  <text class="tiny" x="1350" y="867">bf16, activation checkpointing, ZeRO-3 或 FSDP</text>
+  <rect x="920" y="650" width="315" height="135" class="gray"/>
+  <text x="945" y="685" class="txt">下游接口</text>
+  <text x="945" y="715" class="small">frozen embedding（冻结表示）/ fine-tune（微调）</text>
+  <text x="945" y="738" class="small">per-base score（单碱基评分）/ sequence embedding</text>
+  <text x="945" y="761" class="eval">评估: 正式价值由 benchmark 证明</text>
 
-  <text class="tiny" x="1310" y="950">Large 目标: 300M 到 450M 参数</text>
-  <text class="tiny" x="1310" y="990">32 layers, hidden 1024, attention sparse periodic</text>
+  <path class="arrow" d="M 325 560 L 325 645"/>
+  <path class="arrow" d="M 700 560 L 700 645"/>
+  <path class="arrow" d="M 1075 560 L 1075 645"/>
 
-  <!-- Outputs -->
-  <rect class="head" x="2020" y="250" width="250" height="185" rx="10"/>
-  <text class="label" x="2045" y="300">MLM head</text>
-  <text class="tiny" x="2045" y="345">区域加权 masked LM</text>
-  <text class="tiny" x="2045" y="382">主要预训练目标</text>
-
-  <rect class="head" x="2020" y="485" width="250" height="185" rx="10"/>
-  <text class="label" x="2045" y="535">Causal head</text>
-  <text class="tiny" x="2045" y="580">next-token 辅助 loss</text>
-  <text class="tiny" x="2045" y="617">用于变异 likelihood</text>
-
-  <rect class="head" x="2020" y="720" width="250" height="185" rx="10"/>
-  <text class="label" x="2045" y="770">RC head</text>
-  <text class="tiny" x="2045" y="815">双链一致性约束</text>
-  <text class="tiny" x="2045" y="852">降低方向偏置</text>
-
-  <rect class="head" x="2020" y="955" width="250" height="185" rx="10"/>
-  <text class="label" x="2045" y="1005">Region probe</text>
-  <text class="tiny" x="2045" y="1050">可选对比学习</text>
-  <text class="tiny" x="2045" y="1087">辅助区域表征</text>
-
-  <!-- Loss -->
-  <rect class="note" x="690" y="1100" width="1200" height="210" rx="10"/>
-  <text class="label" x="725" y="1150">7. 总损失</text>
-  <text class="mono" x="725" y="1205">L = 1.00 * L_region_weighted_MLM</text>
-  <text class="mono" x="765" y="1243">+ 0.10 * L_causal_next_token</text>
-  <text class="mono" x="765" y="1281">+ 0.05 * L_reverse_complement_consistency</text>
-
-  <!-- Curriculum -->
-  <rect class="stage" x="140" y="1345" width="2130" height="265" rx="12"/>
-  <text class="label" x="180" y="1395">8. Context curriculum: 同一模型连续训练</text>
-  <rect class="subpanel" x="180" y="1430" width="475" height="145" rx="8"/>
-  <text class="small" x="210" y="1472">Stage B: 8K</text>
-  <text class="tiny" x="210" y="1512">30B 到 80B tokens</text>
-  <text class="tiny" x="210" y="1548">局部 motif, CDS, splice, TSS/TES</text>
-
-  <rect class="subpanel" x="705" y="1430" width="475" height="145" rx="8"/>
-  <text class="small" x="735" y="1472">Stage C1: 64K</text>
-  <text class="tiny" x="735" y="1512">从 Stage B checkpoint 继续训练</text>
-  <text class="tiny" x="735" y="1548">gene body, promoter-gene, long intron</text>
-
-  <rect class="subpanel" x="1230" y="1430" width="475" height="145" rx="8"/>
-  <text class="small" x="1260" y="1472">Stage C2: 128K</text>
-  <text class="tiny" x="1260" y="1512">从 C1 checkpoint 继续训练</text>
-  <text class="tiny" x="1260" y="1548">远端调控和结构上下文</text>
-
-  <rect class="subpanel" x="1755" y="1430" width="475" height="145" rx="8"/>
-  <text class="small" x="1785" y="1472">Stage D: 256K</text>
-  <text class="tiny" x="1785" y="1512">资源允许后 midtraining</text>
-  <text class="tiny" x="1785" y="1548">长上下文推理和远端候选排序</text>
-
-  <!-- Arrows -->
-  <path class="arrow" d="M570 365 C610 365, 640 365, 685 405"/>
-  <path class="arrow" d="M570 680 C625 680, 650 680, 685 760"/>
-  <path class="arrow" d="M570 990 C645 990, 650 940, 685 910"/>
-  <path class="arrow" d="M1160 455 C1205 455, 1225 455, 1265 455"/>
-  <path class="arrow" d="M1160 880 C1205 880, 1225 795, 1265 735"/>
-  <path class="arrow" d="M1890 410 C1950 410, 1970 345, 2015 345"/>
-  <path class="arrow" d="M1890 545 C1950 545, 1970 580, 2015 580"/>
-  <path class="arrow" d="M1890 725 C1950 725, 1970 815, 2015 815"/>
-  <path class="arrow" d="M1890 875 C1950 875, 1970 1045, 2015 1045"/>
-  <path class="arrow" d="M655 1502 C675 1502, 685 1502, 700 1502"/>
-  <path class="arrow" d="M1180 1502 C1200 1502, 1210 1502, 1225 1502"/>
-  <path class="arrow" d="M1705 1502 C1725 1502, 1735 1502, 1750 1502"/>
-  <path class="arrow2" d="M1580 1045 C1580 1080, 1580 1085, 1580 1095"/>
-  <path class="dash" d="M925 1020 C925 1060, 970 1075, 1120 1095"/>
-  <path class="dash" d="M2145 1140 C2145 1240, 1950 1280, 1895 1280"/>
+  <text x="60" y="895" class="tiny">边界: 当前 v2 Stable 可称 RC-aware/RC-consistency（反向互补感知/一致性）；是否宣称严格 RC-equivariant（反向互补等变）必须以后续代码审计和消融验证为准。</text>
 </svg>

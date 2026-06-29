@@ -1,302 +1,195 @@
-# CropGenome-FM 模型结构解析
+# CropGenome-FM 模型结构解释
 
-更新时间: 2026-06-08 22:19:54 CST
+更新时间: 2026-06-29 08:20 CST
 
-## 1. 设计结论
+![CropGenome-FM-v2-Stable-8K 模型架构图](assets/cropgenome_fm_model_architecture.svg)
 
-CropGenome-FM 是一个面向作物结构注释基因组的区域加权长上下文基础模型。第一版正式模型只使用 262 个有 FASTA + GFF3/GTF 的 assembly，不使用缺少结构注释的 genome。训练数据在本服务器按 stage 固化输入窗口或 `input_ids`，训练服务器动态生成 mask、label、RC 增强和 batch 顺序。
+## 0. 当前主模型
 
-主架构:
+当前主模型是 `CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）。设计目标是先稳定训练、稳定验证、稳定产生下游结果，而不是把论文卖点放在复杂架构创新上。
 
-```text
-single-base DNA tokens
-  + region / strand / quality embeddings
-  + RC-equivariant bidirectional Mamba2-Hyena backbone
-  + periodic local/global attention
-  + region-weighted MLM head
-  + causal likelihood auxiliary head
-  + RC consistency objective
-```
-
-## 2. 为什么这样设计
-
-| 需求 | 设计 |
-|---|---|
-| SNP/indel 变异评分 | 单碱基 token，避免 k-mer/BPE 边界改变 |
-| 作物结构注释任务 | 用 GFF/GTF 构建 CDS、UTR、splice、promoter、TES、intron、intergenic 区域标签 |
-| 长程调控和 gene body | 8K -> 64K -> 128K -> 256K 课程训练 |
-| DNA 双链一致性 | reverse-complement equivariant block 和 RC consistency loss |
-| 前沿长上下文效率 | Mamba2/Hyena 为主体，periodic attention 捕获精确局部/中程交互 |
-| 下游迁移 | 输出 per-base likelihood、sequence embedding、region-aware embedding |
-
-## 3. 输入定义
-
-### 3.1 token vocabulary
-
-| token | id |
-|---|---:|
-| A | 0 |
-| C | 1 |
-| G | 2 |
-| T | 3 |
-| N | 4 |
-| MASK | 5 |
-| PAD | 6 |
-| BOS | 7 |
-| EOS | 8 |
-
-IUPAC ambiguous bases 默认转为 N。N/PAD 不参与主 loss。
-
-### 3.2 模型 batch
+核心结构:
 
 ```text
-input_ids:       [B, L] int64
-labels_mlm:      [B, L] int64, non-mask = -100
-loss_mask:       [B, L] bool
-region_ids:      [B, L] uint8
-region_weights:  [B, L] fp16/bf16
-quality_scores:  [B, L] optional fp16
-rc_flag:         [B] bool
-metadata:        assembly_id, species_id, genus_id, contig_id, start, end, strand
+single-base DNA tokens（单碱基 DNA 输入）
+  -> token/region/quality embeddings（碱基/区域/质量嵌入）
+  -> 32-layer HyenaLite backbone（32 层轻量长卷积主干）
+  -> local attention every 4 layers（每 4 层局部注意力）
+  -> MLM head（遮盖碱基预测头）
+  -> RC consistency regularizer（反向互补一致性约束）
+  -> weak region auxiliary head（弱监督区域辅助头）
+  -> selection loss for best checkpoint（最佳模型存档点选择指标）
 ```
 
-上下文长度:
+解释: 模型使用单碱基 token（输入单位），保留 SNP/indel（单核苷酸变异/插入缺失）解释能力；HyenaLite（轻量长卷积序列模型）负责长上下文建模；local attention（局部注意力）补充剪接边界、启动子 motif（短序列模式）等局部精确交互。
 
-- Stage B: 8192。
-- Stage C1: 65536。
-- Stage C2: 131072。
-- Stage D: 262144；512K 作为后续扩展。
+评估: 这是稳健工程路线。它不像大型 Transformer（注意力模型）那样显存爆炸，也不像纯卷积那样完全缺少局部注意力补充。论文表述应强调“作物专用预训练和 benchmark（基准评测）”，不要把架构本身夸成唯一创新。
 
-## 4. 区域 embedding 和权重
+## 1. 输入定义
 
-区域 id:
+### 1.1 token vocabulary（输入词表）
 
-- CDS/exon。
-- splice donor/acceptor flank。
-- UTR。
-- promoter/TSS。
-- terminator/TES/polyA flank。
-- intron。
-- TE/repeat annotated，可选，只有可靠注释时启用。
-- high-quality intergenic。
-- random background。
+| token（输入符号） | id | 含义 |
+|---|---:|---|
+| A | 0 | 腺嘌呤 |
+| C | 1 | 胞嘧啶 |
+| G | 2 | 鸟嘌呤 |
+| T | 3 | 胸腺嘧啶 |
+| N | 4 | 未知碱基 |
+| MASK | 5 | MLM（遮盖碱基预测）使用的遮盖符号 |
+| PAD | 6 | padding（补齐符号） |
 
-模型输入来自候选池，而不是全基因组无差别切片。候选池先经过硬质量过滤:
+N/PAD（未知碱基/补齐符号）不参与主 MLM loss（遮盖预测损失）。
 
-- train 默认 `N <= 5%`，validation/test 必须 `N <= 5%`；`5%-10%` 只允许稀缺小属或稀缺功能区低权重救援。
-- 任意连续 `N >= 1 kb` 丢弃；CDS/splice/start/stop 监督窗口中连续 `N >= 100 bp` 丢弃。
-- 普通窗口 `A/C/G/T >= 90%`；关键监督窗口 `A/C/G/T >= 98%`。
-- 单一碱基比例 `> 80%` 或 dust/entropy 低复杂度的纯背景窗口丢弃。
-- contig/scaffold 两端不足 `1 kb` 的窗口默认丢弃，除非包含完整基因结构。
-- CDS 坐标越界、transcript parent 缺失、CDS 长度不成 3 倍数的区域不用于 CDS/frame/splice 监督。
+解释: 使用单碱基而不是 k-mer（固定长度片段）或 BPE（子词切分），是为了避免一个 SNP（单核苷酸变异）改变多个 token 边界。
 
-候选池保留比例:
+评估: 单碱基序列更长，训练更贵；但对变异效应、剪接边界和单碱基注释任务更自然。对于本项目的作物功能基因组任务，这是合理取舍。
 
-| 区域 | 候选池保留比例 |
-|---|---:|
-| CDS / coding exon | 100% |
-| splice donor/acceptor +/-2 kb | 100% |
-| start/stop codon +/-2 kb | 100% |
-| annotated UTR and transcript boundary | 100% |
-| TSS upstream 0-5 kb | 100% |
-| TSS upstream 5-20 kb | 15% |
-| exon-intron boundary +/-2 kb | 100% |
-| ordinary intron interior | 10% |
-| long intron interior >20 kb | 5% |
-| TE/repeat annotated interval | 50% |
-| TE/repeat within 20 kb of gene/promoter | 100% |
-| TE boundary +/-2 kb | 100% |
-| gene-proximal intergenic within 20 kb | 10% |
-| distal intergenic / far noncoding | 3%-5% |
-| random genome coverage | 1%-2% |
+### 1.2 batch（批次）字段
 
-去冗余控制:
+| 字段 | 形状/类型 | 用途 |
+|---|---|---|
+| `input_ids` | `[B, 8192]` | 输入碱基 token（输入符号） |
+| `labels_mlm` | `[B, 8192]` | MLM（遮盖碱基预测）标签，非 mask 位置为忽略值 |
+| `loss_mask` | `[B, 8192]` | 哪些位置参与 loss（损失） |
+| `region_ids` | `[B, 8192]` | 区域弱标签，如 coding（编码区）、promoter（启动子）等 |
+| metadata（元数据） | assembly/species/contig/start/end | 追踪来源和防泄漏审计 |
 
-- 普通 intergenic 和 repeat-rich 背景相似度 `>= 95%` 只保留 1 个代表。
-- CDS、splice、start/stop 不因相似性丢弃，只做质量过滤。
-- 每个 assembly 的 distal intergenic token 占比不超过该 assembly 训练 token 的 `5%`。
-- 每个属的 ordinary intergenic token 占比不超过该属训练 token 的 `10%`。
+解释: 训练输入窗口已经在本服务器按 Stage（阶段）固化，但 mask（遮盖）、labels（标签）和 batch order（批次顺序）在训练服务器动态生成。
 
-批内采样比例和 loss 权重参考 `douke_genome`，但当前作物数据若无可靠 TE/repeat 注释，则使用 fallback，不伪造 repeat 标签。候选池保留比例用于控制磁盘和冗余，下面的采样比例用于控制每个训练 batch 的学习重点。
+评估: 固化输入提高可复现性，动态 mask/label 提高训练多样性。这个设计也让训练服务器只需要接收 `training_server_transfer/`，不用访问原始 plantDB（植物数据库）全量数据。
 
-模式 A: 有可靠 TE/repeat 注释。
+## 2. 主干结构
 
-| 区域 | 采样比例 | loss 权重 |
-|---|---:|---:|
-| CDS/exon | 25% | 1.50 |
-| splice donor/acceptor | 15% | 2.00 |
-| promoter/TSS | 15% | 1.40 |
-| UTR | 10% | 1.20 |
-| TES/polyA | 5% | 1.20 |
-| intron | 10% | 0.90 |
-| TE/repeat annotated | 12% | 0.80 |
-| high-quality intergenic | 5% | 0.60 |
-| background | 3% | 0.50 |
+当前配置来自 `training_server_transfer/configs/model_large.json`：
 
-模式 B: 当前默认，无可靠 TE/repeat 注释。
+| 参数 | 当前值 | 解释与评估 |
+|---|---:|---|
+| `d_model` | 1024 | hidden size（隐藏维度）；容量足够，但仍能在单张 A100 40G 上训练。 |
+| `n_layers` | 32 | 层数；比小模型更有表达力，训练成本可控。 |
+| `conv_kernel` | 127 | HyenaLite（轻量长卷积）卷积核；有助于局部到中程模式。 |
+| `attention_every` | 4 | 每 4 层插入 local attention（局部注意力）；平衡显存与局部精确建模。 |
+| `attention_heads` | 8 | 注意力头数；用于局部片段内部交互。 |
+| `attention_chunk_size` | 512 | 局部注意力块长度；避免全局注意力显存过高。 |
+| `dropout` | 0.05 | dropout（随机失活）防过拟合。 |
+| `gradient_checkpointing` | true | 梯度检查点，节省显存，增加一点计算时间。 |
 
-| 区域 | 采样比例 | loss 权重 |
-|---|---:|---:|
-| CDS/exon | 28% | 1.50 |
-| splice donor/acceptor | 18% | 2.00 |
-| promoter/TSS | 15% | 1.40 |
-| UTR | 10% | 1.20 |
-| TES/polyA | 7% | 1.20 |
-| intron | 12% | 0.90 |
-| high-quality intergenic | 7% | 0.60 |
-| background | 3% | 0.50 |
+解释: HyenaLite（轻量长卷积）适合长 DNA 序列，local attention（局部注意力）补充剪接位点、motif（短序列模式）和边界任务所需的局部精确交互。
 
-## 5. Backbone
+评估: 该架构适合先跑通 8K。若后续 64K/128K 扩展，需要重新评估 attention chunk（局部注意力块）和 batch size（批量大小），否则显存或吞吐可能成为瓶颈。
 
-### 5.1 前沿架构对比
+## 3. 训练目标和 loss（损失函数）
 
-| 方向 | 代表 | 优点 | 局限 | 本项目取舍 |
-|---|---|---|---|---|
-| 6-mer Transformer MLM | AgroNT, Nucleotide Transformer | 植物任务强基线，训练稳定 | 短上下文，变异边界不自然 | 基线 |
-| BPE DNA Transformer | DNABERT-2, GROVER | token 少，效率高 | 单点变异解释受 tokenization 影响 | 基线/效率对照 |
-| Hyena long DNA | HyenaDNA, Evo 2 | 单碱基、长上下文、likelihood 评分 | 工程复杂 | 主体方向 |
-| RC Mamba/Caduceus | Caduceus, PlantCAD | DNA 双链归纳偏置强 | 需要适配区域加权和长上下文 | 主体方向 |
-| Transformer-Mamba2 hybrid | HybriDNA | 注意力 + SSM 互补 | 显存和实现复杂 | periodic attention |
-| Explicit cross-strand DNA LM | CrossDNA | 显式双分支建模 forward 与 reverse-complement，并通过轻量 cross-strand communication 做动态双链信息交换；方向鲁棒性和 enhancer 等调控任务表现更强 | 当前公开实现主要是 2K/human reference 预训练和小参数模型；需适配作物长上下文、区域加权和结构注释 | v1.1 升级方向 |
-| 监督长调控模型 | AlphaGenome, Enformer, Borzoi | 调控预测强 | 依赖大规模标签，不是纯预训练 | 下游头和评测参考 |
+### 3.1 MLM loss（遮盖碱基预测损失）
 
-### 5.2 推荐 block
+- mask probability（遮盖比例）: 0.15。
+- `force_mask_per_sequence=true`，避免某些短有效窗口完全没有 mask。
+- 主 loss weight（损失权重）: 1.0。
 
-每个 block:
+解释: MLM（masked language modeling，遮盖碱基预测）是主预训练目标。模型需要根据上下文恢复被遮盖的碱基。
 
-1. RMSNorm。
-2. RC-equivariant bidirectional Mamba2 或 Hyena mixer。
-3. 每 4-6 层插入 local/global sparse attention。
-4. SwiGLU/gated MLP。
-5. residual connection。
-6. dropout/drop-path 只在过拟合时启用。
+评估: MLM loss 是最可信的预训练学习信号；后续 best checkpoint（最佳模型存档点）也主要依赖它。若 MLM loss 不下降，其他辅助任务结果都不应过度解释。
 
-推荐 Large 配置:
+### 3.2 RC consistency（反向互补一致性）
 
-| 项 | 值 |
-|---|---:|
-| layers | 32 |
-| hidden | 1024 |
-| MLP ratio | 4 |
-| attention interval | every 4 or 6 layers |
-| params | 300M-450M |
-| precision | bf16 |
-| optimizer | AdamW |
-| context | 8K -> 64K -> 128K -> 256K |
+- `rc_consistency_weight=0.02`。
+- `rc_selection_weight=0.02`。
+- selection loss（选择损失）中用小权重加入 RC loss（反向互补损失）。
 
-### 5.3 CrossDNA 启发的 v1.1 双链交互升级
+解释: DNA 双链有 reverse-complement（反向互补）关系。RC consistency（反向互补一致性）要求模型对正向序列和反向互补序列的表示/预测更一致。
 
-2026 年 Nature Machine Intelligence 文章 `Explicit dynamic cross-strand interactions for DNA sequence language modelling` 提出 CrossDNA，其关键区别是把 DNA 双链关系从“数据增强或 RC 等变约束”升级为“显式、动态的跨链交互”。文章和官方代码显示，CrossDNA 使用 duplex-inspired dual-branch 架构，同时处理 forward 与 reverse-complement 视图，并通过 lightweight cross-strand communication module 建立链间通信；同时结合 recurrent long-context backbone 和 sliding-window attention。
+评估: 当前 v2 可以称为 RC-aware / RC-consistency（反向互补感知/一致性约束）。是否宣称严格 RC-equivariant（反向互补等变）必须以后续代码审计、数学定义和消融验证为准；文档和论文不要过度声明。
 
-对 CropGenome-FM 的启发:
+### 3.3 Region auxiliary head（区域辅助头）
 
-1. 当前 v1-backbone 的 RC augmentation 和 `L_RC_consistency` 仍属于隐式双链建模，只约束方向一致，不显式让 forward/RC 两个视图交换信息。
-2. v1.1 应在 Stage B checkpoint 之后引入 `CrossStrandBlock`，而不是中断当前训练重来。这样可保留已学到的作物局部语法，再做 cross-strand continued pretraining。
-3. 推荐 block 形式:
+区域类别:
+
+- background（背景）
+- coding（编码区）
+- gene_body（基因体）
+- promoter（启动子）
+- splice（剪接区）
+- tes（转录终止区）
+- utr（非翻译区）
+
+配置:
+
+- `region_classification_weight=0.05`。
+- `region_label_smoothing=0.05`。
+
+解释: 区域辅助头给模型一个弱监督信号，让表示更关注结构注释区域。但这些标签来自预训练数据构建过程，不是独立外部验证。
+
+评估: 这个头只能作为 weak supervision（弱监督）和 sanity check（健康检查）。正式结论必须通过独立下游 benchmark（基准评测）证明；不能说“region_acc（区域准确率）高，所以模型学会了作物基因结构”。
+
+## 4. checkpoint（模型存档点）和 early stopping（早停）
+
+原始训练配置来自 `training_server_transfer/configs/train_stage_B.json`；step1570 发生 CUDA OOM（显存不足）后，当前恢复训练使用 `training_server_transfer/configs/train_stage_B_resume_mb4_accum9.json`：
+
+| 项 | 当前值 | 解释 |
+|---|---:|---|
+| `max_steps` | 50000 | 最大训练步数，不代表一定跑满。 |
+| `micro_batch_size` | 4 | OOM 后恢复配置；单次显卡小批量从 5 降到 4。 |
+| `grad_accum_steps` | 9 | OOM 后恢复配置；梯度累积从 7 升到 9，使有效 batch（有效批量）约为 36。 |
+| `learning_rate` | 1e-4 | 学习率上限。 |
+| `warmup_steps` | 1000 | 学习率预热步数。 |
+| `save_every` | 1000 | 每 1000 step 保存 checkpoint（模型存档点）。 |
+| `eval_every` | 1000 | 每 1000 step 做 validation（验证）。 |
+| `early_stopping_min_steps` | 5000 | step5000 前不触发早停。 |
+| `early_stopping_patience_evals` | 3 | 连续 3 次验证无有效改善才早停。 |
+| `early_stopping_min_delta` | 0.002 | 小于 0.002 的改善不算有效改善。 |
+
+选择指标:
 
 ```text
-forward ids x_f
-reverse-complement ids x_rc
-
-h_f  = shared_or_tied_backbone_block(x_f)
-h_rc = shared_or_tied_backbone_block(x_rc)
-
-c_f, c_rc = CrossStrandCommunication(h_f, h_rc)
-h_f  = h_f  + gated(c_f)
-h_rc = h_rc + gated(c_rc)
-
-fused = orientation_invariant_pool(h_f, reverse_back(h_rc))
+selection_loss = val_mlm_loss + 0.02 × val_rc_loss
 ```
 
-4. `CrossStrandCommunication` 第一版只用轻量实现: low-rank cross attention、gated token-wise fusion 或每 N 层一次的 local cross-attention；不在每层全量 cross-attention，避免 8K/64K 长上下文显存爆炸。
-5. 作物场景中，显式双链交互优先用于 enhancer/promoter、splice、TSS/TES、motif orientation、variant effect 和 strand-biased annotation 任务；结构区域如 TE boundary、telomere、centromere-like 也可评估方向鲁棒性。
-6. 新增评测指标: `cross_strand_delta = |score(x) - score(RC(x))|`，以及 forward/RC embedding cosine、variant effect RC consistency、enhancer/promoter orientation robustness。
+解释: best checkpoint（最佳模型存档点）按 selection loss（选择损失）保存，而不是按 final step（最后一步）保存。region loss（区域辅助损失）不参与 best checkpoint 选择。
 
-实施顺序:
+评估: 这是防止过拟合和防止辅助标签虚高的关键。正式下游评测应优先使用 best checkpoint，而不是随手使用最后 checkpoint。
 
-- v1: 当前已启动的 `v1-backbone` Stage_B 继续训练，不中断。
-- v1.1: 从 Stage_B checkpoint 做 8K cross-strand midtraining，先只打开每 4-6 层一次的轻量 cross-strand communication。
-- v1.2: 如果 v1.1 在 RC consistency、enhancer/promoter、splice 和 variant effect probe 上优于 v1，再把 cross-strand block 带入 C1/C2 长上下文阶段。
+## 5. 下游接口
 
-## 6. 输出
+模型可提供:
 
-训练输出:
+- frozen embedding（冻结表示）: 不更新主模型，只训练轻量分类器或 nearest centroid（最近中心分类器）。
+- fine-tune（微调）: 在下游任务上更新部分或全部模型参数。
+- per-base score（单碱基评分）: 用于 splice（剪接）、TSS/TES（转录起止位点）、variant effect（变异效应）等位置敏感任务。
+- sequence embedding（序列向量表示）: 用于 promoter（启动子）、lncRNA/mRNA 分类、区域分类等任务。
 
-```text
-logits_mlm:          [B, L, vocab]
-logits_causal:       [B, L, vocab] optional
-hidden_states:       [B, L, H]
-sequence_embedding:  [B, H]
-region_embedding:    [B, R, H] optional pooled by region
-```
+解释: frozen embedding（冻结表示）适合快速检查表示是否有信号；fine-tune（微调）更接近实际应用，但更容易过拟合，需要严格 split（划分）。
 
-推理输出:
+评估: 第一阶段应先用 frozen embedding 和轻量 baseline（基线）判断 checkpoint 是否值得，再做正式 fine-tune。不要用一个小样本 probe（探针评测）直接宣称模型已优于公开模型。
 
-- 每碱基 likelihood。
-- ref/alt delta likelihood。
-- 序列 embedding。
-- 区域 embedding。
-- 下游任务 logits/regression value。
+## 6. 模型边界和论文表述边界
 
-## 7. Loss
+可以说:
 
-```text
-L_total =
-  1.00 * L_region_weighted_MLM
-  + 0.10 * L_causal_next_token
-  + 0.05 * L_RC_consistency
-  + 0.05 * L_region_contrastive_optional
-```
+- 模型是 crop-specific（作物专用）预训练。
+- 使用 single-base tokenization（单碱基输入）。
+- 使用 HyenaLite（轻量长卷积）+ local attention（局部注意力）处理 8K 长上下文。
+- 使用 RC consistency（反向互补一致性）作为小权重约束。
+- 使用 region auxiliary head（区域辅助头）作为弱监督训练辅助。
+- best checkpoint（最佳模型存档点）由 MLM+RC 选择指标决定。
 
-### 7.1 Region-weighted MLM
+不应过度说:
 
-- mask rate: 15%。
-- span length: 1-512 bp。
-- CDS/splice/TSS 区域增加短 span 比例，保证位点级监督。
-- intron/intergenic 混合长 span，学习长程上下文。
-- N/PAD/低质量位点不计 loss。
+- 不应把 region_bucket（区域桶）辅助任务当作独立 benchmark（基准评测）。
+- 不应把旧 formal CaduceusRC（旧反向互补一致性模型）结果混入 v2 Stable 的 from-scratch（从头训练）结论。
+- 不应在没有严格消融前宣称 RC-equivariant（反向互补等变）架构带来决定性收益。
+- 不应只凭 train loss（训练损失）下降宣称模型成功。
 
-### 7.2 Causal auxiliary loss
+评估: 这些边界能保护论文结论。模型结构是研究载体，最终可信度来自独立下游任务、公开基线和消融。
 
-目的不是把模型变成纯生成模型，而是提供 ref/alt likelihood score。只在部分 batch 或长上下文阶段启用，权重较低。
+## 7. 后续架构扩展路线
 
-### 7.3 RC consistency
+优先级:
 
-同一窗口 forward 和 reverse-complement 的 pooled embedding、masked logits 或 variant score 应一致。这个 loss 用于降低 DNA 方向偏置。
+1. 先完成 v2 Stable 8K 的 validation（验证）、best checkpoint（最佳模型存档点）和第一波 benchmark（基准评测）。
+2. 若 8K 有收益，再扩展 64K/128K context（上下文长度）。
+3. 若 RC consistency（反向互补一致性）消融显示收益，再考虑更显式的 cross-strand communication（跨链通信）模块。
+4. 若 EDTA（转座元件注释软件）可靠完成，再纳入 TE/repeat（转座元件/重复序列）专门 head 或下游任务。
 
-## 8. 训练资源估算
+解释: 架构扩展必须由结果驱动，而不是为了复杂而复杂。
 
-| 阶段 | context | 推荐 GPU | token 预算 | 预计时间 |
-|---|---:|---:|---:|---:|
-| Stage B | 8K | 4-8 x 80GB | 30B-80B | 5-18 天 |
-| Stage C1 | 64K | 8 x 80GB | 15B-40B | 7-18 天 |
-| Stage C2 | 128K | 8 x 80GB | 5B-20B | 5-14 天 |
-| Stage D | 256K | 8-16 x 80GB | 2B-10B | 4-14 天 |
-
-如果只有 2 张 80GB GPU，建议正式模型停在 64K/128K，不强推 256K。
-
-## 9. 评估和基线优势预期
-
-最可能优于基线的任务:
-
-- splice donor/acceptor: splice 区域高采样 + 高 loss 权重。
-- TIS/TTS: CDS 高采样 + 单碱基建模。
-- CDS/UTR/intron 区域分类: 直接来自区域感知预训练。
-- promoter/TES 分类: 长上下文 + TSS/TES 区域采样。
-
-相对基线优势:
-
-- 对 DNABERT-2: 单碱基变异解释和长上下文更自然。
-- 对 AgroNT: 更长上下文，结构区域加权，注释感知更强。
-- 对 PlantCAD2: 若 PlantCAD2 训练数据更广，本项目不保证全任务超过；但在本地作物结构注释任务和严格 holdout 上应更贴合。
-- 对 CNN/DeepSEA-like: 跨物种、小样本、gene family holdout 应明显更强。
-
-## 10. 进展记录
-
-- 2026-06-07 23:26:04 CST: 完成第一版 CropGenome-FM 模型结构定义，确定主线为单碱基、长上下文、RC 等变双向 Mamba/Hyena 架构，参数档位为 Base/Large/XL，第一正式目标为 Large。
-- 2026-06-07 23:46:31 CST: 增补 2026 前沿架构取舍，明确主模型为 RC-equivariant Mamba2/Hyena + periodic attention 的混合结构；补充输入张量、输出张量、训练目标、显存策略和分阶段资源估算。
-- 2026-06-08 11:42:31 CST: 按用户要求改为只使用 262 个结构注释完整基因组，加入 region_ids、region_weights、区域加权 loss、片段过滤和基线优势预期。
-- 2026-06-08 15:00:51 CST: 明确最终训练数据管线不采用进一步压缩到核心 assembly 的方案。
-- 2026-06-08 18:45:35 CST: 区域采样比例参考 `douke_genome`，加入 TE/repeat 注释模式和当前默认无 TE fallback 模式。
-- 2026-06-08 19:15:22 CST: 输入侧加入 4.5 硬质量过滤、候选池保留比例和去冗余控制；模型训练仍按 batch 目标区域比例和 loss 权重动态采样。
-- 2026-06-08 22:19:54 CST: 输入管线更新为本服务器固化 stage 输入，训练服务器动态生成 mask/label/RC；新增 `training_server_transfer/` 作为跨服务器传输目录。
+评估: 当前最重要的不是加模块，而是证明 v2 Stable 在独立下游任务中确实比基线强。只有基线扎实后，扩展模块才有解释价值。

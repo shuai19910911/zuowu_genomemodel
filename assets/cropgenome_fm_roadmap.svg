@@ -1,243 +1,112 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1800" viewBox="0 0 2600 1800">
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">CropGenome-FM research roadmap</title>
+  <desc id="desc">Data curation, leakage-safe split, staged pretraining, downstream benchmark, and paper outputs for CropGenome-FM.</desc>
   <defs>
     <style>
-      .bg{fill:#fbfcfe}
-      .title{font-family:Arial,'Noto Sans CJK SC',sans-serif;font-size:50px;font-weight:700;fill:#172033}
-      .subtitle{font-family:Arial,'Noto Sans CJK SC',sans-serif;font-size:24px;fill:#42526b}
-      .section{font-family:Arial,'Noto Sans CJK SC',sans-serif;font-size:28px;font-weight:700;fill:#0b3d68}
-      .h{font-family:Arial,'Noto Sans CJK SC',sans-serif;font-size:24px;font-weight:700;fill:#172033}
-      .t{font-family:Arial,'Noto Sans CJK SC',sans-serif;font-size:20px;fill:#172033}
-      .s{font-family:Arial,'Noto Sans CJK SC',sans-serif;font-size:17px;fill:#364255}
-      .xs{font-family:Arial,'Noto Sans CJK SC',sans-serif;font-size:15px;fill:#42526b}
-      .box-blue{fill:#f3f8ff;stroke:#2f5f8f;stroke-width:3;rx:18}
-      .box-green{fill:#f5fff4;stroke:#3d7a42;stroke-width:3;rx:18}
-      .box-orange{fill:#fff8ed;stroke:#9a6a21;stroke-width:3;rx:18}
-      .box-purple{fill:#f7f3ff;stroke:#6b55a3;stroke-width:3;rx:18}
-      .box-gray{fill:#ffffff;stroke:#8a97a8;stroke-width:2.5;rx:16}
-      .lane{fill:#eef3f8;stroke:#c7d3df;stroke-width:2;rx:22}
-      .line{stroke:#2f5f8f;stroke-width:4;fill:none;marker-end:url(#arrow)}
-      .line2{stroke:#3d7a42;stroke-width:4;fill:none;marker-end:url(#arrow-green)}
-      .line3{stroke:#9a6a21;stroke-width:4;fill:none;marker-end:url(#arrow-orange)}
-      .pill-blue{fill:#dcecff;stroke:#2f5f8f;stroke-width:1.5;rx:14}
-      .pill-green{fill:#e4f7e1;stroke:#3d7a42;stroke-width:1.5;rx:14}
-      .pill-orange{fill:#ffeed2;stroke:#9a6a21;stroke-width:1.5;rx:14}
-      .warn{fill:#fff4f2;stroke:#bd4b3c;stroke-width:2;rx:14}
-      .smallbar{fill:#2f5f8f}
-      .gridline{stroke:#d7e0ea;stroke-width:1.5}
+      .bg { fill: #f7fafc; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 22; }
+      .header { fill: #0f172a; font: 700 30px Arial, sans-serif; }
+      .sub { fill: #334155; font: 18px Arial, sans-serif; }
+      .box { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 16; }
+      .box2 { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 16; }
+      .box3 { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; rx: 16; }
+      .box4 { fill: #fef2f2; stroke: #dc2626; stroke-width: 2; rx: 16; }
+      .box5 { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 2; rx: 16; }
+      .txt { fill: #0f172a; font: 700 18px Arial, sans-serif; }
+      .small { fill: #334155; font: 15px Arial, sans-serif; }
+      .tiny { fill: #475569; font: 13px Arial, sans-serif; }
+      .eval { fill: #7f1d1d; font: 700 14px Arial, sans-serif; }
+      .arrow { stroke: #334155; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #64748b; stroke-width: 2; stroke-dasharray: 8 6; fill: none; }
     </style>
-    <marker id="arrow" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto">
-      <path d="M0,0 L14,7 L0,14 z" fill="#2f5f8f"/>
-    </marker>
-    <marker id="arrow-green" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto">
-      <path d="M0,0 L14,7 L0,14 z" fill="#3d7a42"/>
-    </marker>
-    <marker id="arrow-orange" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto">
-      <path d="M0,0 L14,7 L0,14 z" fill="#9a6a21"/>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#334155"/>
     </marker>
   </defs>
+  <rect class="bg" width="1400" height="900"/>
+  <text x="60" y="58" class="header">CropGenome-FM 研究方案图</text>
+  <text x="60" y="88" class="sub">作物结构注释基因组 → 防泄漏预训练 → 独立下游 benchmark（基准评测）→ 论文结论</text>
 
-  <rect class="bg" width="2600" height="1800"/>
-  <text x="70" y="75" class="title">CropGenome-FM 作物基因组预训练大模型详细技术路线图</text>
-  <text x="70" y="114" class="subtitle">正式口径: 只使用 262 个 FASTA + GFF3/GTF 结构注释完整基因组；放弃 1644 个无结构注释基因组；防泄漏、区域加权、长上下文训练</text>
+  <rect x="40" y="120" width="1320" height="720" class="panel"/>
 
-  <!-- Lane labels -->
-  <rect x="50" y="150" width="2500" height="315" class="lane"/>
-  <text x="75" y="190" class="section">A. 数据口径与质量控制</text>
+  <rect x="80" y="170" width="220" height="135" class="box"/>
+  <text x="105" y="205" class="txt">1. 数据口径</text>
+  <text x="105" y="235" class="small">263 行 crop assembly</text>
+  <text x="105" y="258" class="small">258 个 canonical accession</text>
+  <text x="105" y="281" class="tiny">只用 genome + GFF/GTF</text>
+  <text x="105" y="299" class="eval">评估: 少而干净，优先可靠标签</text>
 
-  <rect x="50" y="500" width="2500" height="390" class="lane"/>
-  <text x="75" y="540" class="section">B. 注释区域构建、过滤与严格 Split</text>
+  <rect x="355" y="170" width="230" height="135" class="box2"/>
+  <text x="380" y="205" class="txt">2. QC 与区域构建</text>
+  <text x="380" y="235" class="small">CDS / splice / UTR</text>
+  <text x="380" y="258" class="small">promoter / TES / intron</text>
+  <text x="380" y="281" class="tiny">TE/repeat 仅在证据可靠时启用</text>
+  <text x="380" y="299" class="eval">评估: 不伪造结构标签</text>
 
-  <rect x="50" y="925" width="2500" height="365" class="lane"/>
-  <text x="75" y="965" class="section">C. 在线采样 / Token Cache、模型输入、架构与 Loss</text>
+  <rect x="640" y="170" width="230" height="135" class="box3"/>
+  <text x="665" y="205" class="txt">3. 防泄漏 split</text>
+  <text x="665" y="235" class="small">accession 级 train/val/test</text>
+  <text x="665" y="258" class="small">192 / 35 / 31</text>
+  <text x="665" y="281" class="tiny">先 split 后窗口化与采样</text>
+  <text x="665" y="299" class="eval">评估: 降低近重复泄漏</text>
 
-  <rect x="50" y="1325" width="2500" height="405" class="lane"/>
-  <text x="75" y="1365" class="section">D. 训练阶段、下游评测、基线优势与资源估算</text>
+  <rect x="930" y="170" width="230" height="135" class="box5"/>
+  <text x="955" y="205" class="txt">4. Stage 输入固化</text>
+  <text x="955" y="235" class="small">Stage B: 8K, 41.24B token</text>
+  <text x="955" y="258" class="small">C1/C2/D: 64K/128K/256K</text>
+  <text x="955" y="281" class="tiny">mask/label/RC 训练时动态生成</text>
+  <text x="955" y="299" class="eval">评估: 可复现且节省搬运</text>
 
-  <!-- A lane -->
-  <rect x="80" y="220" width="360" height="200" class="box-blue"/>
-  <text x="105" y="255" class="h">A1 数据选择</text>
-  <text x="105" y="290" class="t">262 个有结构注释 assembly</text>
-  <text x="105" y="322" class="s">FASTA + GFF3/GTF 同时存在</text>
-  <text x="105" y="350" class="s">覆盖 26 个属</text>
-  <text x="105" y="378" class="s">chromosome: 233</text>
-  <text x="105" y="405" class="s">complete genome: 13</text>
+  <path class="arrow" d="M 300 237 L 350 237"/>
+  <path class="arrow" d="M 585 237 L 635 237"/>
+  <path class="arrow" d="M 870 237 L 925 237"/>
 
-  <rect x="505" y="220" width="370" height="200" class="box-blue"/>
-  <text x="530" y="255" class="h">A2 数据体积</text>
-  <text x="530" y="290" class="t">genome gzip: 213.48 GB</text>
-  <text x="530" y="322" class="s">GFF/GTF gzip: 5.40 GB</text>
-  <text x="530" y="350" class="s">raw total: 218.89 GB</text>
-  <text x="530" y="378" class="s">训练搬运: raw + 小索引</text>
-  <text x="530" y="405" class="s">推荐训练磁盘: 1.5 TB</text>
+  <rect x="170" y="390" width="255" height="150" class="box5"/>
+  <text x="195" y="425" class="txt">5. v2 Stable 预训练</text>
+  <text x="195" y="455" class="small">HyenaLite + local attention</text>
+  <text x="195" y="478" class="small">MLM + 0.02 RC consistency</text>
+  <text x="195" y="501" class="tiny">region head 只作弱监督/健康检查</text>
+  <text x="195" y="522" class="eval">评估: 工程稳健，结论靠 benchmark</text>
 
-  <rect x="940" y="220" width="390" height="200" class="warn"/>
-  <text x="965" y="255" class="h">A3 明确放弃</text>
-  <text x="965" y="290" class="t">1644 个无结构注释 genome</text>
-  <text x="965" y="322" class="s">不进入预训练</text>
-  <text x="965" y="350" class="s">不构建区域权重</text>
-  <text x="965" y="378" class="s">不做下游监督任务来源</text>
-  <text x="965" y="405" class="s">后续有可靠注释再纳入</text>
+  <rect x="525" y="390" width="255" height="150" class="box3"/>
+  <text x="550" y="425" class="txt">6. 模型选择</text>
+  <text x="550" y="455" class="small">selection loss = MLM + 0.02 RC</text>
+  <text x="550" y="478" class="small">step1000 验证 / 保存</text>
+  <text x="550" y="501" class="tiny">step5000 后 early stopping</text>
+  <text x="550" y="522" class="eval">评估: 防止只看 final checkpoint</text>
 
-  <rect x="1395" y="220" width="455" height="200" class="box-green"/>
-  <text x="1420" y="255" class="h">A4 FASTA QC</text>
-  <text x="1420" y="290" class="s">contig length &gt;= 10 kb</text>
-  <text x="1420" y="318" class="s">contig N fraction &lt;= 10%</text>
-  <text x="1420" y="346" class="s">window N fraction &lt;= 5%</text>
-  <text x="1420" y="374" class="s">GC 属内 z-score &lt;= 4</text>
-  <text x="1420" y="402" class="s">排除 organelle/mitochondrial/plastid</text>
+  <rect x="880" y="390" width="290" height="150" class="box2"/>
+  <text x="905" y="425" class="txt">7. 独立下游 benchmark</text>
+  <text x="905" y="455" class="small">splice / promoter / TES / UTR</text>
+  <text x="905" y="478" class="small">TIS/TTS / TE boundary / cross-species</text>
+  <text x="905" y="501" class="tiny">基线: 1-mer, CNN, DNABERT-2, AgroNT 等</text>
+  <text x="905" y="522" class="eval">评估: 正式结论只来自这里</text>
 
-  <rect x="1915" y="220" width="580" height="200" class="box-green"/>
-  <text x="1940" y="255" class="h">A5 注释 QC</text>
-  <text x="1940" y="290" class="s">gene/transcript/exon/CDS 坐标合法，strand 一致</text>
-  <text x="1940" y="318" class="s">CDS phase、exon 顺序、转录本越界检查</text>
-  <text x="1940" y="346" class="s">多转录本保留 canonical，isoform 单独标记</text>
-  <text x="1940" y="374" class="s">protein-coding / lncRNA / pseudogene / TE gene 分开</text>
-  <text x="1940" y="402" class="s">坏注释不进入 CDS/TIS/TTS/splice 任务</text>
+  <path class="arrow" d="M 1045 305 C 1045 350 298 350 298 385"/>
+  <path class="arrow" d="M 425 465 L 520 465"/>
+  <path class="arrow" d="M 780 465 L 875 465"/>
 
-  <path d="M440 320 H505" class="line"/>
-  <path d="M875 320 H940" class="line"/>
-  <path d="M1330 320 H1395" class="line2"/>
-  <path d="M1850 320 H1915" class="line2"/>
+  <rect x="160" y="635" width="300" height="120" class="box"/>
+  <text x="185" y="670" class="txt">消融与风险控制</text>
+  <text x="185" y="700" class="small">no-region vs with-region</text>
+  <text x="185" y="723" class="small">8K 完整上下文 vs 128 bp probe</text>
+  <text x="185" y="744" class="eval">评估: 避免辅助标签虚高</text>
 
-  <!-- B lane -->
-  <rect x="80" y="580" width="430" height="245" class="box-green"/>
-  <text x="105" y="615" class="h">B1 区域注释层</text>
-  <text x="105" y="650" class="s">CDS / exon / UTR / intron</text>
-  <text x="105" y="678" class="s">splice donor/acceptor flank</text>
-  <text x="105" y="706" class="s">promoter/TSS upstream 5kb + downstream 1kb</text>
-  <text x="105" y="734" class="s">TES/polyA 上下游各 3kb</text>
-  <text x="105" y="762" class="s">high-quality intergenic + random background</text>
-  <text x="105" y="790" class="s">输出 annotation_index/*.parquet</text>
+  <rect x="550" y="635" width="300" height="120" class="box4"/>
+  <text x="575" y="670" class="txt">结构注释增强</text>
+  <text x="575" y="700" class="small">EDTA/TE/repeat/telomere/centromere</text>
+  <text x="575" y="723" class="small">证据不足则延后，不进入结论</text>
+  <text x="575" y="744" class="eval">评估: 宁可少做，不做假标签</text>
 
-  <rect x="575" y="580" width="445" height="245" class="box-green"/>
-  <text x="600" y="615" class="h">B2 Window 过滤</text>
-  <text x="600" y="650" class="s">有效 A/C/G/T &gt;= 95%</text>
-  <text x="600" y="678" class="s">低复杂度: 1kb entropy &gt;= 1.2</text>
-  <text x="600" y="706" class="s">homopolymer &lt;= 100 bp</text>
-  <text x="600" y="734" class="s">intergenic softmask &lt;= 50%</text>
-  <text x="600" y="762" class="s">跨 split 相似窗口禁止重复</text>
-  <text x="600" y="790" class="s">相似度 &gt;= 95% 且 overlap &gt;= 80% 剔除</text>
+  <rect x="940" y="635" width="300" height="120" class="box2"/>
+  <text x="965" y="670" class="txt">论文输出</text>
+  <text x="965" y="700" class="small">项目定位 + 数据严谨性</text>
+  <text x="965" y="723" class="small">主结果 + 消融 + 跨物种迁移</text>
+  <text x="965" y="744" class="eval">评估: 架构为稳健载体，结果是核心</text>
 
-  <rect x="1085" y="580" width="470" height="245" class="box-orange"/>
-  <text x="1110" y="615" class="h">B3 区域采样比例 / Loss 权重</text>
-  <text x="1110" y="650" class="s">无TE默认: CDS 28% / splice 18%</text>
-  <text x="1110" y="678" class="s">TE模式: CDS 25% / splice 15%</text>
-  <text x="1110" y="706" class="s">promoter/TSS 15% / 1.40</text>
-  <text x="1110" y="734" class="s">UTR 10%, TES 7% 或 5%</text>
-  <text x="1110" y="762" class="s">TE/repeat 12% 仅可靠注释时启用</text>
-  <text x="1110" y="790" class="s">intergenic 7% 或 5%, background 3%</text>
+  <path class="dash" d="M 1025 540 C 1025 590 310 590 310 632"/>
+  <path class="dash" d="M 1025 540 C 1025 590 700 590 700 632"/>
+  <path class="arrow" d="M 1170 540 C 1240 575 1180 605 1090 632"/>
 
-  <rect x="1620" y="580" width="410" height="245" class="box-orange"/>
-  <text x="1645" y="615" class="h">B4 严格防泄漏 Split</text>
-  <text x="1645" y="650" class="s">先 split 后窗口化</text>
-  <text x="1645" y="678" class="s">assembly / species / genus holdout</text>
-  <text x="1645" y="706" class="s">同一 assembly 只属于一个 split</text>
-  <text x="1645" y="734" class="s">gene-family aware downstream split</text>
-  <text x="1645" y="762" class="s">variant 按 gene / LD block 分组</text>
-  <text x="1645" y="790" class="s">train 与 test 间隔 &gt;= 2x context</text>
-
-  <rect x="2095" y="580" width="400" height="245" class="box-blue"/>
-  <text x="2120" y="615" class="h">B5 产物</text>
-  <text x="2120" y="650" class="s">data_manifests/</text>
-  <text x="2120" y="678" class="s">sequence_index/</text>
-  <text x="2120" y="706" class="s">annotation_index/</text>
-  <text x="2120" y="734" class="s">window_index/</text>
-  <text x="2120" y="762" class="s">token_cache/ 循环覆盖</text>
-  <text x="2120" y="790" class="s">所有数据产物不上传 GitHub</text>
-
-  <path d="M510 700 H575" class="line2"/>
-  <path d="M1020 700 H1085" class="line3"/>
-  <path d="M1555 700 H1620" class="line3"/>
-  <path d="M2030 700 H2095" class="line"/>
-
-  <!-- C lane -->
-  <rect x="80" y="1005" width="520" height="230" class="box-blue"/>
-  <text x="105" y="1040" class="h">C1 在线采样与缓存</text>
-  <text x="105" y="1075" class="s">A=0 C=1 G=2 T=3 N=4 MASK=5 PAD=6</text>
-  <text x="105" y="1103" class="s">不预生成全量 token_shards</text>
-  <text x="105" y="1131" class="s">搬 raw gzip + 小索引 + configs</text>
-  <text x="105" y="1159" class="s">token_cache: 100-200 GB</text>
-  <text x="105" y="1187" class="s">只保留最近 checkpoint + best model</text>
-  <text x="105" y="1215" class="s">训练服务器推荐磁盘: 1.5 TB</text>
-
-  <rect x="665" y="1005" width="540" height="230" class="box-blue"/>
-  <text x="690" y="1040" class="h">C2 模型输入 Batch</text>
-  <text x="690" y="1075" class="s">input_ids [B,L], labels_mlm [B,L]</text>
-  <text x="690" y="1103" class="s">loss_mask [B,L], region_ids [B,L]</text>
-  <text x="690" y="1131" class="s">region_weights [B,L], quality_scores optional</text>
-  <text x="690" y="1159" class="s">metadata: assembly/species/genus/contig/start/end</text>
-  <text x="690" y="1187" class="s">context: 8K -> 64K -> 128K -> 256K</text>
-  <text x="690" y="1215" class="s">reverse-complement augmentation</text>
-
-  <rect x="1270" y="1005" width="565" height="230" class="box-purple"/>
-  <text x="1295" y="1040" class="h">C3 模型架构</text>
-  <text x="1295" y="1075" class="s">CropGenome-FM-Large: 300M-450M 参数</text>
-  <text x="1295" y="1103" class="s">single-base token + region / strand embedding</text>
-  <text x="1295" y="1131" class="s">RC-equivariant bidirectional Mamba2 / Hyena</text>
-  <text x="1295" y="1159" class="s">每 4-6 层插入 local/global sparse attention</text>
-  <text x="1295" y="1187" class="s">RMSNorm + SwiGLU + bf16 + FSDP / ZeRO-3</text>
-  <text x="1295" y="1215" class="s">参考: Evo2, PlantCAD2, HybriDNA, AlphaGenome</text>
-
-  <rect x="1900" y="1005" width="595" height="230" class="box-purple"/>
-  <text x="1925" y="1040" class="h">C4 Loss</text>
-  <text x="1925" y="1075" class="s">L = 1.00 region-weighted MLM</text>
-  <text x="1925" y="1103" class="s">+ 0.10 causal next-token likelihood</text>
-  <text x="1925" y="1131" class="s">+ 0.05 reverse-complement consistency</text>
-  <text x="1925" y="1159" class="s">+ 0.05 region contrastive optional</text>
-  <text x="1925" y="1187" class="s">mask rate 15%, span 1-512 bp</text>
-  <text x="1925" y="1215" class="s">N/PAD/低质量位点不计 loss</text>
-
-  <path d="M600 1120 H665" class="line"/>
-  <path d="M1205 1120 H1270" class="line"/>
-  <path d="M1835 1120 H1900" class="line"/>
-
-  <!-- D lane -->
-  <rect x="80" y="1405" width="455" height="255" class="box-orange"/>
-  <text x="105" y="1440" class="h">D1 训练阶段与资源</text>
-  <text x="105" y="1475" class="s">CPU 预处理: 2-5 天</text>
-  <text x="105" y="1503" class="s">Stage B 8K: 30B-80B tokens, 5-18 天</text>
-  <text x="105" y="1531" class="s">Stage C1 64K: 15B-40B, 7-18 天</text>
-  <text x="105" y="1559" class="s">Stage C2 128K: 5B-20B, 5-14 天</text>
-  <text x="105" y="1587" class="s">Stage D 256K: 2B-10B, 4-14 天</text>
-  <text x="105" y="1615" class="s">推荐 GPU: 8 x 80GB；总计 6-10 周</text>
-
-  <rect x="600" y="1405" width="515" height="255" class="box-green"/>
-  <text x="625" y="1440" class="h">D2 下游任务</text>
-  <text x="625" y="1475" class="s">splice donor/acceptor, TIS/TTS</text>
-  <text x="625" y="1503" class="s">promoter/TSS, TES/polyA</text>
-  <text x="625" y="1531" class="s">CDS/UTR/intron 区域分类</text>
-  <text x="625" y="1559" class="s">lncRNA/mRNA, chromatin/open region</text>
-  <text x="625" y="1587" class="s">expression proxy, variant effect</text>
-  <text x="625" y="1615" class="s">指标: AUROC, AUPRC, F1, MCC, Spearman</text>
-
-  <rect x="1180" y="1405" width="525" height="255" class="box-green"/>
-  <text x="1205" y="1440" class="h">D3 严格评测 Split</text>
-  <text x="1205" y="1475" class="s">random split 仅辅助</text>
-  <text x="1205" y="1503" class="s">assembly holdout: 检验同物种泛化</text>
-  <text x="1205" y="1531" class="s">species holdout: 检验跨物种泛化</text>
-  <text x="1205" y="1559" class="s">genus holdout: 检验跨属迁移</text>
-  <text x="1205" y="1587" class="s">gene-family holdout: 防同源泄漏</text>
-  <text x="1205" y="1615" class="s">variant: gene / LD block holdout</text>
-
-  <rect x="1770" y="1405" width="725" height="255" class="box-purple"/>
-  <text x="1795" y="1440" class="h">D4 基线与预期优势</text>
-  <text x="1795" y="1475" class="s">基线: CNN/DeepSEA-like, DNABERT-2, AgroNT, PlantCAD2, HyenaDNA/Evo2</text>
-  <text x="1795" y="1503" class="s">预计更强: splice donor/acceptor, TIS/TTS, CDS/UTR/intron 分类</text>
-  <text x="1795" y="1531" class="s">预计更强: promoter/TES 严格 holdout, lncRNA/mRNA gene-family holdout</text>
-  <text x="1795" y="1559" class="s">原因: 结构注释区域权重 + 单碱基 + 长上下文 + RC consistency</text>
-  <text x="1795" y="1587" class="s">不保证: expression regression, chromatin 跨组织, 农艺变异 effect 排序</text>
-  <text x="1795" y="1615" class="s">所有优势以严格 holdout benchmark 实测更新</text>
-
-  <path d="M535 1530 H600" class="line3"/>
-  <path d="M1115 1530 H1180" class="line2"/>
-  <path d="M1705 1530 H1770" class="line"/>
-
-  <!-- vertical connectors between lanes -->
-  <path d="M2295 420 V500" class="line"/>
-  <path d="M2295 825 V925" class="line"/>
-  <path d="M2295 1235 V1325" class="line"/>
-
-  <!-- Summary footer -->
-  <rect x="70" y="1695" width="2460" height="70" class="box-gray"/>
-  <text x="95" y="1738" class="t">维护规则: 数据口径、区域权重、模型架构、训练资源、下游任务或基线结论变化时，同步更新 PROJECT_PLAN.md、MODEL_ARCHITECTURE.md、TECHNICAL_ROADMAP.md 与本 SVG。</text>
+  <text x="60" y="875" class="tiny">注: 所有训练曲线、下游 probe 图和进展解释集中在 TRAINING_PROGRESS.md；本图只表达研究设计，不展示结果。</text>
 </svg>

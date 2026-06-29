@@ -7,7 +7,6 @@ token_shards/
 stage_inputs/
 stage_windows/
 training_server_transfer/*
-!training_server_transfer/README.md
 local_intermediate_not_for_transfer/
 analysis/
 structural_annotation/
@@ -18,6 +17,19 @@ configs/local*
 logs/
 checkpoints/
 results/
+docs/*
+!docs/training_progress/
+docs/training_progress/*
+!docs/training_progress/figures/
+docs/training_progress/figures/*
+!docs/training_progress/figures/v2_stable_stageB_loss.png
+!docs/training_progress/figures/v2_stable_stageB_selection_loss.png
+!docs/training_progress/source_data/
+docs/training_progress/source_data/*
+!docs/training_progress/source_data/v2_stable_stageB_metrics.tsv
+!docs/training_progress/source_data/v2_stable_stageB_curve_summary.tsv
+docs/training_progress/downstream_evaluations/
+assets/training_metrics/
 *.parquet
 *.arrow
 *.bin
