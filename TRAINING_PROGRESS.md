@@ -1,30 +1,30 @@
 # CropGenome-FM 训练进展与评估
 
-更新时间: 2026-06-29 12:45 CST
+更新时间: 2026-06-29 15:10 CST
 
 本文件是 GitHub 唯一进展入口。用户只需要看本文件；本次 2080 GPU 下游 probe（探针评测）只上传轻量 TSV（表格）、JSON（运行清单）和 PNG（位图），不上传 checkpoint（模型存档点）、训练日志、PDF/SVG（矢量图）或原始大数据。
 
 ## 0. 当前一句话结论
 
-`CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）已从 step1000 checkpoint（模型存档点）恢复并继续训练到 step2900；step2000 validation（验证）明显优于 step1000，`checkpoint_best.pt`（最佳模型存档点）已更新到 step2000。
+`CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）已从 step1000 checkpoint（模型存档点）恢复并继续训练到 step3160；step3000 validation（验证）继续优于 step2000，`checkpoint_best.pt`（最佳模型存档点）已更新到 step3000。
 
-当前最重要结论: 预训练 validation selection loss（验证选择损失）从 step1000 的 1.2375897 降到 step2000 的 1.1890236，训练方向正常。2080Ti 上复跑的轻量 full-region annotation probe（完整区域注释探针）也显示 step2000 的 embedding Macro-F1（模型向量类别平均 F1）从 0.1742 提升到 0.2053；但这仍是 diagnostic probe（诊断性探针），不是正式 splice/promoter/TES benchmark（剪接/启动子/转录终止基准评测）。
+当前最重要结论: 预训练 validation selection loss（验证选择损失）从 step1000 的 1.2375897、step2000 的 1.1890236 继续降到 step3000 的 1.1591112，训练方向正常。2080Ti 上复跑的轻量 full-region annotation probe（完整区域注释探针）也显示 embedding Macro-F1（模型向量类别平均 F1）从 step1000 的 0.1742、step2000 的 0.2053 继续提升到 step3000 的 0.2195；但这仍是 diagnostic probe（诊断性探针），不是正式 splice/promoter/TES benchmark（剪接/启动子/转录终止基准评测）。
 
 ## 1. 当前训练状态
 
 | 项目 | 当前值 | 解释 |
 |---|---:|---|
 | 训练版本 | `v2_stable_from_scratch` | v2 Stable（第二版稳健版）正式 from scratch（从头训练）；恢复只用于同一 run（训练轮次）中断续跑。 |
-| 当前 step（训练步） | 2900 | 已超过 step2000，继续向 step3000 前进。 |
-| 最新 train loss（训练损失） | 1.2358811 | 训练曲线噪声较大，单点会上下波动，趋势仍需看滚动中位数和 validation。 |
-| 最新 train MLM loss（遮盖碱基预测损失） | 1.1510639 | 主预训练目标仍在正常训练区间。 |
-| 最新 train selection loss（选择损失） | 1.1525480 | 训练单点有噪声；是否真正泛化改善要看 step3000 validation。 |
-| 最新 validation（验证） | step2000 | 下一次验证/保存是 step3000。 |
-| step2000 val loss（验证总损失） | 1.2675664 | 比 step1000 更好。 |
-| step2000 val selection loss（验证选择损失） | 1.1890236 | 当前 best checkpoint（最佳模型存档点）依据。 |
-| 当前 checkpoint（模型存档点） | `checkpoint_best.pt`, `step_00001000.pt`, `step_00002000.pt` | checkpoint 文件本地保留，不上传 GitHub。 |
+| 当前 step（训练步） | 3160 | 已超过 step3000，继续向 step4000/5000 前进。 |
+| 最新 train loss（训练损失） | 1.2175107 | 训练曲线噪声较大，单点会上下波动，趋势仍需看滚动中位数和 validation。 |
+| 最新 train MLM loss（遮盖碱基预测损失） | 1.1384272 | 主预训练目标仍在正常训练区间。 |
+| 最新 train selection loss（选择损失） | 1.1399129 | 训练单点有噪声；是否真正泛化改善要看后续 validation。 |
+| 最新 validation（验证） | step3000 | step3000 已完成验证，下一次关键验证是 step4000。 |
+| step3000 val loss（验证总损失） | 1.2347787 | 比 step2000 更好。 |
+| step3000 val selection loss（验证选择损失） | 1.1591112 | 当前 best checkpoint（最佳模型存档点）依据。 |
+| 当前 checkpoint（模型存档点） | `checkpoint_best.pt`, `step_00001000.pt`, `step_00002000.pt`, `step_00003000.pt` | checkpoint 文件本地保留，不上传 GitHub。 |
 | A100 GPU2 | 约 32.3GB / 40GB, 100% | 主训练正常运行。 |
-| 下一 checkpoint | step3000 | 需要等 step3000 validation 再判断是否继续改善。 |
+| 下一 checkpoint | step4000 | 需要等 step4000 validation 再判断是否继续改善。 |
 
 ## 2. 核心训练曲线
 
@@ -55,7 +55,7 @@ GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱�
 | step1000 | 1.3238202 | 1.2372975 | 0.0146100 | 1.2375897 | 第一个可用 checkpoint；恢复训练从这里继续。 |
 | step2000 | 1.2675664 | 1.1879575 | 0.0533046 | 1.1890236 | 明显优于 step1000，当前 best checkpoint。 |
 
-评估: step2000 的 validation selection loss 下降约 0.0486，这是实质改善。当前应继续训练观察 step3000/4000/5000，而不是在 step2000 就停止。
+评估: step3000 的 validation selection loss 相比 step1000 下降 0.0785（约 6.34%），相比 step2000 继续下降 0.0299（约 2.52%）。这是实质改善；当前应继续训练观察 step4000/5000，而不是在 step3000 就停止。
 
 ## 4. 公正评估与外部指标尺度参考
 
@@ -65,14 +65,16 @@ GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱�
 
 | 证据 | 当前数字 | 怎么看 | 结论 |
 |---|---:|---|---|
-| validation selection loss（验证选择损失） | step1000: 1.2375897 → step2000: 1.1890236 | 下降 0.0485661，约 3.92%。 | 明确正向，step2000 比 step1000 好。 |
-| validation total loss（验证总损失） | step1000: 1.3238202 → step2000: 1.2675664 | 下降 0.0562538，约 4.25%。 | 与 selection loss 一致，非单一指标偶然。 |
-| 最新 train selection loss（训练选择损失） | step2900: 1.1525480 | 训练单点有噪声；是否真正泛化改善要看 step3000 validation。 |
+| validation selection loss（验证选择损失） | step1000: 1.2375897 → step2000: 1.1890236 → step3000: 1.1591112 | step1000 到 step3000 下降 0.0785，约 6.34%。 | 明确正向，step3000 继续刷新 best。 |
+| validation total loss（验证总损失） | step1000: 1.3238202 → step2000: 1.2675664 → step3000: 1.2347787 | step1000 到 step3000 下降 0.0890，约 6.73%。 | 与 selection loss 一致，非单一指标偶然。 |
+| 最新 train selection loss（训练选择损失） | step3160: 1.1399129 | 训练单点有噪声；是否真正泛化改善要看后续 validation。 |
 | step1000 2080 下游 embedding probe（向量探针） | Accuracy 0.2143, Macro-F1 0.1742 | 7 类均衡任务；比 1-mer baseline（单碱基组成基线）Macro-F1 0.1542 高 0.0199。 | 弱阳性，只说明 embedding 有一点信号。 |
 | step2000 2080 下游 embedding probe（向量探针） | Accuracy 0.2589, Macro-F1 0.2053 | 比 step1000 embedding Macro-F1 高 0.0311；比同一 1-mer baseline 高 0.0511。 | 比 step1000 更好，方向一致。 |
 | step2000 region head（区域预测头） | Macro-F1 0.1646 | 比 step1000 region head 0.0777 明显提高，但仍低于 step2000 embedding。 | 只能作训练健康检查，不能作为论文主结果。 |
+| step3000 2080 下游 embedding probe（向量探针） | Accuracy 0.2679, Macro-F1 0.2195 | 比 step2000 embedding Macro-F1 高 0.0142；比同一 1-mer baseline 高 0.0653。 | 继续提升，和 validation 改善方向一致。 |
+| step3000 region head（区域预测头） | Macro-F1 0.1853 | 比 step2000 region head 0.1646 继续提高。 | 仍只作辅助健康检查，不能作为论文主结果。 |
 
-保守判断: 预训练 loss（损失）在正常改善；2080Ti 复跑的 step1000→step2000 下游 probe 也同向改善，说明 checkpoint 质量有早期正信号。但 full-region annotation probe 仍然样本小、任务内部构造，不能写成正式下游成功。是否值得继续，关键看 step3000/5000 的 validation（验证）和 CropGenome-Bench v1 固定 benchmark（基准评测）是否继续改善。
+保守判断: 预训练 loss（损失）在正常改善；2080Ti 复跑的 step1000→step2000→step3000 下游 probe 也同向改善，说明 checkpoint 质量有早期正信号。但 full-region annotation probe 仍然样本小、任务内部构造，不能写成正式下游成功。是否值得继续，关键看 step4000/5000 的 validation（验证）和 CropGenome-Bench v1 固定 benchmark（基准评测）是否继续改善。
 
 ### 4.2 与公开基因组模型指标的尺度参考
 
@@ -101,7 +103,7 @@ GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱�
 - 采样: 每类 train/eval 最多 32 个窗口；共 224 train + 224 eval 样本。
 - 任务边界: 这是 `full_region_annotation_probe`（完整区域注释探针），只用于诊断 embedding（向量表示）和 region head（区域预测头）是否有早期信号，不进入论文主表。
 
-### 5.1 2080Ti step1000 vs step2000 对比
+### 5.1 2080Ti step1000 / step2000 / step3000 对比
 
 | checkpoint（模型存档点） | 方法 | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别均衡准确率） | 解释 |
 |---|---|---:|---:|---:|---|
@@ -111,8 +113,11 @@ GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱�
 | step2000 | 1-mer nearest centroid（单碱基组成最近中心基线） | 0.1875 | 0.1542 | 0.1875 | 同一采样和同一 baseline，便于比较 checkpoint。 |
 | step2000 | model embedding nearest centroid（模型向量最近中心） | 0.2589 | 0.2053 | 0.2589 | 比 step1000 高 0.0311；比 1-mer baseline 高 0.0511。 |
 | step2000 | model region head argmax（区域预测头直接分类） | 0.2232 | 0.1646 | 0.2232 | 比 step1000 明显提高，但仍只作辅助健康检查。 |
+| step3000 | 1-mer nearest centroid（单碱基组成最近中心基线） | 0.1875 | 0.1542 | 0.1875 | 同一采样和同一 baseline，便于比较 checkpoint。 |
+| step3000 | model embedding nearest centroid（模型向量最近中心） | 0.2679 | 0.2195 | 0.2679 | 比 step2000 高 0.0142；比 1-mer baseline 高 0.0653。 |
+| step3000 | model region head argmax（区域预测头直接分类） | 0.2411 | 0.1853 | 0.2411 | 比 step2000 region head 继续提高，但仍只作辅助健康检查。 |
 
-结论: step2000 在同一 2080Ti、同一采样、同一 probe 上优于 step1000，和 validation selection loss（验证选择损失）下降方向一致。这个结果支持继续训练到 step3000/5000，但不能单独证明正式下游成功。
+结论: step3000 在同一 2080Ti、同一采样、同一 probe 上继续优于 step2000，和 validation selection loss（验证选择损失）下降方向一致。这个结果支持继续训练到 step4000/5000，但不能单独证明正式下游成功。
 
 ### 5.2 2080Ti 下游结果文件
 
@@ -150,7 +155,7 @@ step2000:
 
 | 优先级 | 事件 | 要做什么 | 判断标准 |
 |---|---|---|---|
-| P0 | step3000 validation（验证） | 更新本文件和核心曲线 | val selection loss 是否继续低于 1.1890。 |
+| P0 | step4000 validation（验证） | 更新本文件和核心曲线 | val selection loss 是否继续低于 1.1591。 |
 | P0 | core gene syntax（核心基因结构语法） | 构建 splice hard-negative、exon/intron/UTR segmentation、TIS/TTS context 三个任务 | 同一 split 下比较 random/majority/k-mer/CNN/DNABERT-2/HyenaDNA/Caduceus/CropGenome-FM。 |
 | P0 | crop regulatory elements（作物调控元件） | 构建 promoter/TSS hard-negative、TES/polyA；ATAC/ACR 只在 assembly QC 通过后加入 | 主指标用 AUPRC/MCC/Macro-F1，不只看 accuracy。 |
 | P0 | transfer and few-shot（迁移与少样本） | 做 species/genus holdout、monocot-to-dicot、1%/5%/10% label panels | 若作物预训练有效，跨作物保留率和少标签增益应高于通用模型。 |
