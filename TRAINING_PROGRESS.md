@@ -1,12 +1,12 @@
 # CropGenome-FM 训练进展与评估
 
-更新时间: 2026-06-29 12:20 CST
+更新时间: 2026-06-29 12:45 CST
 
 本文件是 GitHub 唯一进展入口。用户只需要看本文件；本次 2080 GPU 下游 probe（探针评测）只上传轻量 TSV（表格）、JSON（运行清单）和 PNG（位图），不上传 checkpoint（模型存档点）、训练日志、PDF/SVG（矢量图）或原始大数据。
 
 ## 0. 当前一句话结论
 
-`CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）已从 step1000 checkpoint（模型存档点）恢复并继续训练到 step2710；step2000 validation（验证）明显优于 step1000，`checkpoint_best.pt`（最佳模型存档点）已更新到 step2000。
+`CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）已从 step1000 checkpoint（模型存档点）恢复并继续训练到 step2900；step2000 validation（验证）明显优于 step1000，`checkpoint_best.pt`（最佳模型存档点）已更新到 step2000。
 
 当前最重要结论: 预训练 validation selection loss（验证选择损失）从 step1000 的 1.2375897 降到 step2000 的 1.1890236，训练方向正常。2080Ti 上复跑的轻量 full-region annotation probe（完整区域注释探针）也显示 step2000 的 embedding Macro-F1（模型向量类别平均 F1）从 0.1742 提升到 0.2053；但这仍是 diagnostic probe（诊断性探针），不是正式 splice/promoter/TES benchmark（剪接/启动子/转录终止基准评测）。
 
@@ -15,10 +15,10 @@
 | 项目 | 当前值 | 解释 |
 |---|---:|---|
 | 训练版本 | `v2_stable_from_scratch` | v2 Stable（第二版稳健版）正式 from scratch（从头训练）；恢复只用于同一 run（训练轮次）中断续跑。 |
-| 当前 step（训练步） | 2710 | 已超过 step2000，继续向 step3000 前进。 |
-| 最新 train loss（训练损失） | 1.2287162 | 训练曲线噪声较大，单点会上下波动，趋势仍需看滚动中位数和 validation。 |
-| 最新 train MLM loss（遮盖碱基预测损失） | 1.1434011 | 主预训练目标仍在正常训练区间。 |
-| 最新 train selection loss（选择损失） | 1.1454023 | 单点高于 step2620，但曲线判断以滚动趋势和 step3000 validation 为准。 |
+| 当前 step（训练步） | 2900 | 已超过 step2000，继续向 step3000 前进。 |
+| 最新 train loss（训练损失） | 1.2358811 | 训练曲线噪声较大，单点会上下波动，趋势仍需看滚动中位数和 validation。 |
+| 最新 train MLM loss（遮盖碱基预测损失） | 1.1510639 | 主预训练目标仍在正常训练区间。 |
+| 最新 train selection loss（选择损失） | 1.1525480 | 训练单点有噪声；是否真正泛化改善要看 step3000 validation。 |
 | 最新 validation（验证） | step2000 | 下一次验证/保存是 step3000。 |
 | step2000 val loss（验证总损失） | 1.2675664 | 比 step1000 更好。 |
 | step2000 val selection loss（验证选择损失） | 1.1890236 | 当前 best checkpoint（最佳模型存档点）依据。 |
@@ -28,7 +28,7 @@
 
 ## 2. 核心训练曲线
 
-GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱。其他 RC loss（反向互补损失）、region loss/acc（区域辅助损失/准确率）图本地保留，必要时再汇总进本文，不单独作为入口。
+GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱。两张核心曲线已改为 Python matplotlib（Python 绘图库）正式坐标图，包含标题、横坐标、纵坐标、刻度、图例、validation checkpoints（验证检查点）和 latest train point（最新训练点）。其他 RC loss（反向互补损失）、region loss/acc（区域辅助损失/准确率）图本地保留，必要时再汇总进本文，不单独作为入口。
 
 ### 2.1 Total loss（总损失）
 
@@ -67,7 +67,7 @@ GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱�
 |---|---:|---|---|
 | validation selection loss（验证选择损失） | step1000: 1.2375897 → step2000: 1.1890236 | 下降 0.0485661，约 3.92%。 | 明确正向，step2000 比 step1000 好。 |
 | validation total loss（验证总损失） | step1000: 1.3238202 → step2000: 1.2675664 | 下降 0.0562538，约 4.25%。 | 与 selection loss 一致，非单一指标偶然。 |
-| 最新 train selection loss（训练选择损失） | step2710: 1.1454023 | 训练单点有噪声；是否真正泛化改善要看 step3000 validation。 | 训练仍应继续到 step3000；不能用单个 train 点替代 validation。 |
+| 最新 train selection loss（训练选择损失） | step2900: 1.1525480 | 训练单点有噪声；是否真正泛化改善要看 step3000 validation。 |
 | step1000 2080 下游 embedding probe（向量探针） | Accuracy 0.2143, Macro-F1 0.1742 | 7 类均衡任务；比 1-mer baseline（单碱基组成基线）Macro-F1 0.1542 高 0.0199。 | 弱阳性，只说明 embedding 有一点信号。 |
 | step2000 2080 下游 embedding probe（向量探针） | Accuracy 0.2589, Macro-F1 0.2053 | 比 step1000 embedding Macro-F1 高 0.0311；比同一 1-mer baseline 高 0.0511。 | 比 step1000 更好，方向一致。 |
 | step2000 region head（区域预测头） | Macro-F1 0.1646 | 比 step1000 region head 0.0777 明显提高，但仍低于 step2000 embedding。 | 只能作训练健康检查，不能作为论文主结果。 |
