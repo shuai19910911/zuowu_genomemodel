@@ -24,6 +24,7 @@ docs/training_progress/*
 docs/training_progress/figures/*
 !docs/training_progress/figures/v2_stable_stageB_loss.png
 !docs/training_progress/figures/v2_stable_stageB_selection_loss.png
+!docs/training_progress/figures/v2_step1000_downstream_probe_summary.png
 !docs/training_progress/source_data/
 docs/training_progress/source_data/*
 !docs/training_progress/source_data/v2_stable_stageB_metrics.tsv

@@ -65,6 +65,10 @@ GitHub 不上传 `docs/training_progress/downstream_evaluations/step_*/...` 明�
 
 状态: 已完成，2026-06-28 13:31 CST，RTX 2080 Ti 上运行。
 
+![step1000 downstream probe summary](docs/training_progress/figures/v2_step1000_downstream_probe_summary.png)
+
+- 图: [docs/training_progress/figures/v2_step1000_downstream_probe_summary.png](docs/training_progress/figures/v2_step1000_downstream_probe_summary.png)
+
 | 方法 | Accuracy（准确率） | Macro-F1（类别平均 F1） | Balanced accuracy（类别均衡准确率） | 解释 |
 |---|---:|---:|---:|---|
 | 1-mer nearest centroid（单碱基组成最近中心基线） | 0.1875 | 0.1592 | 0.1875 | 最低限度序列组成 baseline（基线）。 |
