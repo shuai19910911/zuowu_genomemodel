@@ -1,0 +1,4 @@
+task_id	train_0	train_1	val_0	val_1	samples_tsv
+promoter_TSS	128	128	64	64	not_published_contains_internal_paths
+TES_polyA	128	128	64	64	not_published_contains_internal_paths
+splice_acceptor	128	128	64	64	not_published_contains_internal_paths

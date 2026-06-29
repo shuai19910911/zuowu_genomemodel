@@ -1,0 +1,14 @@
+{
+  "('promoter_TSS', 'train', 0)": 153250,
+  "('TES_polyA', 'train', 0)": 153250,
+  "('splice_acceptor', 'train', 0)": 1611964,
+  "('splice_acceptor', 'train', 1)": 805969,
+  "('TES_polyA', 'train', 1)": 307002,
+  "('promoter_TSS', 'train', 1)": 537060,
+  "('splice_acceptor', 'val', 0)": 16050,
+  "('splice_acceptor', 'val', 1)": 8039,
+  "('TES_polyA', 'val', 1)": 3061,
+  "('promoter_TSS', 'val', 0)": 1494,
+  "('TES_polyA', 'val', 0)": 1494,
+  "('promoter_TSS', 'val', 1)": 5344
+}

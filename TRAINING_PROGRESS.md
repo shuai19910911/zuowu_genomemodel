@@ -164,3 +164,20 @@ step2000:
 | P0 | 公平比较 | 所有模型同一 train/valid/test split、同一输入窗口、同一下游头、5 seeds mean ± std | 只有同任务同协议结果能进入论文主表。 |
 
 论文主结论门槛: 至少 3 个 P0 作物任务完成固定 test（测试集）评估；CropGenome-FM 平均超过最强可运行通用/植物 DNA 模型至少 3% relative improvement（相对提升）；至少一个 species/genus holdout 或 low-homology holdout 中仍保留收益。
+
+
+## CropGenome-Bench v1 pilot smoke test (流程试跑，不是正式主结果)
+
+为了启动正式 CropGenome-Bench v1（作物基因组正式下游基准评测），已经完成一个小规模 pilot smoke test（试点冒烟测试）：从现有 Stage_B region_bucket（区域桶标签）构建 3 个 proxy task（代理任务），用 step3000 checkpoint 在 RTX 2080 Ti 上抽 frozen encoder embedding（冻结编码器向量），并与 1-mer baseline（单碱基组成基线）比较。
+
+重要口径：这一步只验证 pipeline（数据构建、固定 split、模型抽向量、baseline、metrics、图表输出）能跑通；标签来自 Stage_B 区域桶代理，不是最终 GFF 边界 hard-negative benchmark（硬负样本正式基准），不能写成正式论文主结果。
+
+| Pilot task | Train samples | Eval samples | 1-mer F1 | Frozen embedding F1 | Δ F1 | 判断 |
+|---|---:|---:|---:|---:|---:|---|
+| TES_polyA | 256 | 128 | 0.6154 | 0.8467 | +0.2313 | embedding 更好 |
+| promoter_TSS | 256 | 128 | 0.6290 | 0.7111 | +0.0821 | embedding 更好 |
+| splice_acceptor | 256 | 128 | 0.5785 | 0.6043 | +0.0258 | embedding 更好 |
+
+本次 pilot 结果说明：promoter/TSS 和 TES/polyA proxy 上 frozen embedding 明显超过 1-mer baseline；splice proxy 只小幅超过 1-mer。它支持继续完善 CropGenome-Bench v1 流程，但还不能证明正式下游任务成功。下一步应把 proxy 标签替换为 GFF-derived hard negatives（由 GFF 精确构建的硬负样本），并在 step4000/step5000 或 validation-best checkpoint 上跑固定 split + 多 seed。
+
+公开轻量结果：`docs/training_progress/cropgenome_bench_v1_pilot_smoke/summary_cropgenome_bench_v1_pilot_smoke.tsv`；明细：`docs/training_progress/cropgenome_bench_v1_pilot_smoke/evaluations/step_00003000/source_data/pilot_metrics_summary.tsv`；图：`docs/training_progress/cropgenome_bench_v1_pilot_smoke/evaluations/step_00003000/figures/pilot_task_f1.png`。
