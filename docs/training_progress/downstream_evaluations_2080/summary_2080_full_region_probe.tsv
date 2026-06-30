@@ -8,3 +8,6 @@ step_00002000	2000	full_region_annotation_probe	val	one_mer_nearest_centroid	224
 step_00003000	3000	full_region_annotation_probe	val	model_embedding_nearest_centroid	224	224	0.26785714	0.21948814	0.26785714	lightweight sampled region probe; not a substitute for splice/promoter/TES formal benchmarks
 step_00003000	3000	full_region_annotation_probe	val	model_region_head_argmax	224	224	0.24107143	0.18528397	0.24107143	lightweight sampled region probe; not a substitute for splice/promoter/TES formal benchmarks
 step_00003000	3000	full_region_annotation_probe	val	one_mer_nearest_centroid	224	224	0.18750000	0.15421042	0.18750000	lightweight sampled region probe; not a substitute for splice/promoter/TES formal benchmarks
+step_00004000	4000	full_region_annotation_probe	val	model_embedding_nearest_centroid	224	224	0.28125000	0.23152187	0.28125000	lightweight sampled region probe; not a substitute for splice/promoter/TES formal benchmarks
+step_00004000	4000	full_region_annotation_probe	val	model_region_head_argmax	224	224	0.21875000	0.15940175	0.21875000	lightweight sampled region probe; not a substitute for splice/promoter/TES formal benchmarks
+step_00004000	4000	full_region_annotation_probe	val	one_mer_nearest_centroid	224	224	0.18750000	0.15421042	0.18750000	lightweight sampled region probe; not a substitute for splice/promoter/TES formal benchmarks

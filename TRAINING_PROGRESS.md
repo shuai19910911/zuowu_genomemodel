@@ -166,6 +166,33 @@ step2000:
 论文主结论门槛: 至少 3 个 P0 作物任务完成固定 test（测试集）评估；CropGenome-FM 平均超过最强可运行通用/植物 DNA 模型至少 3% relative improvement（相对提升）；至少一个 species/genus holdout 或 low-homology holdout 中仍保留收益。
 
 
+### Step4000 validation update
+
+当前训练源数据已同步到 train step 4370，最近 validation checkpoint（验证检查点）为 step 4000。validation selection loss（验证选择损失）为 1.1468366，低于 step3000 的 1.1591112，说明预训练仍在改善。step4000 downstream probe（下游诊断探针）和 CropGenome-Bench v1 quick pilot（流程试跑）按相同口径执行；结果只作为诊断和流程验证，不作为正式 benchmark 主结果。
+
+### Step4000 downstream update (诊断结果，不是正式主结果)
+
+训练已同步到 train step 4370；最近 validation checkpoint 为 step 4000，validation selection loss = 1.1468366，低于 step3000 的 1.1591112。
+
+#### Full-region diagnostic probe（完整区域诊断探针）
+
+| checkpoint | embedding Macro-F1 | region head Macro-F1 | 说明 |
+|---|---:|---:|---|
+| step1000 | 0.1742 | 0.0777 | sampled region probe; diagnostic only |
+| step2000 | 0.2053 | 0.1646 | sampled region probe; diagnostic only |
+| step3000 | 0.2195 | 0.1853 | sampled region probe; diagnostic only |
+| step4000 | 0.2315 | 0.1594 | sampled region probe; diagnostic only |
+
+#### CropGenome-Bench v1 quick pilot（流程试跑；Stage_B proxy 标签，不是正式 benchmark）
+
+| task | step3000 embedding F1 | step4000 embedding F1 | Δ | 解释 |
+|---|---:|---:|---:|---|
+| TES_polyA | 0.8467 | 0.8421 | -0.0046 | 下降/持平; pilot proxy only |
+| promoter_TSS | 0.7111 | 0.7188 | +0.0076 | 提升; pilot proxy only |
+| splice_acceptor | 0.6043 | 0.6000 | -0.0043 | 下降/持平; pilot proxy only |
+
+当前口径：step4000 validation loss 继续改善，full-region diagnostic probe 也较 step3000 略好；CropGenome-Bench v1 quick pilot 是 mixed diagnostic signal（混合诊断信号），TES/polyA 与 promoter/TSS 基本持平或略升，splice proxy 略降。不能把 pilot 写成正式 benchmark 成功。下一步需要 GFF-derived hard negatives（由 GFF 精确构建的硬负样本）、partial metrics/progress log（分段落盘/进度日志）和 embedding cache（向量缓存）后再跑中等/正式规模。
+
 ## CropGenome-Bench v1 pilot smoke test (流程试跑，不是正式主结果)
 
 为了启动正式 CropGenome-Bench v1（作物基因组正式下游基准评测），已经完成一个小规模 pilot smoke test（试点冒烟测试）：从现有 Stage_B region_bucket（区域桶标签）构建 3 个 proxy task（代理任务），用 step3000 checkpoint 在 RTX 2080 Ti 上抽 frozen encoder embedding（冻结编码器向量），并与 1-mer baseline（单碱基组成基线）比较。

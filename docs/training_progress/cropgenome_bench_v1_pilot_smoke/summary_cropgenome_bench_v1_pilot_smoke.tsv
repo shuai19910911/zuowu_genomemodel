@@ -1,4 +1,7 @@
-task_id	train_samples	eval_samples	majority_f1	one_mer_f1	embedding_f1	embedding_minus_one_mer_f1	embedding_accuracy	note
-TES_polyA	256	128	0.00000000	0.61538462	0.84671533	0.23133071	0.83593750	pilot proxy smoke; not formal CropGenome-Bench v1 result
-promoter_TSS	256	128	0.00000000	0.62903226	0.71111111	0.08207885	0.69531250	pilot proxy smoke; not formal CropGenome-Bench v1 result
-splice_acceptor	256	128	0.00000000	0.57851240	0.60431655	0.02580415	0.57031250	pilot proxy smoke; not formal CropGenome-Bench v1 result
+checkpoint	checkpoint_step	task_id	train_samples	eval_samples	majority_f1	one_mer_f1	embedding_f1	embedding_minus_one_mer_f1	embedding_accuracy	note
+step_00003000	3000	TES_polyA	256	128	0.00000000	0.61538462	0.84671533	0.23133071	0.83593750	pilot proxy smoke; not formal CropGenome-Bench v1 result
+step_00003000	3000	promoter_TSS	256	128	0.00000000	0.62903226	0.71111111	0.08207885	0.69531250	pilot proxy smoke; not formal CropGenome-Bench v1 result
+step_00003000	3000	splice_acceptor	256	128	0.00000000	0.57851240	0.60431655	0.02580415	0.57031250	pilot proxy smoke; not formal CropGenome-Bench v1 result
+step_00004000	4000	TES_polyA	256	128	0.00000000	0.61538462	0.84210526	0.22672064	0.83593750	pilot proxy smoke; not formal CropGenome-Bench v1 result
+step_00004000	4000	promoter_TSS	256	128	0.00000000	0.62903226	0.71875000	0.08971774	0.71875000	pilot proxy smoke; not formal CropGenome-Bench v1 result
+step_00004000	4000	splice_acceptor	256	128	0.00000000	0.57851240	0.60000000	0.02148760	0.56250000	pilot proxy smoke; not formal CropGenome-Bench v1 result
