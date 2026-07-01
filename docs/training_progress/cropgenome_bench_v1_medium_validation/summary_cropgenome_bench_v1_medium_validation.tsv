@@ -1,0 +1,7 @@
+checkpoint	checkpoint_step	task_id	train_samples	eval_samples	majority_f1	one_mer_f1	embedding_f1	embedding_minus_one_mer_f1	embedding_accuracy	note
+step_00005000	5000	TES_polyA	512	256	0.00000000	0.68750000	0.83088235	0.14338235	0.82031250	medium validation-only Stage_B proxy benchmark; not formal test result
+step_00005000	5000	promoter_TSS	512	256	0.00000000	0.57024793	0.75781250	0.18756457	0.75781250	medium validation-only Stage_B proxy benchmark; not formal test result
+step_00005000	5000	splice_acceptor	512	256	0.00000000	0.52873563	0.46153846	-0.06719717	0.50781250	medium validation-only Stage_B proxy benchmark; not formal test result
+step_00007000	7000	TES_polyA	512	256	0.00000000	0.68750000	0.81918819	0.13168819	0.80859375	medium validation-only Stage_B proxy benchmark; not formal test result
+step_00007000	7000	promoter_TSS	512	256	0.00000000	0.57024793	0.72941176	0.15916383	0.73046875	medium validation-only Stage_B proxy benchmark; not formal test result
+step_00007000	7000	splice_acceptor	512	256	0.00000000	0.52873563	0.51639344	-0.01234219	0.53906250	medium validation-only Stage_B proxy benchmark; not formal test result

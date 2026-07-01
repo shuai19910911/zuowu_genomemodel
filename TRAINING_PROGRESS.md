@@ -259,6 +259,18 @@ step2000:
 
 现在有必要正式开始“构建”CropGenome-Bench v1：冻结 GFF-derived hard negatives（由 GFF 精确构建的硬负样本）、固定 train/valid/test split（训练/验证/测试划分）、实现 embedding cache（向量缓存）、定义多 seed 与外部模型同口径协议。但不建议在每个 checkpoint 上都跑完整正式 test：正式 benchmark 应只在少数候选 checkpoint 上跑，例如 validation-best、step5000/step7000、以及最终停止点；checkpoint 选择只能看 validation/probe，不应反复用 test set 做选择。每个 checkpoint 可以继续跑轻量 diagnostic/pilot，用于训练监控。
 
+### CropGenome-Bench v1 medium validation-only benchmark (Stage_B proxy; not formal test)
+
+按候选 checkpoint 单独运行了中等规模 validation-only benchmark（只用验证集，不使用正式 test set）：step5000 与 step7000 各使用同一套 Stage_B proxy 任务，每个任务 train=512、val=256。这个运行用于 checkpoint 选择和任务稳定性诊断，不作为正式论文 test 主结果。
+
+| task | step5000 embedding F1 | step7000 embedding F1 | step7000 vs 1-mer | 解读 |
+|---|---:|---:|---:|---|
+| TES_polyA | 0.8309 | 0.8192 | +0.1317 | 稳定超过 1-mer baseline |
+| promoter_TSS | 0.7578 | 0.7294 | +0.1592 | 稳定超过 1-mer baseline |
+| splice_acceptor | 0.4615 | 0.5164 | -0.0123 | 弱项；medium 规模下 embedding 低于 1-mer，正式 splice 需 GFF hard negatives 重做 |
+
+结论：medium validation-only 结果显示 step5000 在 TES/polyA 和 promoter/TSS 两个较稳定 proxy task 上优于 step7000；step7000 在 splice_acceptor proxy 上略高于 step5000，但仍低于 1-mer baseline，说明 splice proxy 不稳定、不能作为正式结论。正式 CropGenome-Bench v1 应继续构建 GFF-derived hard negatives、固定 split、embedding cache 和多 seed 协议；完整正式 test 不应每个 checkpoint 都跑，只应在 validation-best/少数候选/最终停止点运行。
+
 ## CropGenome-Bench v1 pilot smoke test (流程试跑，不是正式主结果)
 
 为了启动正式 CropGenome-Bench v1（作物基因组正式下游基准评测），已经完成一个小规模 pilot smoke test（试点冒烟测试）：从现有 Stage_B region_bucket（区域桶标签）构建 3 个 proxy task（代理任务），用 step3000 checkpoint 在 RTX 2080 Ti 上抽 frozen encoder embedding（冻结编码器向量），并与 1-mer baseline（单碱基组成基线）比较。
