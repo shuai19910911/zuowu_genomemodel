@@ -1,7 +1,7 @@
 metric	train_points	val_points	latest_train_step	latest_train_value	latest_val_step	latest_val_value	png
-loss	696	6	6960	1.1064227	6000	1.199523	figures/v2_stable_stageB_loss.png
-mlm_loss	696	6	6960	1.0146573	6000	1.1233464	figures/v2_stable_stageB_mlm_loss.png
-rc_loss	696	6	6960	0.126932	6000	0.095240402	figures/v2_stable_stageB_rc_loss.png
-selection_loss	696	6	6960	1.017196	6000	1.1252513	figures/v2_stable_stageB_selection_loss.png
-region_loss	696	6	6960	1.7845343	6000	1.485435	figures/v2_stable_stageB_region_loss.png
-region_acc	696	6	6960	0.30555556	6000	0.40625	figures/v2_stable_stageB_region_acc.png
+loss	711	7	7110	1.2185202	7000	1.1885727	figures/v2_stable_stageB_loss.png
+mlm_loss	711	7	7110	1.1367566	7000	1.1128458	figures/v2_stable_stageB_mlm_loss.png
+rc_loss	711	7	7110	0.086742464	7000	0.10227184	figures/v2_stable_stageB_rc_loss.png
+selection_loss	711	7	7110	1.1384915	7000	1.1148912	figures/v2_stable_stageB_selection_loss.png
+region_loss	711	7	7110	1.6005735	7000	1.4736293	figures/v2_stable_stageB_region_loss.png
+region_acc	711	7	7110	0.44444444	7000	0.4375	figures/v2_stable_stageB_region_acc.png

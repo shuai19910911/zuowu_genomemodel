@@ -195,7 +195,7 @@ step2000:
 
 ### Step5000/6000 downstream update (诊断结果，不是正式主结果)
 
-训练源数据已同步到 train step 6960；最新 validation checkpoint（验证检查点）为 step 6000，validation selection loss = 1.1252513。step5000/6000 checkpoint 均已在 RTX 2080 Ti 上完成 full-region diagnostic probe（完整区域诊断探针）和 CropGenome-Bench v1 quick pilot（流程试跑）。
+训练源数据已同步到 train step 7110；最新 validation checkpoint（验证检查点）为 step 6000，validation selection loss = 1.1252513。step5000/6000 checkpoint 均已在 RTX 2080 Ti 上完成 full-region diagnostic probe（完整区域诊断探针）和 CropGenome-Bench v1 quick pilot（流程试跑）。
 
 #### Validation trend（验证趋势）
 
@@ -228,6 +228,36 @@ step2000:
 | splice_acceptor | 0.6043 | 0.6000 | 0.5735 | 0.5839 | +0.0054 | 超过 1-mer baseline; pilot proxy only |
 
 当前口径：validation loss 从 step1000 到 step6000 持续下降；full-region diagnostic probe 在 step5000 达到当前最高 embedding Macro-F1，step6000 embedding 回落但 region head 明显恢复；CropGenome-Bench v1 quick pilot 三个 proxy task 在 step6000 仍均超过 1-mer baseline（单碱基组成基线），但不同 task 存在小样本波动。以上均为 diagnostic/pilot 证据，不能写成正式 CropGenome-Bench v1 主结果。正式结果仍需 GFF-derived hard negatives、固定 split、多 seed、外部模型同口径比较。
+
+### Step7000 downstream update (诊断结果，不是正式主结果)
+
+训练源数据已同步到 train step 7110；最新 validation checkpoint 为 step 7000，validation selection loss = 1.1148912，继续低于 step6000 的 1.1252513。step7000 checkpoint 已在 RTX 2080 Ti 上完成 full-region diagnostic probe（完整区域诊断探针）和 CropGenome-Bench v1 quick pilot（流程试跑）。
+
+#### Full-region diagnostic probe（完整区域诊断探针）
+
+| checkpoint | embedding Macro-F1 | region head Macro-F1 | 说明 |
+|---|---:|---:|---|
+| step1000 | 0.1742 | 0.0777 | sampled region probe; diagnostic only |
+| step2000 | 0.2053 | 0.1646 | sampled region probe; diagnostic only |
+| step3000 | 0.2195 | 0.1853 | sampled region probe; diagnostic only |
+| step4000 | 0.2315 | 0.1594 | sampled region probe; diagnostic only |
+| step5000 | 0.2619 | 0.1588 | sampled region probe; diagnostic only |
+| step6000 | 0.2316 | 0.2191 | sampled region probe; diagnostic only |
+| step7000 | 0.2605 | 0.1588 | sampled region probe; diagnostic only |
+
+#### CropGenome-Bench v1 quick pilot（Stage_B proxy 标签；不是正式 benchmark）
+
+| task | step5000 F1 | step6000 F1 | step7000 F1 | step7000 vs 1-mer | 解释 |
+|---|---:|---:|---:|---:|---|
+| TES_polyA | 0.8550 | 0.8702 | 0.8462 | +0.2308 | 超过 1-mer baseline; pilot proxy only |
+| promoter_TSS | 0.7031 | 0.7143 | 0.7132 | +0.0841 | 超过 1-mer baseline; pilot proxy only |
+| splice_acceptor | 0.5735 | 0.5839 | 0.5630 | -0.0155 | 未超过 1-mer baseline; pilot proxy only |
+
+当前口径：step7000 validation 是当前最好验证点；full-region embedding Macro-F1 与 step5000 基本持平但略低，region head 低于 step6000；quick pilot 中 TES/polyA 继续增强，promoter/TSS 与 splice proxy 有小样本波动。以上仍是 diagnostic/pilot 证据，不能写成正式 CropGenome-Bench v1 主结果。
+
+#### 正式 CropGenome-Bench v1 评测节奏
+
+现在有必要正式开始“构建”CropGenome-Bench v1：冻结 GFF-derived hard negatives（由 GFF 精确构建的硬负样本）、固定 train/valid/test split（训练/验证/测试划分）、实现 embedding cache（向量缓存）、定义多 seed 与外部模型同口径协议。但不建议在每个 checkpoint 上都跑完整正式 test：正式 benchmark 应只在少数候选 checkpoint 上跑，例如 validation-best、step5000/step7000、以及最终停止点；checkpoint 选择只能看 validation/probe，不应反复用 test set 做选择。每个 checkpoint 可以继续跑轻量 diagnostic/pilot，用于训练监控。
 
 ## CropGenome-Bench v1 pilot smoke test (流程试跑，不是正式主结果)
 

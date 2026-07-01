@@ -11,3 +11,6 @@ step_00005000	5000	splice_acceptor	256	128	0.00000000	0.57851240	0.57352941	-0.0
 step_00006000	6000	TES_polyA	256	128	0.00000000	0.61538462	0.87022901	0.25484439	0.86718750	pilot proxy smoke; not formal CropGenome-Bench v1 result
 step_00006000	6000	promoter_TSS	256	128	0.00000000	0.62903226	0.71428571	0.08525345	0.71875000	pilot proxy smoke; not formal CropGenome-Bench v1 result
 step_00006000	6000	splice_acceptor	256	128	0.00000000	0.57851240	0.58394161	0.00542921	0.55468750	pilot proxy smoke; not formal CropGenome-Bench v1 result
+step_00007000	7000	TES_polyA	256	128	0.00000000	0.61538462	0.84615385	0.23076923	0.84375000	pilot proxy smoke; not formal CropGenome-Bench v1 result
+step_00007000	7000	promoter_TSS	256	128	0.00000000	0.62903226	0.71317829	0.08414603	0.71093750	pilot proxy smoke; not formal CropGenome-Bench v1 result
+step_00007000	7000	splice_acceptor	256	128	0.00000000	0.57851240	0.56296296	-0.01554944	0.53906250	pilot proxy smoke; not formal CropGenome-Bench v1 result
