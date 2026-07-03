@@ -1,0 +1,22 @@
+{
+  "status": "ok",
+  "benchmark_id": "CropGenome-Bench-v1",
+  "mode": "pilot_proxy_from_stage_b_region_buckets",
+  "checkpoint": "training_server_transfer/runs/Stage_B_cropgenome_fm_v2_stable/checkpoints/step_00010000.pt",
+  "checkpoint_id": "step_00010000",
+  "checkpoint_step": 10000,
+  "device": "cuda",
+  "cuda_device_name": "NVIDIA GeForce RTX 2080 Ti",
+  "dataset_root": "training_server_transfer/runs/cropgenome_bench_v1_medium_val/datasets",
+  "model_config": "training_server_transfer/configs/model_large.json",
+  "model_name": "CropGenome-FM-v2-Stable-8K",
+  "loaded_keys": 430,
+  "missing_keys": [],
+  "unexpected_keys": [],
+  "skipped_shape_mismatch": [],
+  "metrics_summary": "training_server_transfer/runs/cropgenome_bench_v1_medium_val/evaluations_step10000/step_00010000/source_data/pilot_metrics_summary.tsv",
+  "confusion_matrix": "training_server_transfer/runs/cropgenome_bench_v1_medium_val/evaluations_step10000/step_00010000/source_data/pilot_confusion_matrix.tsv",
+  "figure_written": true,
+  "created_at": "2026-07-03 22:57:53 CST",
+  "interpretation": "Pipeline smoke test only; do not treat as formal CropGenome-Bench v1 result."
+}

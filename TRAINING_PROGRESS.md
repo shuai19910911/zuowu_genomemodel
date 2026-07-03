@@ -259,17 +259,15 @@ step2000:
 
 现在有必要正式开始“构建”CropGenome-Bench v1：冻结 GFF-derived hard negatives（由 GFF 精确构建的硬负样本）、固定 train/valid/test split（训练/验证/测试划分）、实现 embedding cache（向量缓存）、定义多 seed 与外部模型同口径协议。但不建议在每个 checkpoint 上都跑完整正式 test：正式 benchmark 应只在少数候选 checkpoint 上跑，例如 validation-best、step5000/step7000、以及最终停止点；checkpoint 选择只能看 validation/probe，不应反复用 test set 做选择。每个 checkpoint 可以继续跑轻量 diagnostic/pilot，用于训练监控。
 
-### CropGenome-Bench v1 medium validation-only benchmark (Stage_B proxy; not formal test)
+### CropGenome-Bench v1 medium validation-only benchmark
 
-按候选 checkpoint 单独运行了中等规模 validation-only benchmark（只用验证集，不使用正式 test set）：step5000 与 step7000 各使用同一套 Stage_B proxy 任务，每个任务 train=512、val=256。这个运行用于 checkpoint 选择和任务稳定性诊断，不作为正式论文 test 主结果。
+| task | step5000 F1 | step7000 F1 | step10000 F1 | step10000 vs 1-mer | 趋势 |
+|---|---:|---:|---:|---:|---|
+| TES_polyA | 0.8309 | 0.8192 | 0.8308 | +0.1433 | step10000 最强 |
+| promoter_TSS | 0.7578 | 0.7294 | 0.7317 | +0.1615 | step5000 最强 |
+| splice_acceptor | 0.4615 | 0.5164 | 0.4530 | -0.0757 | step7000 最强但不稳 |
 
-| task | step5000 embedding F1 | step7000 embedding F1 | step7000 vs 1-mer | 解读 |
-|---|---:|---:|---:|---|
-| TES_polyA | 0.8309 | 0.8192 | +0.1317 | 稳定超过 1-mer baseline |
-| promoter_TSS | 0.7578 | 0.7294 | +0.1592 | 稳定超过 1-mer baseline |
-| splice_acceptor | 0.4615 | 0.5164 | -0.0123 | 弱项；medium 规模下 embedding 低于 1-mer，正式 splice 需 GFF hard negatives 重做 |
-
-结论：medium validation-only 结果显示 step5000 在 TES/polyA 和 promoter/TSS 两个较稳定 proxy task 上优于 step7000；step7000 在 splice_acceptor proxy 上略高于 step5000，但仍低于 1-mer baseline，说明 splice proxy 不稳定、不能作为正式结论。正式 CropGenome-Bench v1 应继续构建 GFF-derived hard negatives、固定 split、embedding cache 和多 seed 协议；完整正式 test 不应每个 checkpoint 都跑，只应在 validation-best/少数候选/最终停止点运行。
+结论：step10000 在 validation loss 最好但目前 medium proxy 没有全面优势；TES_polyA 有新最高，但 promoter_TSS 低于 step5000，splice_acceptor 在三 checkpoint 中最差且低于 1-mer。正式 CropGenome-Bench v1 仍需 GFF hard negatives + 固定 split + 多 seed。
 
 ## CropGenome-Bench v1 pilot smoke test (流程试跑，不是正式主结果)
 
