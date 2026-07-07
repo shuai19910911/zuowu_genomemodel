@@ -1,30 +1,30 @@
 # CropGenome-FM 训练进展与评估
 
-更新时间: 2026-06-29 15:10 CST
+更新时间: 2026-07-07 16:05 CST
 
 本文件是 GitHub 唯一进展入口。用户只需要看本文件；本次 2080 GPU 下游 probe（探针评测）只上传轻量 TSV（表格）、JSON（运行清单）和 PNG（位图），不上传 checkpoint（模型存档点）、训练日志、PDF/SVG（矢量图）或原始大数据。
 
 ## 0. 当前一句话结论
 
-`CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）已从 step1000 checkpoint（模型存档点）恢复并继续训练到 step3160；step3000 validation（验证）继续优于 step2000，`checkpoint_best.pt`（最佳模型存档点）已更新到 step3000。
+`CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）已训练到 step17000 并触发 early stopping（早停）。训练本身应先冻结；当前需要把 step14000 和 step17000 同时保留为正式 benchmark（基准评测）前的候选点，而不是只凭 `checkpoint_best.pt` 或单一 validation loss（验证损失）下结论。
 
-当前最重要结论: 预训练 validation selection loss（验证选择损失）从 step1000 的 1.2375897、step2000 的 1.1890236 继续降到 step3000 的 1.1591112，训练方向正常。2080Ti 上复跑的轻量 full-region annotation probe（完整区域注释探针）也显示 embedding Macro-F1（模型向量类别平均 F1）从 step1000 的 0.1742、step2000 的 0.2053 继续提升到 step3000 的 0.2195；但这仍是 diagnostic probe（诊断性探针），不是正式 splice/promoter/TES benchmark（剪接/启动子/转录终止基准评测）。
+当前最重要结论: validation selection loss（验证选择损失）从 step10000 的 1.0897 降到 step17000 的 1.0729；step17000 在 full-region diagnostic probe（完整区域诊断探针）上也达到当前最高，embedding Macro-F1（向量类别平均 F1）= 0.3030、region head Macro-F1（区域预测头类别平均 F1）= 0.3213。但 medium validation-only benchmark（中等规模验证集基准，只用于选 checkpoint，不是正式 test）显示任务间不一致：step14000 最强 promoter_TSS，step17000 最强 splice_acceptor，TES_polyA 仍由更早 checkpoint 略强。因此阶段结论是“训练已可冻结，正式测试前候选集保留 step14000 + step17000”。
 
 ## 1. 当前训练状态
 
 | 项目 | 当前值 | 解释 |
 |---|---:|---|
 | 训练版本 | `v2_stable_from_scratch` | v2 Stable（第二版稳健版）正式 from scratch（从头训练）；恢复只用于同一 run（训练轮次）中断续跑。 |
-| 当前 step（训练步） | 3160 | 已超过 step3000，继续向 step4000/5000 前进。 |
-| 最新 train loss（训练损失） | 1.2175107 | 训练曲线噪声较大，单点会上下波动，趋势仍需看滚动中位数和 validation。 |
-| 最新 train MLM loss（遮盖碱基预测损失） | 1.1384272 | 主预训练目标仍在正常训练区间。 |
-| 最新 train selection loss（选择损失） | 1.1399129 | 训练单点有噪声；是否真正泛化改善要看后续 validation。 |
-| 最新 validation（验证） | step3000 | step3000 已完成验证，下一次关键验证是 step4000。 |
-| step3000 val loss（验证总损失） | 1.2347787 | 比 step2000 更好。 |
-| step3000 val selection loss（验证选择损失） | 1.1591112 | 当前 best checkpoint（最佳模型存档点）依据。 |
-| 当前 checkpoint（模型存档点） | `checkpoint_best.pt`, `step_00001000.pt`, `step_00002000.pt`, `step_00003000.pt` | checkpoint 文件本地保留，不上传 GitHub。 |
-| A100 GPU2 | 约 32.3GB / 40GB, 100% | 主训练正常运行。 |
-| 下一 checkpoint | step4000 | 需要等 step4000 validation 再判断是否继续改善。 |
+| 当前 step（训练步） | 17000 | 训练日志在 step17000 触发 early stopping（早停），当前没有我们的 A100 训练进程继续运行。 |
+| 最新 train loss（训练损失） | 1.0611 | 训练单点有噪声；最终 checkpoint 判断以 validation/downstream validation-only 为主。 |
+| 最新 train selection loss（选择损失） | 0.9886 | selection loss = MLM loss + 0.02 × RC loss（遮盖碱基预测损失加小权重反向互补一致性损失）。 |
+| 最新 validation（验证） | step17000 | 最新验证点也是 TSV 中最低 selection loss。 |
+| step17000 val loss（验证总损失） | 1.1410 | 比 step14000 的 validation total loss 更低。 |
+| step17000 val selection loss（验证选择损失） | 1.0729 | TSV 口径当前最低；训练日志里 `checkpoint_best.pt` 仍指向 step14000，需用下游验证解冲突。 |
+| step17000 full-region probe | embedding F1 0.3030; region head F1 0.3213 | 诊断性 probe 当前最高，但不是正式论文 benchmark。 |
+| medium validation-only 结果 | step14000: promoter_TSS 最强；step17000: splice_acceptor 最强 | 说明不能只选一个“全任务最优” checkpoint；正式 test 前候选集保留 step14000 + step17000。 |
+| 当前 checkpoint（模型存档点） | `step_00014000.pt`, `step_00017000.pt`, `checkpoint_best.pt` | checkpoint 文件本地保留，不上传 GitHub；`checkpoint_best.pt` 与 TSV/probe 信号存在冲突。 |
+| 2080Ti 评估机 | step11000–17000 probe + step14000/17000 medium validation 已完成 | GPU 已完成本轮任务；公开只提交 TSV/JSON/PNG 轻量产物。 |
 
 ## 2. 核心训练曲线
 
@@ -50,31 +50,44 @@ GitHub 只保留两张最有判断价值的曲线，避免文件树再次变乱�
 
 ## 3. Validation（验证）趋势
 
-| checkpoint（模型存档点） | val loss（验证总损失） | val MLM loss（验证遮盖损失） | val RC loss（验证反向互补损失） | val selection loss（验证选择损失） | 结论 |
-|---|---:|---:|---:|---:|---|
-| step1000 | 1.3238202 | 1.2372975 | 0.0146100 | 1.2375897 | 第一个可用 checkpoint；恢复训练从这里继续。 |
-| step2000 | 1.2675664 | 1.1879575 | 0.0533046 | 1.1890236 | 明显优于 step1000，当前 best checkpoint。 |
+| checkpoint（模型存档点） | val loss（验证总损失） | val selection loss（验证选择损失） | region acc（区域准确率） | 结论 |
+|---|---:|---:|---:|---|
+| step1000 | 1.3238 | 1.2376 | 0.3438 | 早期 validation checkpoint。 |
+| step2000 | 1.2676 | 1.1890 | 0.4062 | 早期 validation checkpoint。 |
+| step3000 | 1.2348 | 1.1591 | 0.4688 | 早期 validation checkpoint。 |
+| step4000 | 1.2234 | 1.1468 | 0.3750 | 早期 validation checkpoint。 |
+| step5000 | 1.2107 | 1.1354 | 0.4062 | 早期 validation checkpoint。 |
+| step6000 | 1.1995 | 1.1253 | 0.4062 | 早期 validation checkpoint。 |
+| step7000 | 1.1886 | 1.1149 | 0.4375 | 早期 validation checkpoint。 |
+| step8000 | 1.1774 | 1.1039 | 0.4531 | 早期 validation checkpoint。 |
+| step9000 | 1.1705 | 1.0960 | 0.4688 | 早期 validation checkpoint。 |
+| step10000 | 1.1647 | 1.0897 | 0.4531 | 后期候选 checkpoint；用于趋势判断。 |
+| step11000 | 1.1645 | 1.0864 | 0.4219 | 后期候选 checkpoint；用于趋势判断。 |
+| step12000 | 1.1573 | 1.0820 | 0.4844 | 后期候选 checkpoint；用于趋势判断。 |
+| step13000 | 1.1531 | 1.0764 | 0.4688 | 后期候选 checkpoint；用于趋势判断。 |
+| step14000 | 1.1470 | 1.0743 | 0.5312 | 训练日志 `checkpoint_best.pt` 指向该步；medium promoter_TSS 当前最强。 |
+| step15000 | 1.1509 | 1.0753 | 0.4375 | 后期候选 checkpoint；用于趋势判断。 |
+| step16000 | 1.1454 | 1.0766 | 0.4844 | 后期候选 checkpoint；用于趋势判断。 |
+| step17000 | 1.1410 | 1.0729 | 0.5312 | TSV 当前最低；early stop 发生点；full-region probe 当前最强。 |
 
-评估: step3000 的 validation selection loss 相比 step1000 下降 0.0785（约 6.34%），相比 step2000 继续下降 0.0299（约 2.52%）。这是实质改善；当前应继续训练观察 step4000/5000，而不是在 step3000 就停止。
+评估: validation selection loss（验证选择损失）总体从 step1000 的 1.2376 降到 step17000 的 1.0729，说明预训练在验证集上持续改善并已到 early stop（早停）阶段。需要特别说明：训练日志中的 `checkpoint_best.pt` 仍指向 step14000，但 TSV 最新 validation 和 full-region probe 更支持 step17000；因此不能只看一个文件名决定最终模型，必须结合 medium validation-only benchmark（中等规模验证集基准）和后续正式 benchmark（正式基准评测）。
 
 ## 4. 公正评估与外部指标尺度参考
 
 ### 4.1 当前训练是否有效
 
-公正结论: 当前预训练是有效的，但还不能说下游已经成功。判断依据如下:
+公正结论: 当前预训练有效，且训练阶段应先冻结到 step17000；但下游仍不能写成正式论文胜利，因为 full-region probe 和 medium validation-only 都是 diagnostic/validation-only（诊断/验证集选择）证据，不是 formal test（正式测试集）证据。
 
 | 证据 | 当前数字 | 怎么看 | 结论 |
 |---|---:|---|---|
-| validation selection loss（验证选择损失） | step1000: 1.2375897 → step2000: 1.1890236 → step3000: 1.1591112 | step1000 到 step3000 下降 0.0785，约 6.34%。 | 明确正向，step3000 继续刷新 best。 |
-| validation total loss（验证总损失） | step1000: 1.3238202 → step2000: 1.2675664 → step3000: 1.2347787 | step1000 到 step3000 下降 0.0890，约 6.73%。 | 与 selection loss 一致，非单一指标偶然。 |
-| 最新 train selection loss（训练选择损失） | step3160: 1.1399129 | 训练单点有噪声；是否真正泛化改善要看后续 validation。 |
-| step1000 2080 下游 embedding probe（向量探针） | Accuracy 0.2143, Macro-F1 0.1742 | 7 类均衡任务；比 1-mer baseline（单碱基组成基线）Macro-F1 0.1542 高 0.0199。 | 弱阳性，只说明 embedding 有一点信号。 |
-| step2000 2080 下游 embedding probe（向量探针） | Accuracy 0.2589, Macro-F1 0.2053 | 比 step1000 embedding Macro-F1 高 0.0311；比同一 1-mer baseline 高 0.0511。 | 比 step1000 更好，方向一致。 |
-| step2000 region head（区域预测头） | Macro-F1 0.1646 | 比 step1000 region head 0.0777 明显提高，但仍低于 step2000 embedding。 | 只能作训练健康检查，不能作为论文主结果。 |
-| step3000 2080 下游 embedding probe（向量探针） | Accuracy 0.2679, Macro-F1 0.2195 | 比 step2000 embedding Macro-F1 高 0.0142；比同一 1-mer baseline 高 0.0653。 | 继续提升，和 validation 改善方向一致。 |
-| step3000 region head（区域预测头） | Macro-F1 0.1853 | 比 step2000 region head 0.1646 继续提高。 | 仍只作辅助健康检查，不能作为论文主结果。 |
+| validation selection loss（验证选择损失） | step1000: 1.2376 → step10000: 1.0897 → step17000: 1.0729 | 验证选择损失持续下降，step17000 是 TSV 当前最低。 | 训练有效，已到可冻结阶段。 |
+| full-region embedding probe（完整区域向量探针） | step9000: 0.2636 → step17000: 0.3030 | step17000 明显高于此前 step9000 峰值。 | 诊断信号支持 step17000。 |
+| full-region region head（区域预测头） | step9000: 0.2537 → step17000: 0.3213 | 区域头在 step17000 达到当前最高。 | 辅助头也支持 step17000。 |
+| medium TES_polyA | best≈step5000/10000; step17000: 0.8106 | TES proxy 没有随训练继续增强。 | 不能声称 step17000 全任务最优。 |
+| medium promoter_TSS | step14000: 0.7592; step17000: 0.7259 | promoter proxy 支持 step14000。 | step14000 需保留为候选。 |
+| medium splice_acceptor | step14000: 0.5197; step17000: 0.6825 | splice proxy 在 step17000 大幅增强并超过 1-mer。 | step17000 是主候选，但仍需正式 benchmark。 |
 
-保守判断: 预训练 loss（损失）在正常改善；2080Ti 复跑的 step1000→step2000→step3000 下游 probe 也同向改善，说明 checkpoint 质量有早期正信号。但 full-region annotation probe 仍然样本小、任务内部构造，不能写成正式下游成功。是否值得继续，关键看 step4000/5000 的 validation（验证）和 CropGenome-Bench v1 固定 benchmark（基准评测）是否继续改善。
+保守判断: Stage_B 训练可停止/冻结；正式 test 前保留 step14000 与 step17000 两个候选。论文主表仍必须来自 GFF-derived hard negatives（GFF 精确构建硬负样本）、固定 split（固定划分）、多 seed（多随机种子）和外部模型同口径比较。
 
 ### 4.2 与公开基因组模型指标的尺度参考
 
@@ -268,6 +281,52 @@ step2000:
 | splice_acceptor | 0.4615 | 0.5164 | 0.4530 | -0.0757 | step7000 最强但不稳 |
 
 结论：step10000 在 validation loss 最好但目前 medium proxy 没有全面优势；TES_polyA 有新最高，但 promoter_TSS 低于 step5000，splice_acceptor 在三 checkpoint 中最差且低于 1-mer。正式 CropGenome-Bench v1 仍需 GFF hard negatives + 固定 split + 多 seed。
+
+### Step11000–17000 early-stop downstream update (诊断/验证结果，不是正式 test 主结果)
+
+训练已到 step17000 并 early stop（早停）。本轮新增两类真实产物：1）step11000–17000 full-region diagnostic probe（完整区域诊断探针）；2）step14000 与 step17000 medium validation-only benchmark（中等规模验证集基准，只用于 checkpoint 选择）。这一步的目的就是解决 `checkpoint_best.pt` 指向 step14000，但 TSV/probe 更偏向 step17000 的冲突。
+
+#### Validation trend（验证趋势，step10000 以后）
+
+| checkpoint | validation selection loss | val loss | region acc | 说明 |
+|---|---:|---:|---:|---|
+| step10000 | 1.0897 | 1.1647 | 0.4531 | validation checkpoint |
+| step11000 | 1.0864 | 1.1645 | 0.4219 | validation checkpoint |
+| step12000 | 1.0820 | 1.1573 | 0.4844 | validation checkpoint |
+| step13000 | 1.0764 | 1.1531 | 0.4688 | validation checkpoint |
+| step14000 | 1.0743 | 1.1470 | 0.5312 | 训练日志 checkpoint_best 指向该步；promoter_TSS medium 最强 |
+| step15000 | 1.0753 | 1.1509 | 0.4375 | validation checkpoint |
+| step16000 | 1.0766 | 1.1454 | 0.4844 | validation checkpoint |
+| step17000 | 1.0729 | 1.1410 | 0.5312 | TSV 当前最低；但不是所有 downstream proxy 最强 |
+
+#### Full-region diagnostic probe（完整区域诊断探针）
+
+| checkpoint | embedding Macro-F1 | region head Macro-F1 | 说明 |
+|---|---:|---:|---|
+| step11000 | 0.2297 | 0.1478 | sampled region probe; diagnostic only |
+| step12000 | 0.2543 | 0.1068 | sampled region probe; diagnostic only |
+| step13000 | 0.2322 | 0.2018 | sampled region probe; diagnostic only |
+| step14000 | 0.2410 | 0.2176 | sampled region probe; diagnostic only |
+| step15000 | 0.2570 | 0.1318 | sampled region probe; diagnostic only |
+| step16000 | 0.2393 | 0.2122 | sampled region probe; diagnostic only |
+| step17000 | 0.3030 | 0.3213 | 当前 full-region probe 最强 |
+
+#### CropGenome-Bench v1 medium validation-only benchmark（中等规模验证集；Stage_B proxy 标签，不是正式 test）
+
+| task | step5000 F1 | step7000 F1 | step10000 F1 | step14000 F1 | step17000 F1 | 当前最好 |
+|---|---:|---:|---:|---:|---:|---|
+| TES_polyA | 0.8309 | 0.8192 | 0.8308 | 0.8263 | 0.8106 | step5000 |
+| promoter_TSS | 0.7578 | 0.7294 | 0.7317 | 0.7592 | 0.7259 | step14000 |
+| splice_acceptor | 0.4615 | 0.5164 | 0.4530 | 0.5197 | 0.6825 | step17000 |
+
+#### 当前 checkpoint 选择判断
+
+- step17000 是当前 primary candidate（主候选）：TSV validation selection loss 最低、full-region embedding/region-head probe 均最高，并且 splice_acceptor medium validation F1 从 step14000 的 0.5197 跳到 0.6825。
+- step14000 仍需作为 formal benchmark 前的 paired candidate（配对候选）：训练日志的 `checkpoint_best.pt` 仍指向 step14000，且 promoter_TSS medium validation F1 = 0.7592，是当前 medium 表里最高。
+- TES_polyA 在 medium validation 上没有随训练继续增强，step5000/step10000 略高于 step14000/17000；说明 proxy task（代理任务）存在任务差异，不能把任何单一 checkpoint 写成“全任务最优”。
+- 推荐阶段动作：冻结 Stage_B 训练；正式 test（测试集）前只保留 step14000 与 step17000 两个候选，后续用固定 split（固定划分）、GFF-derived hard negatives（由 GFF 精确构建的硬负样本）、多 seed（多随机种子）和外部模型同口径比较决定最终论文主表。
+
+公开轻量结果：full-region 总表 `docs/training_progress/downstream_evaluations_2080/summary_2080_full_region_probe.tsv`；medium validation 总表 `docs/training_progress/cropgenome_bench_v1_medium_validation/summary_cropgenome_bench_v1_medium_validation.tsv`；step14000/17000 medium 明细在 `docs/training_progress/cropgenome_bench_v1_medium_validation/evaluations/step_00014000/` 和 `docs/training_progress/cropgenome_bench_v1_medium_validation/evaluations/step_00017000/`。所有结果仍是 diagnostic/validation-only（诊断/验证集选择）证据，不是 formal test（正式测试集）主结果。
 
 ## CropGenome-Bench v1 pilot smoke test (流程试跑，不是正式主结果)
 
