@@ -73,7 +73,15 @@ def add_reservoir(buckets, seen, key, item, limit, rng):
         buckets[key][idx] = item
 
 
-def build_samples(stage_dir: Path, max_train_per_label: int, max_eval_per_label: int, context: int, seed: int):
+def build_samples(
+    stage_dir: Path,
+    max_train_per_label: int,
+    max_eval_per_label: int,
+    context: int,
+    seed: int,
+    train_split: str,
+    eval_split: str,
+):
     rng = random.Random(seed)
     buckets = defaultdict(list)
     seen = Counter()
@@ -84,7 +92,7 @@ def build_samples(stage_dir: Path, max_train_per_label: int, max_eval_per_label:
         with gzip.open(windows_path, "rt", encoding="utf-8", newline="") as fh:
             for row in csv.DictReader(fh, delimiter="\t"):
                 split = row.get("split", "")
-                if split not in {"train", "val"}:
+                if split not in {train_split, eval_split}:
                     continue
                 try:
                     row_context = int(row.get("context", "0"))
@@ -103,7 +111,7 @@ def build_samples(stage_dir: Path, max_train_per_label: int, max_eval_per_label:
                         label_name = "negative"
                     else:
                         continue
-                    limit = max_train_per_label if split == "train" else max_eval_per_label
+                    limit = max_train_per_label if split == train_split else max_eval_per_label
                     key = (task_id, split, label)
                     item = {
                         "task_id": task_id,
@@ -127,7 +135,7 @@ def build_samples(stage_dir: Path, max_train_per_label: int, max_eval_per_label:
                     add_reservoir(buckets, seen, key, item, limit, rng)
     samples_by_task = defaultdict(list)
     for task_id in TASKS:
-        for split in ["train", "val"]:
+        for split in [train_split, eval_split]:
             for label in [0, 1]:
                 rows = buckets.get((task_id, split, label), [])
                 rng.shuffle(rows)
@@ -155,11 +163,22 @@ def main():
     parser.add_argument("--max-train-per-label", type=int, default=1024)
     parser.add_argument("--max-eval-per-label", type=int, default=512)
     parser.add_argument("--seed", type=int, default=20260629)
+    parser.add_argument("--train-split", default="train")
+    parser.add_argument("--eval-split", default="val")
+    parser.add_argument("--benchmark-mode", default="pilot_proxy_from_stage_b_region_buckets")
     args = parser.parse_args()
 
     stage_dir = Path(args.stage_dir).resolve()
     out_dir = Path(args.out_dir).resolve()
-    samples_by_task, seen = build_samples(stage_dir, args.max_train_per_label, args.max_eval_per_label, args.context, args.seed)
+    samples_by_task, seen = build_samples(
+        stage_dir,
+        args.max_train_per_label,
+        args.max_eval_per_label,
+        args.context,
+        args.seed,
+        args.train_split,
+        args.eval_split,
+    )
     fieldnames = [
         "sample_id", "task_id", "split", "label", "label_name", "input_path", "offset", "length", "stage", "context",
         "region_bucket", "source_region_type", "assembly_id", "species", "genus", "contig_id", "start0", "end0",
@@ -172,7 +191,7 @@ def main():
         manifest = {
             "status": "ok",
             "benchmark_id": "CropGenome-Bench-v1",
-            "mode": "pilot_proxy_from_stage_b_region_buckets",
+            "mode": args.benchmark_mode,
             "task_id": task_id,
             "task_title": TASKS[task_id]["title"],
             "positive_definition": TASKS[task_id]["positive_definition"],
@@ -183,11 +202,19 @@ def main():
             "max_eval_per_label": args.max_eval_per_label,
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S CST"),
             "samples_tsv": str(task_dir / "samples.tsv"),
-            "counts": {f"{split}_{label}": counts.get((split, str(label)), 0) for split in ["train", "val"] for label in [0, 1]},
+            "counts": {f"{split}_{label}": counts.get((split, str(label)), 0) for split in [args.train_split, args.eval_split] for label in [0, 1]},
         }
         (task_dir / "dataset_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         summary_rows.append({"task_id": task_id, **manifest["counts"], "samples_tsv": str(task_dir / "samples.tsv")})
-    write_tsv(out_dir / "dataset_summary.tsv", summary_rows, ["task_id", "train_0", "train_1", "val_0", "val_1", "samples_tsv"])
+    summary_fields = [
+        "task_id",
+        f"{args.train_split}_0",
+        f"{args.train_split}_1",
+        f"{args.eval_split}_0",
+        f"{args.eval_split}_1",
+        "samples_tsv",
+    ]
+    write_tsv(out_dir / "dataset_summary.tsv", summary_rows, summary_fields)
     (out_dir / "build_seen_counts.json").write_text(json.dumps({str(k): v for k, v in seen.items()}, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({"status": "ok", "tasks": len(summary_rows), "out_dir": str(out_dir), "summary": summary_rows}, ensure_ascii=False))
 

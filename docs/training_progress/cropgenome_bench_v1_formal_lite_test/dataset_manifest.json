@@ -1,0 +1,18 @@
+{
+  "status": "ok",
+  "benchmark_id": "CropGenome-Bench-v1-formal-lite-test",
+  "mode": "formal_lite_stage_b_train_test_proxy",
+  "seed": 20260707,
+  "context": 8192,
+  "train_split": "train",
+  "eval_split": "test",
+  "max_train_per_label": 512,
+  "max_eval_per_label": 256,
+  "tasks": [
+    "promoter_TSS",
+    "TES_polyA",
+    "splice_acceptor"
+  ],
+  "artifact_policy": "only sanitized TSV/JSON/PNG are public; per-sample local tables and binary input caches are not published",
+  "interpretation": "2080Ti-feasible fixed train/test proxy benchmark for resolving step14000 vs step17000; not final GFF-derived paper benchmark"
+}

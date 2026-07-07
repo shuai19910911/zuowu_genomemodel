@@ -1,6 +1,6 @@
 # CropGenome-FM 作物基因组基础模型
 
-更新时间: 2026-06-29 08:20 CST
+更新时间: 2026-07-07 17:45 CST
 
 CropGenome-FM（Crop Genome Foundation Model，作物基因组基础模型）是一个面向作物结构注释基因组的 DNA language model（DNA 语言模型）。项目目标不是再做一个通用 DNA 模型，而是用结构注释完整的作物基因组数据训练一个更适合 crop-specific sequence understanding（作物专用序列理解）的长上下文模型，并用独立下游 benchmark（基准评测）证明它在剪接、启动子、终止、基因结构、转座元件边界和跨物种迁移等任务上的价值。
 
@@ -33,7 +33,7 @@ CropGenome-FM（Crop Genome Foundation Model，作物基因组基础模型）是
 
 ### 2.3 当前评估
 
-当前 v2 Stable（第二版稳健版）已训练到 step2530，step2000 validation selection loss（验证选择损失）降到 1.1890，并更新 `checkpoint_best.pt`（最佳模型存档点）。step1000 lightweight downstream probe（轻量下游探针评测）已完成但只算弱阳性；正式结论仍要等 splice/promoter/TES（剪接/启动子/转录终止）等独立 benchmark（基准评测）。最新状态只看 [TRAINING_PROGRESS.md](TRAINING_PROGRESS.md)。
+当前 v2 Stable（第二版稳健版）已训练到 step17000 并触发 early stopping（早停）。2080Ti 上的 fixed formal-lite benchmark（固定轻量正式化测试）已完成：step17000 的 3 任务平均模型向量 F1 = 0.7439，高于 step14000 的 0.6961，因此 step17000 是阶段主候选；step14000 因 promoter_TSS/TES_polyA 更好而保留为备选。正式论文结论仍要等 GFF-derived CropGenome-Bench v1（由 GFF 精确标签构建的作物基因组正式基准）。最新状态只看 [TRAINING_PROGRESS.md](TRAINING_PROGRESS.md)。
 
 ## 3. 数据和安全边界
 

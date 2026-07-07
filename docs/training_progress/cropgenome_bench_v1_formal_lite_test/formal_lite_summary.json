@@ -1,0 +1,31 @@
+{
+  "status": "ok",
+  "benchmark_id": "CropGenome-Bench-v1-formal-lite-test",
+  "mode": "formal_lite_stage_b_train_test_proxy",
+  "candidate_steps": [
+    14000,
+    17000
+  ],
+  "tasks": [
+    "TES_polyA",
+    "promoter_TSS",
+    "splice_acceptor"
+  ],
+  "embedding_method": "model_embedding_nearest_centroid",
+  "embedding_mean_f1": {
+    "step14000": 0.6960552,
+    "step17000": 0.74390188,
+    "delta_17000_minus_14000": 0.04784669
+  },
+  "one_mer_baseline_mean_f1": {
+    "step14000": 0.57986762,
+    "step17000": 0.57986762
+  },
+  "task_winners": {
+    "TES_polyA": "step14000",
+    "promoter_TSS": "step14000",
+    "splice_acceptor": "step17000"
+  },
+  "decision": "step17000 is the primary candidate by mean model-embedding F1 on the fixed formal-lite test; step14000 remains better on promoter_TSS, so keep both for later GFF-derived formal paper benchmark",
+  "artifact_policy": "only sanitized TSV/JSON/PNG are public; per-sample local tables and binary input caches are not published"
+}

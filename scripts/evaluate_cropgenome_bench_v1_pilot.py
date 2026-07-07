@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Evaluate CropGenome-Bench v1 pilot proxy tasks with a frozen checkpoint.
 
-This is a smoke-test evaluator for the pilot datasets produced from Stage_B
-region_bucket labels. It reports simple sequence-composition baselines and a
-frozen CropGenome-FM embedding nearest-centroid classifier. The output must be
-labeled pilot/diagnostic, not formal paper benchmark evidence.
+This evaluator supports the original pilot/validation datasets and a frozen
+formal-lite train/test split produced from Stage_B region_bucket labels. It
+reports simple sequence-composition baselines and a frozen CropGenome-FM
+embedding nearest-centroid classifier. Stage_B proxy labels must still be
+described as proxy evidence, not the final GFF-derived paper benchmark.
 """
 
 import argparse
@@ -165,7 +166,7 @@ def write_tsv(path: Path, rows, fieldnames):
             writer.writerow(row)
 
 
-def plot_summary(rows, out_path: Path):
+def plot_summary(rows, out_path: Path, title: str, footnote: str):
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -184,7 +185,7 @@ def plot_summary(rows, out_path: Path):
             match = [r for r in rows if r["task_id"] == task and r["method"] == method]
             vals.append(float(match[0]["f1"]) if match else 0.0)
         ax.bar(x + (i - 1) * width, vals, width, label=method, color=colors[i])
-    ax.set_title("CropGenome-Bench v1 pilot proxy tasks — step3000 frozen embedding")
+    ax.set_title(title)
     ax.set_ylabel("F1 (pilot proxy; higher is better)")
     ax.set_xlabel("Pilot task")
     ax.set_xticks(x)
@@ -192,7 +193,7 @@ def plot_summary(rows, out_path: Path):
     ax.set_ylim(0, 1.0)
     ax.grid(axis="y", linestyle="--", alpha=0.35)
     ax.legend(fontsize=8)
-    fig.text(0.01, 0.01, "Pilot/proxy from Stage_B region buckets; not formal paper benchmark.", fontsize=8, color="#4B5563")
+    fig.text(0.01, 0.01, footnote, fontsize=8, color="#4B5563")
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, format="png", facecolor="white")
@@ -209,6 +210,12 @@ def main():
     parser.add_argument("--output-root", default="training_server_transfer/runs/cropgenome_bench_v1_pilot/evaluations")
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--train-split", default="train")
+    parser.add_argument("--eval-split", default="val")
+    parser.add_argument("--benchmark-mode", default="pilot_proxy_from_stage_b_region_buckets")
+    parser.add_argument("--result-note", default="pilot smoke test only; not formal CropGenome-Bench v1 paper result")
+    parser.add_argument("--plot-title", default="CropGenome-Bench v1 proxy tasks — frozen embedding")
+    parser.add_argument("--plot-footnote", default="Proxy labels from Stage_B region buckets; not final GFF-derived paper benchmark.")
     args = parser.parse_args()
 
     project_root = Path(args.project_root).resolve()
@@ -226,8 +233,8 @@ def main():
     for samples_path in sorted(dataset_root.glob("*/samples.tsv")):
         task_id = samples_path.parent.name
         samples = read_tsv(samples_path)
-        train_samples = [r for r in samples if r["split"] == "train"]
-        eval_samples = [r for r in samples if r["split"] == "val"]
+        train_samples = [r for r in samples if r["split"] == args.train_split]
+        eval_samples = [r for r in samples if r["split"] == args.eval_split]
         if not train_samples or not eval_samples:
             continue
         train_emb, train_sequences = extract_embeddings(model, train_module, train_samples, args.batch_size, device)
@@ -245,12 +252,12 @@ def main():
                 "checkpoint": checkpoint_path.stem,
                 "checkpoint_step": checkpoint_step,
                 "task_id": task_id,
-                "mode": "pilot_proxy_from_stage_b_region_buckets",
+                "mode": args.benchmark_mode,
                 "method": method,
                 "train_sample_count": len(train_samples),
                 "eval_sample_count": len(eval_samples),
                 **{k: f"{v:.8f}" if isinstance(v, float) else v for k, v in metric.items()},
-                "note": "pilot smoke test only; not formal CropGenome-Bench v1 paper result",
+                "note": args.result_note,
             })
             for true_label in [0, 1]:
                 for pred_label in [0, 1]:
@@ -275,11 +282,13 @@ def main():
     ]
     write_tsv(source_dir / "pilot_metrics_summary.tsv", all_rows, metric_fields)
     write_tsv(source_dir / "pilot_confusion_matrix.tsv", confusion_rows, ["checkpoint", "task_id", "method", "true_label", "pred_label", "count"])
-    figure_written = plot_summary(all_rows, eval_dir / "figures" / "pilot_task_f1.png")
+    figure_written = plot_summary(all_rows, eval_dir / "figures" / "pilot_task_f1.png", args.plot_title, args.plot_footnote)
     manifest = {
         "status": "ok",
         "benchmark_id": "CropGenome-Bench-v1",
-        "mode": "pilot_proxy_from_stage_b_region_buckets",
+        "mode": args.benchmark_mode,
+        "train_split": args.train_split,
+        "eval_split": args.eval_split,
         "checkpoint": str(checkpoint_path),
         "checkpoint_id": checkpoint_path.stem,
         "checkpoint_step": checkpoint_step,
@@ -296,7 +305,7 @@ def main():
         "confusion_matrix": str(source_dir / "pilot_confusion_matrix.tsv"),
         "figure_written": figure_written,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S CST"),
-        "interpretation": "Pipeline smoke test only; do not treat as formal CropGenome-Bench v1 result.",
+        "interpretation": args.result_note,
     }
     (eval_dir / "run_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
     print(json.dumps({"status": "ok", "checkpoint_step": checkpoint_step, "rows": len(all_rows), "out_dir": str(eval_dir), "metrics": all_rows}, ensure_ascii=False, allow_nan=False))

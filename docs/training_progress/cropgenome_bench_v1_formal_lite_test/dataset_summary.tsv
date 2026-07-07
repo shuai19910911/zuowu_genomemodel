@@ -1,0 +1,4 @@
+task_id	train_0	train_1	test_0	test_1	benchmark_mode	seed	context	public_note
+promoter_TSS	512	512	256	256	formal_lite_stage_b_train_test_proxy	20260707	8192	fixed Stage_B train/test proxy split; per-sample local tables are intentionally not published
+TES_polyA	512	512	256	256	formal_lite_stage_b_train_test_proxy	20260707	8192	fixed Stage_B train/test proxy split; per-sample local tables are intentionally not published
+splice_acceptor	512	512	256	256	formal_lite_stage_b_train_test_proxy	20260707	8192	fixed Stage_B train/test proxy split; per-sample local tables are intentionally not published
