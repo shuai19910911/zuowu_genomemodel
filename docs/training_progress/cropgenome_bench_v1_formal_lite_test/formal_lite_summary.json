@@ -26,6 +26,7 @@
     "promoter_TSS": "step14000",
     "splice_acceptor": "step17000"
   },
-  "decision": "step17000 is the primary candidate by mean model-embedding F1 on the fixed formal-lite test; step14000 remains better on promoter_TSS, so keep both for later GFF-derived formal paper benchmark",
+  "historical_proxy_decision": "step17000 had the higher mean model-embedding F1 on this fixed proxy; both checkpoints were therefore retained for the later GFF-derived formal benchmark",
+  "current_operational_decision": "the single continuation base is the predeclared early-stopping checkpoint_best.pt at step14000; step17000 is retained only as a paper sensitivity comparison",
   "artifact_policy": "only sanitized TSV/JSON/PNG are public; per-sample local tables and binary input caches are not published"
 }

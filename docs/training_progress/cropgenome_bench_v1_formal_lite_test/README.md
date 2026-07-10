@@ -1,8 +1,10 @@
 # CropGenome-Bench v1 formal-lite test
 
-更新时间: 2026-07-07 17:45 CST
+更新时间: 2026-07-10 16:40 CST
 
 本目录保存 2080Ti 上完成的 CropGenome-Bench v1 formal-lite（轻量正式化）评估结果。目的不是直接作为论文正式 test（正式测试集），而是在不使用 A100 的条件下，固定 train/test split（训练/测试划分）来解决 step14000 vs step17000 的阶段候选选择。
+
+当前状态：本页保留当时的 proxy（代理评测）证据；后续正式 benchmark 已完成，运营最终版已统一为 early-stop `checkpoint_best.pt = step14000`。step17000 仅保留为论文敏感性对照，不再是续训候选。
 
 ## 1. 评估口径
 
@@ -20,7 +22,7 @@
 
 ## 2. 结论
 
-step17000 是阶段主候选：3 个任务平均模型向量 F1 = 0.7439，高于 step14000 的 0.6961，提升 +0.0478。主要收益来自 splice_acceptor（剪接受体）任务从 0.4921 提升到 0.6667。
+该历史 proxy 在当时更支持 step17000：3 个任务平均模型向量 F1 = 0.7439，高于 step14000 的 0.6961，提升 +0.0478。主要收益来自 splice_acceptor（剪接受体）任务从 0.4921 提升到 0.6667。
 
 但 step14000 仍需要保留：它在 TES_polyA 和 promoter_TSS 两个任务上略好/更好。因此正式 GFF-derived paper benchmark（由 GFF 精确标签构建的论文正式基准）前，不应只删除 step14000。
 
@@ -51,6 +53,6 @@ step17000 是阶段主候选：3 个任务平均模型向量 F1 = 0.7439，高�
 
 ## 5. 边界
 
-可以说：2080Ti 上的固定 proxy formal-lite 结果已经足够给阶段 checkpoint 决策，step17000 是当前主候选，step14000 作为备选保留。
+可以说：2080Ti 上的固定 proxy formal-lite 结果曾提供阶段筛选证据；它支持继续正式比较两个 checkpoint，但不再决定当前续训基座。当前唯一续训基座为 early-stop step14000。
 
 不能说：这已经是最终论文正式 benchmark，或已经证明 CropGenome-FM 全面超过公开 DNA 大模型。正式结论仍需要 GFF-derived hard negatives（GFF 精确构建硬负样本）、固定 train/valid/test、多 seed 和外部 baseline 同口径评估。

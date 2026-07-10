@@ -1,12 +1,12 @@
 # CropGenome-FM 训练进展与评估
 
-更新时间：2026-07-10 15:19 CST
+更新时间：2026-07-10 19:03 CST
 
 本文件是 GitHub 上的训练进展主入口。详细方案见 `PROJECT_PLAN.md`，模型结构见 `MODEL_ARCHITECTURE.md`，本次正式结果的小白版逐项解读见 [CropGenome-Bench v1 A100 正式评估](docs/training_progress/cropgenome_bench_v1_formal_a100/README.md)。
 
 ## 1. 当前一句话结论
 
-`CropGenome-FM-v2-Stable-8K` 已在 step17000 early stop（早停）并冻结。新的 GFF-derived CropGenome-Bench v1（由原始结构注释构建的正式基准）显示：两个候选 checkpoint 在三任务平均 balanced accuracy（平衡准确率）上达到 step14000=`0.7386`、step17000=`0.7337`，均高于 DNABERT-2=`0.6589` 和补充评估 NT-v2 100M=`0.6813`；最强证据来自 splice（剪接），但 TES/poly(A) 未超过 NT-v2，不能宣称全任务全面领先。Stage C1 64K 真实 GPU dry-run 已通过，可以进入正式训练。
+`CropGenome-FM-v2-Stable-8K` 训练运行到 step17000 后 early stop（早停）并冻结，**唯一 8K 最终版统一为 early-stop `checkpoint_best.pt = step14000`**。修复后的 Stage C1 已同时通过真实 64K 执行、64K 依赖跨度、token-aware objective（按有效 token 加权目标）和固定验证选择四项 gate；corrected 正式训练正在 A100 GPU2 运行。
 
 ## 2. 当前状态表
 
@@ -17,11 +17,12 @@
 | 最新 train loss | 1.0611 | step17000 训练损失。 |
 | 最新 val loss | 1.1410 | step17000 验证总损失。 |
 | 最新 val selection loss | 1.0729 | `MLM loss + 0.02 × RC loss`。 |
-| Stage C1 初始化候选 | validation-best `checkpoint_best.pt = step14000` | 不用 formal test 反向挑初始化 checkpoint。 |
+| Stage B 8K 最终版 | early-stop `checkpoint_best.pt = step14000` | 唯一续训基座；SHA-256=`c81bce39...c83fed`。 |
 | 正式 benchmark | 3 个 GFF-derived hard-negative 任务完成 | promoter/TSS、splice donor/acceptor、TES/poly(A)。 |
 | 正式主比较 | k-mer、random-init、DNABERT-2、step14000、step17000 | 读取 test 前锁定。 |
 | 补充公开模型 | NT-v2 100M multi-species | 同口径运行，但因 test 后添加标记为 post-hoc supplementary。 |
-| Stage C1 64K gate | PASS | A100 GPU2 前向、反向、optimizer step 均通过。 |
+| Stage C1 64K gate | 4/4 PASS | 真实执行、远程依赖、目标归一化、固定验证选择全部通过。 |
+| Stage C1 正式训练 | running | A100 GPU2；launcher PID=54388，training PID=55762；只发布轻量状态，不上传运行日志。 |
 | GitHub 上传策略 | 只传轻量产物 | Markdown、聚合 TSV/JSON、PNG；不上传原始数据、checkpoint、cache、逐样本预测或日志。 |
 
 ## 3. GFF-derived CropGenome-Bench v1 正式结果
@@ -55,7 +56,7 @@
 - splice 是最强证据：step14000 相对 DNABERT-2 高 `18.07` 个百分点，相对 NT-v2 高 `17.38` 个百分点。
 - promoter 有中等提升：step17000 相对 DNABERT-2 高 `3.91` 个百分点，相对 NT-v2 高 `1.95` 个百分点。
 - TES 是当前短板：step17000 高于 DNABERT-2 和最佳 k-mer，但低于 NT-v2 `1.37` 个百分点。
-- step14000 与 step17000 任务赢家不同，所以保留 paired candidates（成对候选），不制造“唯一全任务最佳”。
+- step14000 与 step17000 的任务赢家不同，所以论文表保留两者；运营上不再保留成对候选，唯一续训基座为 early-stop step14000。
 
 ### 3.3 少样本标签效率
 
@@ -86,11 +87,15 @@ A100 GPU2 真实执行结果：
 |---|---:|
 | batch shape | `[1, 65536]` |
 | checkpoint 参数加载 | 430 keys 全匹配，missing/unexpected=0 |
-| 总 loss / MLM loss | 0.631388 / 0.487883 |
-| 峰值 allocated / reserved 显存 | 29,240.5 / 30,762.0 MiB |
+| 初始化语义 | strict model load；optimizer/global step/best tracking 重置 |
+| 依赖跨度 | 128-chunk 等拓扑梯度支持由旧结构 992 个局部位置扩展到 8192/8192 全长位置 |
+| 混合长度目标 | MLM/RC/region 分别按有效 token/标签数归一化 |
+| 固定验证面板 | 256 windows；22 assemblies、11 species、7 regions、76 个 64K |
+| 总 loss / MLM loss | 0.717403 / 0.586707 |
+| 峰值 allocated / reserved 显存 | 26,416.9 / 27,946.0 MiB |
 | forward/backward/optimizer step | PASS |
 
-结论：工程 gate 和下游有效性 gate 均通过，Stage C1 正式训练为 **GO**。但这个 dry-run 只证明 64K 能运行，不证明 64K 比 8K 更准；长上下文收益仍需 Stage C1 的独立验证和长程任务证明。
+结论：四项前置 gate 均通过，corrected Stage C1 已正式启动。当前证明“真实 64K 拓扑可用且优化语义正确”，但仍不能声称 64K 比 8K 的下游任务更准；该结论必须等待 Stage C1 独立验证和长程任务。
 
 ## 5. 训练曲线
 
@@ -125,8 +130,8 @@ A100 GPU2 真实执行结果：
 
 1. Stage B 停止在 step17000，不继续盲目加训或扩大 checkpoint test 扫描。
 2. 正式报告保留 step14000 和 step17000，明确任务级差异。
-3. Stage C1 初始化使用 validation-best `checkpoint_best.pt = step14000`，避免 test-set selection（用测试集选模型）。
-4. Stage C1 64K 可以启动；必须配置独立验证、保存规则和停止条件。
+3. 唯一 8K 最终版为 early-stop step14000；Stage C1 使用 `checkpoint_stage_B_8k_final.pt → checkpoint_best.pt` 初始化，不再用 formal test 任务差异反向切换续训基座。
+4. Stage C1 只继承 step14000 模型权重，重置 optimizer（优化器）、global step（全局步数）和 best tracking（最佳模型跟踪）；新阶段 warmup=6000，最早 step12000（约 1.97 遍训练窗口）允许早停，连续 4 次验证无至少 0.002 改善则停止。
 5. 论文主表不能写“所有任务都超过公开模型”，因为 TES/poly(A) 低于 NT-v2。
 6. 下一轮优先补长上下文真正相关的任务、TE/基因边界任务和独立模型 seed，而不是继续在这三个 test 任务上调参。
 
@@ -134,9 +139,31 @@ A100 GPU2 真实执行结果：
 
 | 优先级 | 任务 | 完成标准 |
 |---|---|---|
-| P0 | 启动 Stage C1 64K 正式训练 | 从 validation-best step14000 初始化；独立记录 64K train/validation；不改 formal test。 |
+| P0 | 监控 Stage C1 64K 正式训练 | 已从唯一 8K 最终版 step14000 启动；等待首个 step10 进度和 step500 原子 checkpoint，不改 formal test。 |
 | P0 | Stage C1 validation-only 监控 | 只在预选 checkpoint 上跑验证，不反复触碰正式 test。 |
 | P1 | 长程任务 | gene boundary、长内含子/外显子结构或 TE boundary 显示 64K 相对 8K 的收益。 |
 | P1 | 扩展公开模型 | 在资源允许时补充其他可运行 DNA/植物模型；新模型均标明 predeclared 或 post-hoc。 |
 | P1 | 独立训练稳定性 | 至少增加独立预训练或微调 seeds，不能用确定性 100% probe 冒充模型稳定性。 |
 | P1 | TES 标签增强 | 引入可靠转录组/poly(A) 证据后重新构建新版本数据，旧 test 不原地修改。 |
+
+## 9. Stage C1 64K 唯一启动入口
+
+Stage C1 package preflight（运行包预检查）已通过：21 shards（分片）、20,470,165,504 tokens（碱基 token）、779,304 windows（窗口）。启动脚本会自动加载 `checkpoint_stage_B_8k_final.pt → checkpoint_best.pt = step14000`，不需要再手写 `--resume`。
+
+非交互 SSH 会优先解析 `PYTHON_BIN_OVERRIDE`/`CONDA_ENV_PREFIX`，其次使用可验证的 mamba 或 `$HOME/.local/share/mamba/envs/zuowu_genomemodel/bin/python`；preflight 会在使用 GPU 前打印实际 `sys.executable` 并导入 NumPy/PyTorch。
+
+真实 64K 单步 gate：
+
+```bash
+cd training_server_transfer
+CUDA_VISIBLE_DEVICES=2 DRY_RUN=1 bash scripts/run_stage.sh Stage_C1 1
+```
+
+正式训练：
+
+```bash
+cd training_server_transfer
+CUDA_VISIBLE_DEVICES=2 bash scripts/run_stage.sh Stage_C1 1
+```
+
+资源口径：单张 A100 40GB，`micro_batch_size=1`，`grad_accum_steps=128`；禁止使用 GPU0，启动前必须同时确认 `fuser -v /dev/nvidia2` 和 `nvidia-smi` 没有其他 compute process（计算进程）。

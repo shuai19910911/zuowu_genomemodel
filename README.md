@@ -33,7 +33,7 @@
 - splice 是当前最强证据：step14000 相对 DNABERT-2 提升 `18.07` 个百分点，相对 NT-v2 提升 `17.38` 个百分点。
 - promoter 有中等提升：step17000 相对 DNABERT-2 提升 `3.91` 个百分点，相对 NT-v2 提升 `1.95` 个百分点。
 - TES 是当前短板：step17000 高于 DNABERT-2 和最佳 k-mer，但低于 NT-v2 `1.37` 个百分点。
-- step14000/17000 各有优势，不存在单一 checkpoint 全任务占优。
+- 论文评测中 step14000/17000 各有优势；但作为后续长上下文训练的唯一 8K 基座，已锁定 early-stop **step14000**。
 - 1% 标签时，step17000 三任务平均为 `0.6669`，最强公开模型为 `0.5663`；少样本优势比全量标签更明显。
 
 ![CropGenome-Bench v1 正式结果](docs/training_progress/cropgenome_bench_v1_formal_a100/figures/formal_full_data_balanced_accuracy.png)
@@ -42,14 +42,17 @@
 
 ## Stage C1 64K gate
 
-A100 GPU2 已真实完成 `[1, 65536]` 输入的 forward/backward/optimizer step（前向、反向和参数更新）：
+A100 GPU2 已完成修复后的长上下文语义 gate 和 `[1, 65536]` forward/backward/optimizer step（前向、反向和参数更新）：
 
 - step14000 validation-best checkpoint 的 430 个参数键全部匹配；
-- loss=`0.631388`，数值有限；
-- 峰值显存 allocated/reserved=`29,240.5/30,762.0 MiB`；
-- 工程 gate：**PASS**；下游有效性 gate：**PASS**；Stage C1 正式训练：**GO**。
+- 仅继承模型权重，optimizer、global step 和 best tracking 均重置；
+- 8 个注意力层使用 dilation=`1/2/4/8/16/32/64/128`；等拓扑梯度实验由旧结构局部 992 个位置扩展到完整 8192/8192，按真实 chunk size 等比例对应完整 64K；
+- 变长 micro-batch 已按 MLM/RC 有效 token 和区域标签数分别归一化；
+- 固定验证面板扩大到无放回 256 windows，覆盖 22 assemblies、11 species、7 类 region，其中 76 个为 64K；
+- loss=`0.717403`，数值有限；峰值显存 allocated/reserved=`26,416.9/27,946.0 MiB`；
+- 四项 gate（执行、远程依赖、目标归一化、checkpoint 选择）：**PASS**；corrected Stage C1 正式训练已在 GPU2 启动。
 
-这只证明 64K 能运行，不证明长上下文已经更准。64K 相对 8K 的实际收益需要 Stage C1 独立验证和长程任务证明。
+这些结果证明模型可运行且 token 级依赖拓扑能覆盖 64K，但仍不等于下游任务已经更准。64K 相对 8K 的生物学任务收益需要 Stage C1 独立验证和长程 benchmark（基准评测）证明。
 
 ## 研究路线
 
@@ -94,7 +97,7 @@ A100 GPU2 已真实完成 `[1, 65536]` 输入的 forward/backward/optimizer step
 
 1. Stage B 在 step17000 停止，不继续盲目加训。
 2. 论文正式结果保留 step14000 和 step17000，不隐去任务级差异。
-3. Stage C1 初始化使用 validation-best `checkpoint_best.pt = step14000`，避免用 formal test 选初始化点。
+3. **唯一 8K 最终版为 early-stop step14000**：Stage C1 使用 `checkpoint_stage_B_8k_final.pt → checkpoint_best.pt` 初始化，不再在 step14000/17000 之间切换。
 4. 论文不能写“所有任务都优于公开模型”，因为 TES/poly(A) 低于 NT-v2。
 5. 后续优先证明 64K 长上下文的真实收益，而不是继续反复触碰现有 formal test。
 

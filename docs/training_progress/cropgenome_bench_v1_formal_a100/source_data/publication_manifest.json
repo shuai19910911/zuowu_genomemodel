@@ -23,6 +23,7 @@
     "source_data/headline_full_data_metrics.tsv",
     "source_data/method_mean_balanced_accuracy.tsv",
     "source_data/publication_manifest.json",
+    "source_data/stage_b_8k_final_checkpoint.json",
     "source_data/stage_c1_64k_gate.json",
     "source_data/task_comparisons.tsv"
   ]

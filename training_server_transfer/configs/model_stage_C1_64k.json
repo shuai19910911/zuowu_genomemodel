@@ -1,0 +1,55 @@
+{
+  "model_name": "CropGenome-FM-v2-Stable-64K-Dilated",
+  "backend_priority": [
+    "hyena_lite"
+  ],
+  "vocab": {
+    "A": 0,
+    "C": 1,
+    "G": 2,
+    "T": 3,
+    "N": 4,
+    "MASK": 5,
+    "PAD": 6
+  },
+  "d_model": 1024,
+  "n_layers": 32,
+  "expand": 2,
+  "mlp_ratio": 1.25,
+  "dropout": 0.05,
+  "conv_kernel": 127,
+  "attention_every": 4,
+  "attention_heads": 8,
+  "attention_chunk_size": 512,
+  "attention_dilations": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128
+  ],
+  "rc_equivariant": true,
+  "rc_augmentation_prob": 0.0,
+  "mamba_d_state": 128,
+  "mamba_d_conv": 4,
+  "mlm_probability": 0.15,
+  "force_mask_per_sequence": true,
+  "mlm_loss_weight": 1.0,
+  "rc_consistency_weight": 0.02,
+  "rc_selection_weight": 0.02,
+  "region_labels": [
+    "background",
+    "coding",
+    "gene_body",
+    "promoter",
+    "splice",
+    "tes",
+    "utr"
+  ],
+  "region_classification_weight": 0.05,
+  "region_label_smoothing": 0.05,
+  "gradient_checkpointing": true
+}

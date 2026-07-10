@@ -1,0 +1,32 @@
+{
+  "status": "locked",
+  "stage": "Stage B 8K",
+  "selected_checkpoint": "step14000",
+  "checkpoint": "runs/Stage_B_cropgenome_fm_v2_stable/checkpoints/checkpoint_best.pt",
+  "operational_alias": "runs/Stage_B_cropgenome_fm_v2_stable/checkpoints/checkpoint_stage_B_8k_final.pt",
+  "sha256": "c81bce39ec448845e929e755530bc7023a345cca42234ff7fb776f5f39c83fed",
+  "size_bytes": 4434595342,
+  "locked_at": "2026-07-10 16:19:50 CST",
+  "validation": {
+    "loss": 1.1470137741416693,
+    "mlm_loss": 1.0718295220285654,
+    "selection_loss": 1.0743173765949905
+  },
+  "selection_policy": "The single 8K continuation checkpoint is the predeclared early-stopping checkpoint. Formal downstream results remain reported for both frozen checkpoints but do not change the continuation checkpoint.",
+  "checkpoint_metadata": {
+    "step": 14000,
+    "best_step": 14000,
+    "best_selection_loss": 1.0743173765949905,
+    "early_stopping_min_delta": 0.002
+  },
+  "stage_c1_initialization": {
+    "model_weights": "strict_load",
+    "optimizer": "reset",
+    "global_step": 0,
+    "best_tracking": "reset",
+    "warmup_steps": 6000,
+    "early_stopping_min_steps": 12000,
+    "early_stopping_patience_evals": 4,
+    "early_stopping_min_delta": 0.002
+  }
+}

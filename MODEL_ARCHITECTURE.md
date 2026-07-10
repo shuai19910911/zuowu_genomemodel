@@ -1,6 +1,6 @@
 # CropGenome-FM 模型结构解释
 
-更新时间: 2026-06-29 08:20 CST
+更新时间: 2026-07-10 19:03 CST
 
 ![CropGenome-FM-v2-Stable-8K 模型架构图](assets/cropgenome_fm_model_architecture.svg)
 
@@ -12,16 +12,16 @@
 
 ```text
 single-base DNA tokens（单碱基 DNA 输入）
-  -> token/region/quality embeddings（碱基/区域/质量嵌入）
-  -> 32-layer HyenaLite backbone（32 层轻量长卷积主干）
-  -> local attention every 4 layers（每 4 层局部注意力）
+  -> token embedding（碱基嵌入；当前没有 region/quality input embedding）
+  -> 32-layer HyenaLite backbone（32 层 kernel=127 局部逐通道卷积主干）
+  -> chunk attention every 4 layers（每 4 层分块注意力）
   -> MLM head（遮盖碱基预测头）
   -> RC consistency regularizer（反向互补一致性约束）
   -> weak region auxiliary head（弱监督区域辅助头）
   -> selection loss for best checkpoint（最佳模型存档点选择指标）
 ```
 
-解释: 模型使用单碱基 token（输入单位），保留 SNP/indel（单核苷酸变异/插入缺失）解释能力；HyenaLite（轻量长卷积序列模型）负责长上下文建模；local attention（局部注意力）补充剪接边界、启动子 motif（短序列模式）等局部精确交互。
+解释: 模型使用单碱基 token（输入单位），保留 SNP/indel（单核苷酸变异/插入缺失）解释能力。当前 `HyenaLiteBlock` 实际是 kernel=127 的局部 depthwise convolution（逐通道卷积）；8K 版本的固定分块注意力补充局部交互，64K 版本通过 dilated chunk attention（膨胀分块注意力）建立跨块连接。
 
 评估: 这是稳健工程路线。它不像大型 Transformer（注意力模型）那样显存爆炸，也不像纯卷积那样完全缺少局部注意力补充。论文表述应强调“作物专用预训练和 benchmark（基准评测）”，不要把架构本身夸成唯一创新。
 
@@ -49,11 +49,10 @@ N/PAD（未知碱基/补齐符号）不参与主 MLM loss（遮盖预测损失�
 
 | 字段 | 形状/类型 | 用途 |
 |---|---|---|
-| `input_ids` | `[B, 8192]` | 输入碱基 token（输入符号） |
-| `labels_mlm` | `[B, 8192]` | MLM（遮盖碱基预测）标签，非 mask 位置为忽略值 |
-| `loss_mask` | `[B, 8192]` | 哪些位置参与 loss（损失） |
-| `region_ids` | `[B, 8192]` | 区域弱标签，如 coding（编码区）、promoter（启动子）等 |
-| metadata（元数据） | assembly/species/contig/start/end | 追踪来源和防泄漏审计 |
+| `input_ids` | `[B, L]` | 输入碱基 token；Stage B 的 `L≤8192`，Stage C1 的 `L≤65536`。 |
+| `labels` | `[B, L]` | MLM（遮盖碱基预测）标签，非 mask 位置为 `-100`。 |
+| `attention_mask` | `[B, L]` | 有效 token 为真，PAD 为假。 |
+| `region_labels` | `[B]` | 每个窗口一个区域弱标签，如 coding（编码区）、promoter（启动子）等。 |
 
 解释: 训练输入窗口已经在本服务器按 Stage（阶段）固化，但 mask（遮盖）、labels（标签）和 batch order（批次顺序）在训练服务器动态生成。
 
@@ -74,9 +73,15 @@ N/PAD（未知碱基/补齐符号）不参与主 MLM loss（遮盖预测损失�
 | `dropout` | 0.05 | dropout（随机失活）防过拟合。 |
 | `gradient_checkpointing` | true | 梯度检查点，节省显存，增加一点计算时间。 |
 
-解释: HyenaLite（轻量长卷积）适合长 DNA 序列，local attention（局部注意力）补充剪接位点、motif（短序列模式）和边界任务所需的局部精确交互。
+解释: 当前 HyenaLite block 提供 kernel=127 的局部序列混合；chunk attention 补充剪接位点、motif（短序列模式）和边界任务所需的精确交互。64K 的跨块依赖由下一节的 dilation schedule 建立。
 
-评估: 该架构适合先跑通 8K。若后续 64K/128K 扩展，需要重新评估 attention chunk（局部注意力块）和 batch size（批量大小），否则显存或吞吐可能成为瓶颈。
+评估: 固定分块版本适合 8K，但梯度审计证明它不能把 token 级依赖扩展到完整 64K。Stage C1 因此使用独立配置和膨胀连接；128K 仍需重新做依赖、显存和下游有效性 gate。
+
+### 2.1 Stage C1 64K 连接结构
+
+Stage C1 使用 `training_server_transfer/configs/model_stage_C1_64k.json`，参数形状与 8K 模型完全相同。8 个注意力层的 dilation（跨块间隔）依次为 `1/2/4/8/16/32/64/128`，chunk size 保持 512。
+
+等拓扑梯度实验保留真实的 128 个 chunk，只把 chunk size 缩小到 64：旧固定分块结构只覆盖中心附近 992/8192 个输入位置，新结构覆盖 8192/8192。按 8 倍 chunk size 映射后，对应真实 65,536 bp 连接拓扑。该证据证明远距离信息存在计算路径，但不等于下游任务已证明 64K 优于 8K。
 
 ## 3. 训练目标和 loss（损失函数）
 
@@ -167,7 +172,7 @@ selection_loss = val_mlm_loss + 0.02 × val_rc_loss
 
 - 模型是 crop-specific（作物专用）预训练。
 - 使用 single-base tokenization（单碱基输入）。
-- 使用 HyenaLite（轻量长卷积）+ local attention（局部注意力）处理 8K 长上下文。
+- 使用局部 HyenaLite depthwise convolution + chunk attention 处理 8K；Stage C1 用无新增参数的 dilated chunk attention 扩展到 64K 连接拓扑。
 - 使用 RC consistency（反向互补一致性）作为小权重约束。
 - 使用 region auxiliary head（区域辅助头）作为弱监督训练辅助。
 - best checkpoint（最佳模型存档点）由 MLM+RC 选择指标决定。
