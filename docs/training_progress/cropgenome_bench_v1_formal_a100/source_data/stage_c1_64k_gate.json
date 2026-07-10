@@ -1,0 +1,18 @@
+{
+  "status": "pass",
+  "gate": "Stage C1 64K forward/backward/optimizer-step",
+  "checkpoint": "runs/Stage_B_cropgenome_fm_v2_stable/checkpoints/checkpoint_best.pt",
+  "start_step": 14000,
+  "loaded_keys": 430,
+  "missing_keys": [],
+  "unexpected_keys": [],
+  "batch_shape": [
+    1,
+    65536
+  ],
+  "loss": 0.6313879489898682,
+  "mlm_loss": 0.4878827929496765,
+  "cuda_max_memory_allocated_mib": 29240.5,
+  "cuda_max_memory_reserved_mib": 30762.0,
+  "interpretation": "64K micro-batch=1 fits on A100 GPU2; this is an engineering gate, not a downstream accuracy result."
+}

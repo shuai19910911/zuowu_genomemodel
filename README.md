@@ -1,74 +1,103 @@
-# CropGenome-FM 作物基因组基础模型
+# CropGenome-FM：作物基因组基础模型
 
-更新时间: 2026-07-07 17:45 CST
+**状态：Stage B 8K 已冻结，GFF-derived CropGenome-Bench v1 正式评估完成，Stage C1 64K gate 通过。**
 
-CropGenome-FM（Crop Genome Foundation Model，作物基因组基础模型）是一个面向作物结构注释基因组的 DNA language model（DNA 语言模型）。项目目标不是再做一个通用 DNA 模型，而是用结构注释完整的作物基因组数据训练一个更适合 crop-specific sequence understanding（作物专用序列理解）的长上下文模型，并用独立下游 benchmark（基准评测）证明它在剪接、启动子、终止、基因结构、转座元件边界和跨物种迁移等任务上的价值。
+本项目面向多作物基因组序列预训练，目标是学习可迁移到启动子、剪接、转录终止、基因结构、变异效应和育种任务的通用表示。当前阶段的主要创新定位是“作物基因组预训练模型”；下游任务用于检验作物预训练相对通用 DNA 模型的实际价值。
 
-## 1. GitHub 只保留的入口
+## 快速入口
 
-本仓库的 GitHub 可见内容只保留下面几个入口文档和核心图，避免旧实验结果、临时方案、逐 checkpoint（模型存档点）明细和分散图表干扰判断。
+- [训练进展与当前决策](TRAINING_PROGRESS.md)
+- [CropGenome-Bench v1 正式结果：小白版详细解读](docs/training_progress/cropgenome_bench_v1_formal_a100/README.md)
+- [正式结果全量对比图](docs/training_progress/cropgenome_bench_v1_formal_a100/figures/formal_full_data_balanced_accuracy.png)
+- [正式少样本对比图](docs/training_progress/cropgenome_bench_v1_formal_a100/figures/formal_fewshot_balanced_accuracy.png)
+- [完整项目计划](PROJECT_PLAN.md)
+- [模型结构说明](MODEL_ARCHITECTURE.md)
 
-| 入口 | 用途 | 怎么看 |
-|---|---|---|
-| [PROJECT_PLAN.md](PROJECT_PLAN.md) | 研究详细方案 | 看数据口径、训练分阶段、下游 benchmark（基准评测）、消融和风险控制。 |
-| [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md) | 模型结构解释 | 看 v2 Stable（第二版稳健版）到底输入什么、主干是什么、loss（损失函数）怎么选、哪些不能过度声明。 |
-| [TRAINING_PROGRESS.md](TRAINING_PROGRESS.md) | 唯一训练进展文档 | 所有训练曲线、下游 probe（探针评测）图表、结构注释进度和结论都集中在这里；只看这一个文档即可了解进展。 |
-| [assets/cropgenome_fm_roadmap.svg](assets/cropgenome_fm_roadmap.svg) | 研究方案图 | 对 PROJECT_PLAN 的图形化概览。 |
-| [assets/cropgenome_fm_model_architecture.svg](assets/cropgenome_fm_model_architecture.svg) | 模型架构图 | 对 MODEL_ARCHITECTURE 的图形化概览。 |
+## 当前正式结果
 
-训练输入 shard（分片）、checkpoint（模型存档点）、原始 genome（基因组序列）、GFF/GTF（结构注释文件）、中间索引、逐样本预测和大日志不上传 GitHub。
+本次 CropGenome-Bench v1 使用原始 GFF/GTF 注释坐标和 FASTA 构建 3 个 hard-negative（硬负样本）二分类任务。每任务 6,144 条 512 bp 序列，train/validation/test=`4096/1024/1024`，正负平衡；训练、验证和测试物种严格不重叠。所有模型统一使用 frozen embedding + linear probe（冻结向量 + 线性分类头）。
 
-## 2. 当前研究定位
+### 100% 标签 balanced accuracy（平衡准确率）
 
-### 2.1 做什么
+| 任务 | Best k-mer | DNABERT-2 | NT-v2 100M* | step14000 | step17000 |
+|---|---:|---:|---:|---:|---:|
+| promoter/TSS | 0.6113 | 0.6494 | 0.6689 | 0.6875 | **0.6885** |
+| splice donor/acceptor | 0.6797 | 0.7090 | 0.7158 | **0.8896** | 0.8672 |
+| TES/poly(A) | 0.6289 | 0.6182 | **0.6592** | 0.6387 | 0.6455 |
+| 三任务平均 | 0.6400 | 0.6589 | 0.6813 | **0.7386** | 0.7337 |
 
-- 使用结构注释完整的 crop assembly（作物基因组装版本）构建预训练语料。
-- 在 8K context（8192 碱基上下文）上训练 `CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）。
-- 后续按资源扩展到 64K/128K context（更长基因组上下文）。
-- 重点评估 splice donor/acceptor（剪接供体/受体）、promoter/TSS（启动子/转录起始位点）、TES/polyA（转录终止/多聚腺苷酸化）、exon/intron/UTR（外显子/内含子/非翻译区）、TE boundary（转座元件边界）和跨物种迁移。
+`*` NT-v2 是读取预锁定主结果后追加的同口径补充模型，标记为 post-hoc supplementary（事后补充），不用于反向选择正式 checkpoint。
 
-### 2.2 为什么这样做
+核心结论：
 
-通用 DNA 模型通常依赖人类或混合物种数据，作物基因组具有更强的 repeat（重复序列）、TE（转座元件）、多倍化和注释质量差异。直接使用作物结构注释数据，可以让模型在预训练阶段就更多看到 coding（编码区）、splice（剪接区）、promoter（启动子）、UTR（非翻译区）和 gene body（基因体）等功能区域，而不是只学习无差别全基因组背景。
+- splice 是当前最强证据：step14000 相对 DNABERT-2 提升 `18.07` 个百分点，相对 NT-v2 提升 `17.38` 个百分点。
+- promoter 有中等提升：step17000 相对 DNABERT-2 提升 `3.91` 个百分点，相对 NT-v2 提升 `1.95` 个百分点。
+- TES 是当前短板：step17000 高于 DNABERT-2 和最佳 k-mer，但低于 NT-v2 `1.37` 个百分点。
+- step14000/17000 各有优势，不存在单一 checkpoint 全任务占优。
+- 1% 标签时，step17000 三任务平均为 `0.6669`，最强公开模型为 `0.5663`；少样本优势比全量标签更明显。
 
-### 2.3 当前评估
+![CropGenome-Bench v1 正式结果](docs/training_progress/cropgenome_bench_v1_formal_a100/figures/formal_full_data_balanced_accuracy.png)
 
-当前 v2 Stable（第二版稳健版）已训练到 step17000 并触发 early stopping（早停）。2080Ti 上的 fixed formal-lite benchmark（固定轻量正式化测试）已完成：step17000 的 3 任务平均模型向量 F1 = 0.7439，高于 step14000 的 0.6961，因此 step17000 是阶段主候选；step14000 因 promoter_TSS/TES_polyA 更好而保留为备选。正式论文结论仍要等 GFF-derived CropGenome-Bench v1（由 GFF 精确标签构建的作物基因组正式基准）。最新状态只看 [TRAINING_PROGRESS.md](TRAINING_PROGRESS.md)。
+详细指标含义、逐任务白话解读、少样本 mean±SD（平均值±标准差）、RC 稳健性和限制见 [正式结果详细报告](docs/training_progress/cropgenome_bench_v1_formal_a100/README.md)。
 
-## 3. 数据和安全边界
+## Stage C1 64K gate
 
-| 项目 | 当前口径 |
-|---|---|
-| 正式训练数据 | 263 行同时有 genome FASTA（基因组序列）和 GFF3/GTF（结构注释）的 crop assembly manifest（作物组装清单） |
-| 去重后 assembly accession（组装版本号） | 258 个 canonical assembly accession（标准化组装版本） |
-| 覆盖属 | 26 个 |
-| train/val/test split（训练/验证/测试划分） | 192/35/31，按 accession 防泄漏 |
-| 训练服务器输入目录 | `training_server_transfer/`，只在本地/训练服务器使用，不上传 GitHub |
-| GitHub 上传策略 | 只上传入口文档、核心 SVG（矢量图）、少量核心训练 PNG（位图）和必要 TSV（表格源数据）；下游明细目录只本地保留 |
+A100 GPU2 已真实完成 `[1, 65536]` 输入的 forward/backward/optimizer step（前向、反向和参数更新）：
 
-评估: 这个口径牺牲了 1644 个无结构注释 genome（基因组），但换来更干净的区域标签、更可解释的下游任务和更低的数据泄漏风险。第一版论文叙事应强调“结构注释完整作物基因组预训练 + 独立 benchmark（基准评测）”，而不是宣称数据量最大。
+- step14000 validation-best checkpoint 的 430 个参数键全部匹配；
+- loss=`0.631388`，数值有限；
+- 峰值显存 allocated/reserved=`29,240.5/30,762.0 MiB`；
+- 工程 gate：**PASS**；下游有效性 gate：**PASS**；Stage C1 正式训练：**GO**。
 
-## 4. 当前主模型
+这只证明 64K 能运行，不证明长上下文已经更准。64K 相对 8K 的实际收益需要 Stage C1 独立验证和长程任务证明。
 
-当前主线是 `CropGenome-FM-v2-Stable-8K`：
+## 研究路线
 
-- single-base token（单碱基 token），避免 k-mer（固定长度片段）切词影响单点变异解释。
-- HyenaLite（轻量长卷积序列模型）+ local attention（局部注意力）主干。
-- MLM（masked language modeling，遮盖碱基预测）为主任务。
-- RC consistency（reverse-complement consistency，反向互补一致性）作为小权重正则。
-- weak region auxiliary head（弱监督区域辅助头）只作训练辅助和 sanity check（健康检查），不作为正式创新证据。
-- best checkpoint（最佳模型存档点）和 early stopping（早停）按 `selection_loss = MLM loss + 0.02 * RC loss`（遮盖预测损失 + 小权重反向互补损失）选择。
+### 多作物统一预训练
 
-评估: 这个模型设计偏稳健，不把架构新奇性作为论文主卖点。项目成功与否主要看独立下游 benchmark（基准评测）和跨物种泛化，而不是只看预训练 loss（损失）是否下降。
+主干输入覆盖作物核基因组、叶绿体基因组和线粒体基因组，同时保留来源标记和质量审计，避免把多来源数据简单混合后失去可追溯性。
 
-## 5. 如何判断项目是否在变好
+### 分阶段上下文扩展
 
-只看 [TRAINING_PROGRESS.md](TRAINING_PROGRESS.md)：
+- Stage A：2K context，稳定学习局部序列规律；
+- Stage B：8K context，学习更长启动子、基因结构和转座元件上下文；
+- Stage C1：64K context，面向长内含子、完整基因结构和远距离调控；
+- Stage C2：128K context，在有明确长程收益后再扩展。
 
-1. v2 Stable（第二版稳健版）train loss（训练损失）是否持续下降。
-2. step1000 之后 validation loss（验证损失）和 selection loss（选择损失）是否下降。
-3. best checkpoint（最佳模型存档点）是否稳定出现，而不是只靠最后一步。
-4. 8K 下游 benchmark（基准评测）是否超过 1-mer composition（单碱基组成）、CNN（卷积神经网络）、公开模型和 no-region（无区域辅助）消融。
-5. TE/repeat（转座元件/重复序列）相关任务是否有可靠 EDTA（转座元件注释软件）证据支撑。
+### 下游评价
 
-评估: 预训练 loss（损失）下降只是必要条件，不是充分条件；正式结论必须来自冻结表示或微调后的独立下游任务，并且需要基线和消融共同支持。
+评价不只看 MLM loss（掩码语言模型损失），还包括：
+
+1. promoter/TSS、splice、TES/poly(A) 等功能元件任务；
+2. 1%/10%/100% 标签效率；
+3. 物种不相交迁移；
+4. reverse-complement robustness（反向互补稳健性）；
+5. k-mer、random-init 和公开 DNA 模型基线；
+6. 后续长上下文、TE boundary、变异效应和育种任务。
+
+## 当前模型
+
+`CropGenome-FM-v2-Stable-8K` 的核心设计：
+
+- 约 220M 参数；
+- `d_model=768`，`num_layers=14`，`num_heads=12`；
+- GQA（分组查询注意力）；
+- RoPE（旋转位置编码）；
+- 8K 稀疏注意力；
+- species/region/quality embeddings（物种、区域和质量嵌入）；
+- RC-equivariant design（反向互补等变设计）；
+- bf16 mixed precision（bf16 混合精度）；
+- activation checkpointing（激活重计算）；
+- MLM 为主目标，RC 为辅助约束。
+
+## 当前决策
+
+1. Stage B 在 step17000 停止，不继续盲目加训。
+2. 论文正式结果保留 step14000 和 step17000，不隐去任务级差异。
+3. Stage C1 初始化使用 validation-best `checkpoint_best.pt = step14000`，避免用 formal test 选初始化点。
+4. 论文不能写“所有任务都优于公开模型”，因为 TES/poly(A) 低于 NT-v2。
+5. 后续优先证明 64K 长上下文的真实收益，而不是继续反复触碰现有 formal test。
+
+## 仓库发布边界
+
+GitHub 仅保留轻量、可复核材料：Markdown、聚合 TSV/JSON 和 PNG。原始 FASTA/GFF、embedding cache、逐样本预测、checkpoint 和训练日志留在训练存储，不提交到仓库。

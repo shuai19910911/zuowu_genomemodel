@@ -1,0 +1,4 @@
+task_id	best_cropgenome_checkpoint	cropgenome_balanced_accuracy	dnabert2_balanced_accuracy	best_kmer_method	best_kmer_balanced_accuracy	gain_vs_dnabert2_percentage_points	gain_vs_best_kmer_percentage_points
+promoter_TSS	step17000	0.688477	0.649414	6mer_linear_probe	0.611328	3.91	7.71
+splice_donor_acceptor	step14000	0.889648	0.708984	3mer_linear_probe	0.679688	18.07	21.00
+TES_polyA	step17000	0.645508	0.618164	3mer_linear_probe	0.628906	2.73	1.66
