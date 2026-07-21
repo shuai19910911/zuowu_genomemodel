@@ -1,0 +1,8 @@
+task_id	task_type	label_dimension	source_repo	source_revision	samples	train_samples	validation_samples	test_samples	sequence_length_min_bp	sequence_length_median_bp	sequence_length_max_bp	cross_split_exact_duplicates_before_filter	removed_train_duplicates	removed_validation_duplicates	cross_split_exact_duplicates_after_filter	validation_policy
+lncrna_multispecies	binary	1	InstaDeepAI/plant-genomic-benchmark	78ec8156c2ffb3e5475277fdb7eb603294224e53	56795	45588	5112	6095	102	498	6000	1074	1260	7	0	sha256(sample identity) modulo 10 from official train; official test preserved
+enhancer_cassava_proseq	binary	1	InstaDeepAI/plant-genomic-benchmark	78ec8156c2ffb3e5475277fdb7eb603294224e53	18893	16852	1229	812	1000	1000	1000	0	0	0	0	official validation split
+gene_expression_arabidopsis_thaliana	multi_regression	56	InstaDeepAI/plant-genomic-benchmark	78ec8156c2ffb3e5475277fdb7eb603294224e53	32529	25728	3399	3402	6000	6000	6000	5	3	2	0	official validation split
+gene_expression_glycine_max	multi_regression	14	InstaDeepAI/plant-genomic-benchmark	78ec8156c2ffb3e5475277fdb7eb603294224e53	56709	47105	4801	4803	6000	6000	6000	5	31	2	0	official validation split
+gene_expression_oryza_sativa	multi_regression	7	InstaDeepAI/plant-genomic-benchmark	78ec8156c2ffb3e5475277fdb7eb603294224e53	38626	31224	3700	3702	6000	6000	6000	20	20	2	0	official validation split
+gene_expression_solanum_lycopersicum	multi_regression	10	InstaDeepAI/plant-genomic-benchmark	78ec8156c2ffb3e5475277fdb7eb603294224e53	34960	27307	3826	3827	6000	6000	6000	15	14	1	0	official validation split
+gene_expression_zea_mays	multi_regression	23	InstaDeepAI/plant-genomic-benchmark	78ec8156c2ffb3e5475277fdb7eb603294224e53	43452	34487	4482	4483	6000	6000	6000	7	6	1	0	official validation split

@@ -1,0 +1,258 @@
+{
+  "status": "ok",
+  "report_id": "CropGenome-FM-detailed-research-guide-cn-v1",
+  "evidence_cutoff": "2026-07-21T14:04:09+08:00",
+  "scope": {
+    "completed_evidence": [
+      "Stage B 8K selected checkpoint step14000",
+      "CropGenome-Bench-v1 3 tasks x 3 nested contexts",
+      "Plant Genomic Benchmark 7 tasks at capability-eligible contexts"
+    ],
+    "partial_or_not_completed": [
+      "Stage C1 64K stopped at step569 before first validation",
+      "Stage C2 128K data only",
+      "Stage D 256K data only",
+      "NT-v2 500M planned but not evaluated"
+    ],
+    "planned_design": "9 preregistered crop-specific long-context task families; planned sample minima are not observed data"
+  },
+  "source_bindings": {
+    "assembly_manifest": "data_manifests/assemblies.canonical.tsv",
+    "plant_genomic_benchmark_revision": "78ec8156c2ffb3e5475277fdb7eb603294224e53",
+    "stage_b_manifest": "training_server_transfer/runs/Stage_B_cropgenome_fm_v2_stable/stage_B_8k_final_manifest.json",
+    "publication_v2_final_report": "PUBLICATION_V2_FINAL_RESULTS_CN.md",
+    "core_full_metrics": "training_server_transfer/runs/cropgenome_bench_v1_8k_complete/summary/full_data_metrics.tsv",
+    "external_full_metrics": "training_server_transfer/runs/plant_genomic_benchmark_publication_v2/summary/full_data_metrics.tsv"
+  },
+  "validation": {
+    "markdown": {
+      "status": "passed",
+      "lines": 798,
+      "characters": 48037,
+      "tables": 17,
+      "images": 4,
+      "broken_relative_links": 0,
+      "absolute_home_paths": 0
+    },
+    "docx_schema": {
+      "status": "passed",
+      "validator": "docx skill OOXML validator",
+      "counts": {
+        "ooxml_paragraph_elements": 1791,
+        "tables": 17,
+        "section_properties": 14,
+        "drawing_elements": 4
+      }
+    },
+    "docx_content": {
+      "status": "passed",
+      "tables": 17,
+      "inline_images": 4,
+      "sections": 14,
+      "required_key_strings_present": true,
+      "absolute_home_paths": 0,
+      "zip_crc_error": null
+    },
+    "docx_visual": {
+      "status": "passed",
+      "renderer": "LibreOffice 25.8.7.3",
+      "rendered_pdf_pages": 33,
+      "png_pages_checked": 33,
+      "near_blank_pages": 0,
+      "contact_sheets_checked": 4,
+      "required_fixes_after_first_render": 2,
+      "final_overflow_or_crop_errors": 0
+    },
+    "figures": {
+      "status": "passed",
+      "png_pdf_pairs": 4,
+      "visual_checks_completed": true
+    },
+    "public_urls": {
+      "status": "passed",
+      "huggingface_urls_http_200": 10,
+      "ncbi_url_http_200_after_curl_retry": true
+    }
+  },
+  "metric_integrity_note": {
+    "issue": "legacy core formal AUPRC implementation is not tie-safe",
+    "impact": "majority baseline and other tie-heavy baselines; learned-model ranking unchanged under tie-safe recomputation",
+    "required_next_release_action": "replace with tested standard Average Precision and regenerate formal artifacts"
+  },
+  "files": [
+    {
+      "path": "research_guide/CropGenome-FM_详细研究设计与评估报告_CN.docx",
+      "bytes": 1365571,
+      "sha256": "311cb60471b524914ea3f1f4970fd63417ffb8adc3b01a2dace7aa9da92bb397"
+    },
+    {
+      "path": "research_guide/README.md",
+      "bytes": 591,
+      "sha256": "edd10344c0a3da0d4fd04fe8d8aa763af1c7aaf78e32b14eb5e56d20c4e3466c"
+    },
+    {
+      "path": "research_guide/README_CN.md",
+      "bytes": 68719,
+      "sha256": "0d63489b329501f19eaa2379d5be1919908be70bd38ab639c4bcaa624fab4ebf",
+      "lines": 798,
+      "characters": 48037,
+      "markdown_tables": 17,
+      "markdown_images": 4
+    },
+    {
+      "path": "research_guide/figures/figure_01_architecture.pdf",
+      "bytes": 24130,
+      "sha256": "a8baedd283492254dae684e13b2b26b06f01c3864c76e11be14a869496dcc7e6"
+    },
+    {
+      "path": "research_guide/figures/figure_01_architecture.png",
+      "bytes": 433898,
+      "sha256": "c8b5a233a954327cd15f20b21e1add01eedb229ba57a293d04708220fb8ddd6e",
+      "width_px": 3315,
+      "height_px": 1769
+    },
+    {
+      "path": "research_guide/figures/figure_02_pretraining_data.pdf",
+      "bytes": 23141,
+      "sha256": "99085b78a80137606c810f4e4be13d7d091b201780dcd34e43b8bbc95dc4f395"
+    },
+    {
+      "path": "research_guide/figures/figure_02_pretraining_data.png",
+      "bytes": 248931,
+      "sha256": "1b60d15e4498bd1dcdd1c4b46d444e81e6846f25037c7168da921b1156b8e424",
+      "width_px": 4138,
+      "height_px": 1716
+    },
+    {
+      "path": "research_guide/figures/figure_03_core_performance.pdf",
+      "bytes": 24042,
+      "sha256": "30d64371216f96a93e1de7d623bfedb3d2cbac50dd018422a09e1bb1059c36b5"
+    },
+    {
+      "path": "research_guide/figures/figure_03_core_performance.png",
+      "bytes": 262009,
+      "sha256": "b5f634529214a20ee71a5d63221f7c353687617d3cd002fc899188a2965f6f30",
+      "width_px": 2827,
+      "height_px": 1724
+    },
+    {
+      "path": "research_guide/figures/figure_04_external_performance.pdf",
+      "bytes": 33758,
+      "sha256": "66bd0ebcde36438d2a0eb3167ed0289a46f77d396743b05cc8376e8b7309d26d"
+    },
+    {
+      "path": "research_guide/figures/figure_04_external_performance.png",
+      "bytes": 501389,
+      "sha256": "020af430b0ea0247a1f6464578d9516ef35efe9cd80cc0ba6cd16e35f4419bc5",
+      "width_px": 4225,
+      "height_px": 1845
+    },
+    {
+      "path": "research_guide/scripts/build_docx.py",
+      "bytes": 25062,
+      "sha256": "00cde16cdc19ac3028e7e87e4a56b6f6425f756b10823b8d90488795ec322c4a"
+    },
+    {
+      "path": "research_guide/scripts/build_figures.py",
+      "bytes": 12559,
+      "sha256": "e2a90f70c56c91b169e80dc4894fae8f69b426e2bbbdaf553cd0f47a05fd07b3"
+    },
+    {
+      "path": "research_guide/source_data/README.md",
+      "bytes": 1822,
+      "sha256": "89037479ac115e262672cd34cd50956c1d1ca2ad71601052bb6dd07f7c1b6d96"
+    },
+    {
+      "path": "research_guide/source_data/aggregate_primary_metrics.tsv",
+      "bytes": 9187,
+      "sha256": "5fcd81db9847b138542b804329cc012f0cc311fefe2745f29fdc75b03d0d8e6f",
+      "rows": 78,
+      "columns": 7
+    },
+    {
+      "path": "research_guide/source_data/assembly_species_summary.tsv",
+      "bytes": 1761,
+      "sha256": "1bdaec1563a98bcc9d77e79825dfcdf20f7a1329cf929b7b85d93514cd476d94",
+      "rows": 30,
+      "columns": 10
+    },
+    {
+      "path": "research_guide/source_data/baseline_registry.tsv",
+      "bytes": 2611,
+      "sha256": "66a4295a9ef1096b8086e5626218d65f24a41f6bb0c5fe3b7779fe856deb065f",
+      "rows": 11,
+      "columns": 8
+    },
+    {
+      "path": "research_guide/source_data/core_auprc_tie_audit_summary.tsv",
+      "bytes": 5658,
+      "sha256": "7402f7bd6034c4381e41af82fc6b2d3ede958e2e59765d9628035b39e8ef676d",
+      "rows": 44,
+      "columns": 8
+    },
+    {
+      "path": "research_guide/source_data/core_primary_metrics.tsv",
+      "bytes": 17446,
+      "sha256": "0f088ad7210725bfd11b8a9774c7c3270557d640fa6e3becdda3c2087a1e1982",
+      "rows": 176,
+      "columns": 11
+    },
+    {
+      "path": "research_guide/source_data/core_task_summary.tsv",
+      "bytes": 1375,
+      "sha256": "d059b656ae58d8739f1836b5d103ab2633c4d75bda3fea91b8e9845b75ee58de",
+      "rows": 3,
+      "columns": 13
+    },
+    {
+      "path": "research_guide/source_data/external_primary_metrics.tsv",
+      "bytes": 14458,
+      "sha256": "03cac17aadc56586fa519dee7beabbe9e87748fc7ea725689135f57d1ebbaa56",
+      "rows": 119,
+      "columns": 11
+    },
+    {
+      "path": "research_guide/source_data/external_task_summary.tsv",
+      "bytes": 1760,
+      "sha256": "279230fea60706794ae6de2bb1da97b45a8ba26a7051e395be75dcaf7eb7c7f2",
+      "rows": 7,
+      "columns": 17
+    },
+    {
+      "path": "research_guide/source_data/future_task_registry.tsv",
+      "bytes": 7945,
+      "sha256": "81157bffae4c4094997799f09d7029a9327c8cc145828b5ccf2df4eb279b06a6",
+      "rows": 9,
+      "columns": 15
+    },
+    {
+      "path": "research_guide/source_data/model_architecture_parameters.tsv",
+      "bytes": 1605,
+      "sha256": "a13f08f4c95495087a551e09b8cdff8e9ba7f1add3c6d733228bbf52c2c58b5d",
+      "rows": 16,
+      "columns": 5
+    },
+    {
+      "path": "research_guide/source_data/pretraining_objectives.tsv",
+      "bytes": 1625,
+      "sha256": "7cf8630153192cfd902b2d52fcb45e4f587af18ab106d9dd7f7163880f54d36d",
+      "rows": 7,
+      "columns": 8
+    },
+    {
+      "path": "research_guide/source_data/pretraining_stage_summary.tsv",
+      "bytes": 1194,
+      "sha256": "5c2e6d84aae76c490a4a8182f5e3a36e51ce36b71fabc27d43f3a914674f9637",
+      "rows": 4,
+      "columns": 12
+    },
+    {
+      "path": "research_guide/source_data/public_resource_registry.tsv",
+      "bytes": 2145,
+      "sha256": "b238e3439756e8dbea5ee622f9dfe705f6aa43047856b39174fea6c7e7a5bfbd",
+      "rows": 11,
+      "columns": 6
+    }
+  ],
+  "manifest_self_hash": "excluded_by_design"
+}
