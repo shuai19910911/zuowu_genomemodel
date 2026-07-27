@@ -1,20 +1,28 @@
 {
   "status": "ok",
-  "report_id": "CropGenome-FM-detailed-research-guide-cn-v1",
+  "report_id": "CropGenome-FM-detailed-research-guide-cn-v2",
   "evidence_cutoff": "2026-07-21T14:04:09+08:00",
+  "document_updated": "2026-07-27",
+  "formal_test_rerun_for_v2": false,
   "scope": {
     "completed_evidence": [
       "Stage B 8K selected checkpoint step14000",
       "CropGenome-Bench-v1 3 tasks x 3 nested contexts",
-      "Plant Genomic Benchmark 7 tasks at capability-eligible contexts"
+      "Plant Genomic Benchmark 7 tasks at capability-eligible contexts",
+      "publication-v2 final verification and final manifest status ok"
+    ],
+    "new_v2_audits": [
+      "10-task downstream taxonomy and Stage B overlap audit",
+      "7-panel gap to current strongest plant baseline",
+      "9-task baseline capability and preregistered success matrix"
     ],
     "partial_or_not_completed": [
       "Stage C1 64K stopped at step569 before first validation",
       "Stage C2 128K data only",
       "Stage D 256K data only",
-      "NT-v2 500M planned but not evaluated"
-    ],
-    "planned_design": "9 preregistered crop-specific long-context task families; planned sample minima are not observed data"
+      "NT-v2 500M planned but not evaluated",
+      "9 future crop-specific task families designed but not run"
+    ]
   },
   "source_bindings": {
     "assembly_manifest": "data_manifests/assemblies.canonical.tsv",
@@ -22,56 +30,68 @@
     "stage_b_manifest": "training_server_transfer/runs/Stage_B_cropgenome_fm_v2_stable/stage_B_8k_final_manifest.json",
     "publication_v2_final_report": "PUBLICATION_V2_FINAL_RESULTS_CN.md",
     "core_full_metrics": "training_server_transfer/runs/cropgenome_bench_v1_8k_complete/summary/full_data_metrics.tsv",
-    "external_full_metrics": "training_server_transfer/runs/plant_genomic_benchmark_publication_v2/summary/full_data_metrics.tsv"
+    "external_full_metrics": "training_server_transfer/runs/plant_genomic_benchmark_publication_v2/summary/full_data_metrics.tsv",
+    "v2_derived_table_builder": "research_guide/scripts/build_evidence_update_tables.py"
   },
   "validation": {
     "markdown": {
       "status": "passed",
-      "lines": 798,
-      "characters": 48037,
-      "tables": 17,
-      "images": 4,
+      "lines": 938,
+      "characters": 55885,
+      "tables": 24,
+      "images": 5,
       "broken_relative_links": 0,
+      "broken_targets": [],
       "absolute_home_paths": 0
     },
     "docx_schema": {
       "status": "passed",
       "validator": "docx skill OOXML validator",
+      "validator_output": "All validations PASSED!",
       "counts": {
-        "ooxml_paragraph_elements": 1791,
-        "tables": 17,
-        "section_properties": 14,
-        "drawing_elements": 4
+        "ooxml_paragraph_elements": 2137,
+        "tables": 25,
+        "section_properties": 12,
+        "drawing_elements": 5
       }
     },
     "docx_content": {
       "status": "passed",
-      "tables": 17,
-      "inline_images": 4,
-      "sections": 14,
+      "counts": {
+        "ooxml_paragraph_elements": 2137,
+        "tables": 25,
+        "section_properties": 12,
+        "drawing_elements": 5
+      },
       "required_key_strings_present": true,
+      "missing_key_strings": [],
       "absolute_home_paths": 0,
       "zip_crc_error": null
     },
     "docx_visual": {
       "status": "passed",
       "renderer": "LibreOffice 25.8.7.3",
-      "rendered_pdf_pages": 33,
-      "png_pages_checked": 33,
+      "rendered_pdf_pages": 36,
+      "png_pages_checked": 36,
       "near_blank_pages": 0,
-      "contact_sheets_checked": 4,
-      "required_fixes_after_first_render": 2,
-      "final_overflow_or_crop_errors": 0
+      "contact_sheets_checked": 6,
+      "final_overflow_or_crop_errors": 0,
+      "final_blank_pages": 0
     },
     "figures": {
       "status": "passed",
-      "png_pdf_pairs": 4,
-      "visual_checks_completed": true
+      "png_pdf_pairs": 5,
+      "visual_checks_completed": true,
+      "strategy_figure_boundary_note": "planned context and data status are not observed performance"
     },
-    "public_urls": {
+    "derived_tables": {
       "status": "passed",
-      "huggingface_urls_http_200": 10,
-      "ncbi_url_http_200_after_curl_retry": true
+      "taxonomy_detail_rows": 71,
+      "taxonomy_summary_rows": 10,
+      "baseline_gap_rows": 7,
+      "future_task_capability_rows": 9,
+      "crlf_rows": 0,
+      "empty_cells": 0
     }
   },
   "metric_integrity_note": {
@@ -82,85 +102,107 @@
   "files": [
     {
       "path": "research_guide/CropGenome-FM_详细研究设计与评估报告_CN.docx",
-      "bytes": 1365571,
-      "sha256": "311cb60471b524914ea3f1f4970fd63417ffb8adc3b01a2dace7aa9da92bb397"
+      "bytes": 1718641,
+      "sha256": "50c266b657fd016a0ce57d3391dd92c6e8de5db792f1a07db7783f16681b6586"
     },
     {
       "path": "research_guide/README.md",
-      "bytes": 591,
-      "sha256": "edd10344c0a3da0d4fd04fe8d8aa763af1c7aaf78e32b14eb5e56d20c4e3466c"
+      "bytes": 1030,
+      "sha256": "a91511f25fe2d5b975db945720ce253138a75a7438bac087687784b9082f8514"
     },
     {
       "path": "research_guide/README_CN.md",
-      "bytes": 68719,
-      "sha256": "0d63489b329501f19eaa2379d5be1919908be70bd38ab639c4bcaa624fab4ebf",
-      "lines": 798,
-      "characters": 48037,
-      "markdown_tables": 17,
-      "markdown_images": 4
+      "bytes": 82295,
+      "sha256": "f0abb8f9d9ad4489ac5365805452d73e6e4b4973e52445fdb41e7a7e0d7d54bc",
+      "lines": 938,
+      "characters": 55885,
+      "markdown_tables": 24,
+      "markdown_images": 5
     },
     {
       "path": "research_guide/figures/figure_01_architecture.pdf",
-      "bytes": 24130,
-      "sha256": "a8baedd283492254dae684e13b2b26b06f01c3864c76e11be14a869496dcc7e6"
+      "bytes": 24357,
+      "sha256": "7269339f3ac82d0136f2261a52d7f076ac58f649acb5e0b4576a7bba9c1ed11d"
     },
     {
       "path": "research_guide/figures/figure_01_architecture.png",
-      "bytes": 433898,
-      "sha256": "c8b5a233a954327cd15f20b21e1add01eedb229ba57a293d04708220fb8ddd6e",
+      "bytes": 430946,
+      "sha256": "56e34eb0dd073c75e794a00d056dbc8c56d3a6e0451116f894a6bcbb97f86e3e",
       "width_px": 3315,
       "height_px": 1769
     },
     {
       "path": "research_guide/figures/figure_02_pretraining_data.pdf",
-      "bytes": 23141,
-      "sha256": "99085b78a80137606c810f4e4be13d7d091b201780dcd34e43b8bbc95dc4f395"
+      "bytes": 23309,
+      "sha256": "ffbdf950e96544ebf253ed09bd00e6ec93c5e5548f89153866911d61729f0d17"
     },
     {
       "path": "research_guide/figures/figure_02_pretraining_data.png",
-      "bytes": 248931,
-      "sha256": "1b60d15e4498bd1dcdd1c4b46d444e81e6846f25037c7168da921b1156b8e424",
-      "width_px": 4138,
+      "bytes": 249941,
+      "sha256": "24c0f1087c1fc47a1c6d866ab00846182b63b4d20b0e0f6a4ad8d6288e7c47c7",
+      "width_px": 4137,
       "height_px": 1716
     },
     {
       "path": "research_guide/figures/figure_03_core_performance.pdf",
-      "bytes": 24042,
-      "sha256": "30d64371216f96a93e1de7d623bfedb3d2cbac50dd018422a09e1bb1059c36b5"
+      "bytes": 24292,
+      "sha256": "4ad6f1d455678f03de9cd6c7728405621fa62853e3d1d9024a5b27f418518c4e"
     },
     {
       "path": "research_guide/figures/figure_03_core_performance.png",
-      "bytes": 262009,
-      "sha256": "b5f634529214a20ee71a5d63221f7c353687617d3cd002fc899188a2965f6f30",
+      "bytes": 260367,
+      "sha256": "903a92a2c5242c8b288fc075e470e28922afaa3f6a71854cf30c4010e82cdd28",
       "width_px": 2827,
       "height_px": 1724
     },
     {
       "path": "research_guide/figures/figure_04_external_performance.pdf",
-      "bytes": 33758,
-      "sha256": "66bd0ebcde36438d2a0eb3167ed0289a46f77d396743b05cc8376e8b7309d26d"
+      "bytes": 33958,
+      "sha256": "48a99bfb2e1b951cfdf46b34ddc11e8bc3a50c00e3f52f10822797b078d25594"
     },
     {
       "path": "research_guide/figures/figure_04_external_performance.png",
-      "bytes": 501389,
-      "sha256": "020af430b0ea0247a1f6464578d9516ef35efe9cd80cc0ba6cd16e35f4419bc5",
+      "bytes": 501494,
+      "sha256": "fa74482fe44da399f54c4c0e939d6f27dd7a82e52a15c3c94e1aec89b8b2bebf",
       "width_px": 4225,
       "height_px": 1845
     },
     {
+      "path": "research_guide/figures/figure_05_strategy_map.pdf",
+      "bytes": 14393,
+      "sha256": "e084f1460f428dbcaa316643b8578d3a109003b20de040e14536e4fdea6603d4"
+    },
+    {
+      "path": "research_guide/figures/figure_05_strategy_map.png",
+      "bytes": 409753,
+      "sha256": "28d8967e9cfe8e7c3e5e595b58e9cf0b8dc57edaa1fb9d777bf67b2c7323fbe4",
+      "width_px": 4062,
+      "height_px": 2022
+    },
+    {
       "path": "research_guide/scripts/build_docx.py",
-      "bytes": 25062,
-      "sha256": "00cde16cdc19ac3028e7e87e4a56b6f6425f756b10823b8d90488795ec322c4a"
+      "bytes": 27072,
+      "sha256": "675bf7660491d9f2392bfbfb4c9066c5c752bc109551797776e9c0535f1748cf"
+    },
+    {
+      "path": "research_guide/scripts/build_evidence_update_tables.py",
+      "bytes": 22064,
+      "sha256": "b0f34152a8828d577f3c8992849a9b44808b30f40b33d8e2c03229c7969f7641"
     },
     {
       "path": "research_guide/scripts/build_figures.py",
-      "bytes": 12559,
-      "sha256": "e2a90f70c56c91b169e80dc4894fae8f69b426e2bbbdaf553cd0f47a05fd07b3"
+      "bytes": 17214,
+      "sha256": "11df0aa6f1331d8493844346d1d49868785da56e9cfd4708a04e8f6b281ba6a5"
+    },
+    {
+      "path": "research_guide/scripts/build_report_manifest.py",
+      "bytes": 8407,
+      "sha256": "16085246214544cd8b1b791b545464388808e502183f7dfa3163787b405b34af"
     },
     {
       "path": "research_guide/source_data/README.md",
-      "bytes": 1822,
-      "sha256": "89037479ac115e262672cd34cd50956c1d1ca2ad71601052bb6dd07f7c1b6d96"
+      "bytes": 2960,
+      "sha256": "904faf001ce45cea1bd96193590845657633796a36fa9ed5649e3afc8d7e1118"
     },
     {
       "path": "research_guide/source_data/aggregate_primary_metrics.tsv",
@@ -175,6 +217,13 @@
       "sha256": "1bdaec1563a98bcc9d77e79825dfcdf20f7a1329cf929b7b85d93514cd476d94",
       "rows": 30,
       "columns": 10
+    },
+    {
+      "path": "research_guide/source_data/baseline_gap_summary.tsv",
+      "bytes": 2316,
+      "sha256": "48f8aea563e61cc19c083a10168006e1a41476bc6090fcedfd6890dc655091fc",
+      "rows": 7,
+      "columns": 13
     },
     {
       "path": "research_guide/source_data/baseline_registry.tsv",
@@ -205,6 +254,20 @@
       "columns": 13
     },
     {
+      "path": "research_guide/source_data/downstream_taxonomy_detail.tsv",
+      "bytes": 15027,
+      "sha256": "079714fe2f40e481978df6ef00457c290f3fa33b6ac138fe168de530108b3f76",
+      "rows": 71,
+      "columns": 16
+    },
+    {
+      "path": "research_guide/source_data/downstream_taxonomy_summary.tsv",
+      "bytes": 2819,
+      "sha256": "f5f087ea8407273844ed1116771a480541e724d4ad37608376243b8eec1375b0",
+      "rows": 10,
+      "columns": 15
+    },
+    {
       "path": "research_guide/source_data/external_primary_metrics.tsv",
       "bytes": 14458,
       "sha256": "03cac17aadc56586fa519dee7beabbe9e87748fc7ea725689135f57d1ebbaa56",
@@ -217,6 +280,13 @@
       "sha256": "279230fea60706794ae6de2bb1da97b45a8ba26a7051e395be75dcaf7eb7c7f2",
       "rows": 7,
       "columns": 17
+    },
+    {
+      "path": "research_guide/source_data/future_task_baseline_capability_matrix.tsv",
+      "bytes": 8590,
+      "sha256": "c9561d83c0fd26bd89a5cc66c25f35c63a31ddf1bb471d0ed49584d11aac8aec",
+      "rows": 9,
+      "columns": 13
     },
     {
       "path": "research_guide/source_data/future_task_registry.tsv",

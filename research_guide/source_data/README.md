@@ -15,7 +15,13 @@
 | `external_primary_metrics.tsv` | 外部7任务的primary-seed full-data主指标 |
 | `aggregate_primary_metrics.tsv` | 核心/外部任务组宏平均，含seed口径 |
 | `baseline_registry.tsv` | 已评估和下一版必加基线的参数、架构、上下文与状态 |
+| `baseline_gap_summary.tsv` | 从正式聚合指标自动计算的本模型与当前最强植物/公开基线差距；NT-v2 500M仍标记为未评估 |
+| `downstream_taxonomy_detail.tsv` | 71行逐面板×任务×split×物种的科属种、样本数、核心assembly和Stage B预训练交叉审计 |
+| `downstream_taxonomy_summary.tsv` | 核心3任务＋外部7任务的物种/属/科互斥、test accession隔离和预训练未见比例汇总 |
 | `future_task_registry.tsv` | 9项作物专属任务的预注册式设计；计划样本数不是现有样本数 |
+| `future_task_baseline_capability_matrix.tsv` | 9项任务逐项说明AgroNT 1B、PlantCAD2/PlantCaduceus、NT-v2 500M、Evo2和传统强基线的公平角色、预计压力点及成功门槛；全部属于设计而非结果 |
 | `public_resource_registry.tsv` | 公开数据/模型URL和冻结revision |
 
 重要：旧核心formal evaluator对完全相同prediction score的AUPRC tie处理不正确，因此`majority_baseline`原值0.30734不应作科学解释；标准Average Precision为0.5。正式学习模型排名经重算不变。下一release需要修正实现并重建全部正式artifact。
+
+新增四表由`../scripts/build_evidence_update_tables.py`从真实样本表、258条canonical assembly manifest、现有聚合指标和冻结未来任务registry生成。分类学审计区分下游监督split隔离、Stage B assembly隔离、预训练未见物种、未见属和未见科；不得将这些概念合并成一句“跨物种零样本”。未来任务表中的基线“预计限制”是待检验假设，不是已经观察到的性能失败。

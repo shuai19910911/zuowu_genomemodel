@@ -246,9 +246,90 @@ def external_performance_figure():
     save(fig, "figure_04_external_performance")
 
 
+def strategy_figure():
+    gaps = list(csv.DictReader((SOURCE / "baseline_gap_summary.tsv").open(), delimiter="\t"))
+    future = list(csv.DictReader((SOURCE / "future_task_registry.tsv").open(), delimiter="\t"))
+
+    gap_labels = {
+        ("core_3_task_macro", "512", "macro AUPRC"): "Core 512\nAUPRC",
+        ("core_3_task_macro", "2048", "macro AUPRC"): "Core 2K\nAUPRC",
+        ("core_3_task_macro", "8192", "macro AUPRC"): "Core 8K\nAUPRC",
+        ("external_group_macro", "512", "macro AUPRC"): "External binary 512\nAUPRC",
+        ("external_group_macro", "512", "macro Pearson"): "External expression 512\nPearson",
+        ("external_group_macro", "6000", "macro AUPRC"): "External binary 6K\nAUPRC",
+        ("external_group_macro", "6000", "macro Pearson"): "External expression 6K\nPearson",
+    }
+    ordered_keys = [
+        ("core_3_task_macro", "512", "macro AUPRC"),
+        ("core_3_task_macro", "2048", "macro AUPRC"),
+        ("core_3_task_macro", "8192", "macro AUPRC"),
+        ("external_group_macro", "512", "macro AUPRC"),
+        ("external_group_macro", "512", "macro Pearson"),
+        ("external_group_macro", "6000", "macro AUPRC"),
+        ("external_group_macro", "6000", "macro Pearson"),
+    ]
+    by_key = {(r["panel"], r["context_bp"], r["metric"]): r for r in gaps}
+    values = [float(by_key[key]["gap_vs_best_plant"]) for key in ordered_keys]
+    labels = [gap_labels[key] for key in ordered_keys]
+
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(14.5, 6.8), gridspec_kw={"width_ratios": [1.12, 1]})
+    y = np.arange(len(values))
+    colors = [COLORS["green"] if value >= 0 else COLORS["orange"] for value in values]
+    ax.barh(y, values, color=colors, height=0.62)
+    ax.axvline(0, color=COLORS["navy"], linewidth=1.0)
+    ax.axvline(-0.02, color=COLORS["gray"], linewidth=0.9, linestyle="--")
+    ax.set_yticks(y, labels)
+    ax.invert_yaxis()
+    ax.set_xlim(-0.072, 0.045)
+    ax.set_xlabel("CropGenome-FM − best current plant baseline")
+    ax.set_title("Current common-task gap", loc="left", weight="bold", color=COLORS["navy"])
+    ax.grid(axis="x", alpha=0.18)
+    for yi, value in zip(y, values):
+        x = value + (0.002 if value >= 0 else -0.002)
+        ax.text(x, yi, f"{value:+.3f}", va="center", ha="left" if value >= 0 else "right", fontsize=8.2, weight="bold")
+
+    short = {
+        "CROP-LONGGENE-SEG": "Long-gene segmentation",
+        "CROP-DISTAL-CIS-PAIR": "Distal cis pairs",
+        "CROP-ISOFORM-LR": "Long-read isoforms",
+        "CROP-POLYPLOID-HOMEOLOG": "Polyploid homoeologs",
+        "CROP-TE-SV-REG": "TE/SV regulation",
+        "CROP-NLR-CLUSTER": "NLR clusters",
+        "CROP-ACR-STRESS": "Stress ACRs",
+        "CROP-PANGENOME-SV": "Pan-genome SV",
+        "CROP-QTL-VAR-RANK": "QTL variant ranking",
+    }
+    priority_colors = {"P0": COLORS["blue"], "P1": COLORS["purple"], "P2": COLORS["gray"]}
+    task_y = np.arange(len(future))
+    max_lengths = [max(int(x) for x in row["input_lengths_bp"].split(";")) for row in future]
+    task_colors = [priority_colors[row["priority"].split("_", 1)[0]] for row in future]
+    ax2.scatter(max_lengths, task_y, s=95, c=task_colors, edgecolors="white", linewidths=0.8, zorder=3)
+    for x, yi, row in zip(max_lengths, task_y, future):
+        status = "source only" if row["release_status"].startswith("current source") else ("blocked" if "blocked" in row["release_status"] else "not frozen")
+        ax2.text(x * 1.06, yi, status, va="center", fontsize=7.5, color=COLORS["gray"])
+    ax2.set_xscale("log", base=2)
+    ticks = [2048, 8192, 32768, 65536, 131072, 262144]
+    ax2.set_xticks(ticks, ["2K", "8K", "32K", "64K", "128K", "256K"])
+    ax2.set_xlim(1500, 560000)
+    ax2.set_yticks(task_y, [short[row["task_id"]] for row in future])
+    ax2.invert_yaxis()
+    ax2.set_xlabel("Maximum planned input length (bp)")
+    ax2.set_title("Crop-specific task pressure tests", loc="left", weight="bold", color=COLORS["navy"])
+    ax2.grid(axis="x", alpha=0.18)
+
+    fig.suptitle("Common-task parity first; crop-specific superiority only after frozen fair baselines",
+                 x=0.04, ha="left", fontsize=14, weight="bold", color=COLORS["navy"])
+    fig.text(0.04, 0.022,
+             "Left: each gap uses its own primary metric and is not pooled across AUPRC/Pearson. Dashed line marks −0.02 only as a visual reference. "
+             "Right: planned context and data status, not observed performance; blue=P0, purple=P1, grey=P2.", fontsize=8.4, color=COLORS["gray"])
+    fig.subplots_adjust(left=0.17, right=0.96, top=0.87, bottom=0.14, wspace=0.44)
+    save(fig, "figure_05_strategy_map")
+
+
 if __name__ == "__main__":
     architecture_figure()
     pretraining_data_figure()
     core_performance_figure()
     external_performance_figure()
-    print(f"wrote 8 figure files under {OUT}")
+    strategy_figure()
+    print(f"wrote 10 figure files under {OUT}")

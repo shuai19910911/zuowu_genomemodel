@@ -1,8 +1,9 @@
 # CropGenome-FM作物基因组基础模型
 ## 详细研究设计、数据字典、模型架构、预训练与下游评估报告
 
-- **文档版本：** 1.0
+- **文档版本：** 2.0
 - **机器证据截止：** 2026-07-21 14:04 CST（UTC+08:00）
+- **本次文档更新：** 2026-07-27（未新增或重跑formal test）
 - **当前冻结基座：** `CropGenomeFM_step14000`
 - **文档性质：** 当前事实审计＋下一阶段预注册式研究设计
 
@@ -20,7 +21,24 @@
 2. **D（diagnostic，诊断证据）**：validation-only、轻量probe或checkpoint筛选结果，只用于调试和模型选择，不能替代正式测试。
 3. **P（planned，计划）**：尚未完成数据冻结或训练；文中给出的窗口数是最低目标，不是现有样本数。
 
-术语说明：token在本模型中基本对应单个碱基字符；AUPRC是精确率—召回率曲线下面积，越高越好，尤其适合不平衡分类；Pearson是预测与真实值的线性相关，越高越好；probe是冻结基础模型、只训练简单下游头；RC是reverse complement（反向互补）。
+### 1.1 术语快速解释
+
+| 术语 | 白话解释 | 在本项目中的具体含义 |
+| --- | --- | --- |
+| assembly | 一套组装好的参考基因组版本 | 以NCBI accession区分；同一物种可以有多个assembly |
+| FASTA / GFF3 | FASTA保存DNA序列；GFF3保存基因、外显子、内含子等坐标 | FASTA提供模型输入，GFF3提供区域采样、辅助标签和核心结构任务标签 |
+| token | 模型读取的最小单位 | CropGenome-FM采用字符级DNA输入，基本一碱基一token；AgroNT和NT-v2使用6-mer tokenizer，长度上限不能直接按bp等同 |
+| context / window | 一次送入模型的连续序列范围 | 当前正式基座为8,192 bp；64K只完成Gate和部分训练；128K/256K尚未训练 |
+| train / validation / test | 训练、模型选择、一次性正式检验 | validation可以选checkpoint；test不得参与调参、任务筛选或早停 |
+| checkpoint | 某个训练step保存的模型状态 | Stage B的正式冻结模型是validation选择的step14000，不是停止点step17000 |
+| frozen probe | 冻结基础模型，只训练简单预测头 | 当前主比较反映表示质量，不等于所有模型完整fine-tuning后的最高性能 |
+| RC | reverse complement（反向互补） | DNA换方向读取时序列反转且A/T、C/G互换；模型两条路径共享参数并对齐融合 |
+| native / chunked | native是一次完整读取；chunked是切成多块再聚合 | 短模型在64–256K任务中只能进入chunked赛道，不能把无法native处理记成0分 |
+| N/E | not eligible / not evaluated（不具备完整输入资格或未评估） | 不是性能为0；表示zero-truncation门禁不允许静默裁切 |
+| AUPRC / Pearson | 分类和回归主指标 | AUPRC越高越好；Pearson衡量预测与真实表达的线性相关，越接近1越好 |
+| hard negative | 看起来很像正例但并非真实正例的困难负样本 | 例如剪接负例也含GT/AG motif，迫使模型学习边界上下文而非只认motif |
+| bootstrap 95% CI | 对独立物种、位点或study重采样得到的不确定性区间 | 未来优效/非劣结论看CI下界，不只看一个点估计 |
+| MMED | minimum meaningful effect difference（最小有意义效应差） | 预先规定“至少提升多少才有科学意义”，避免把极小随机差异写成突破 |
 
 ## 2. 研究目标、核心假设与不能预设的结论
 
@@ -161,6 +179,10 @@
 
 ## 7. 预训练任务与损失
 
+当前已实现总损失可写为`L_total = L_MLM + 0.02×L_RC + 0.05×L_region`。其中MLM提供主要逐碱基自监督信号；RC项约束正向与反向互补路径对齐；region项是弱监督窗口分类。具体0.02和0.05是当前实现实例，不应被理解为所有后续模型不可改变的常数。
+
+Stage B的selection loss只组合MLM与RC项，没有让region分类直接决定最佳checkpoint，避免辅助标签主导模型选择。下表明确区分`current/implemented`与`recommended_v3/not_implemented`：后三项只是下一版候选目标，没有当前训练曲线、checkpoint或下游性能。
+
 | 目标 | 版本 | 预测内容 | 损失 | 权重 | 用于checkpoint选择 | 状态 | 解释边界 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | MLM | current | 随机遮盖15%的有效A/C/G/T位置并恢复原碱基 | cross-entropy over masked positions | 1.0 | yes | implemented | 自监督序列建模，不直接等于功能标签 |
@@ -243,6 +265,46 @@ C2旧配置为90,000步、1×128、LR 8e-5、context最高128K；D旧配置为45
 - **Splice donor/acceptor：** 正例是注释内含子边界，负例是内含子中相同GT/AG canonical motif但非真实边界的hard decoy。这避免模型只记“GT/AG”捷径。
 
 GC均值按任务/split匹配，跨split坐标不重复，N比例≤5%。
+
+### 10.4 下游科、属、种独立性与预训练交叉审计
+
+“下游test物种不在下游train”与“基础模型预训练从未见过这个物种”是两件不同的事。本次更新直接读取核心3任务在8,192 bp下的`sample.tsv`、外部7个任务的`sample.tsv`和258条canonical assembly manifest；核心512/2,048/8,192 bp使用相同样本身份。由此生成`source_data/downstream_taxonomy_detail.tsv`与`source_data/downstream_taxonomy_summary.tsv`。前者有71行逐任务×split×物种记录，后者是10个任务的汇总。
+
+#### 10.4.1 下游监督split本身是否跨物种、属和科
+
+| 面板/任务 | 下游物种互斥 | 下游属互斥 | 下游科互斥 | test中下游train未见科 |
+| --- | --- | --- | --- | --- |
+| Core promoter_TSS | 是 | 是 | 否 | 2/3 |
+| Core TES_polyA | 是 | 是 | 否 | 2/3 |
+| Core splice_donor_acceptor | 是 | 是 | 否 | 2/3 |
+| External cassava enhancer | 否 | 否 | 否 | 0/1 |
+| External Arabidopsis expression | 否 | 否 | 否 | 0/1 |
+| External soybean expression | 否 | 否 | 否 | 0/1 |
+| External rice expression | 否 | 否 | 否 | 0/1 |
+| External tomato expression | 否 | 否 | 否 | 0/1 |
+| External maize expression | 否 | 否 | 否 | 0/1 |
+| External multispecies lncRNA | 否 | 否 | 否 | 0/4个科 |
+
+#### 10.4.2 正式test相对Stage B预训练是否独立
+
+| 面板/任务 | test accession隔离 | Stage B未见test物种 | Stage B未见test属 | Stage B未见test科 |
+| --- | --- | --- | --- | --- |
+| Core promoter_TSS | 是 | 1/3 | 0/3 | 0/3 |
+| Core TES_polyA | 是 | 1/3 | 0/3 | 0/3 |
+| Core splice_donor_acceptor | 是 | 1/3 | 0/3 | 0/3 |
+| External cassava enhancer | 无accession映射，不能审计 | 0/1 | 0/1 | 0/1 |
+| External Arabidopsis expression | 无accession映射，不能审计 | 1/1 | 1/1 | 0/1 |
+| External soybean expression | 无accession映射，不能审计 | 0/1 | 0/1 | 0/1 |
+| External rice expression | 无accession映射，不能审计 | 0/1 | 0/1 | 0/1 |
+| External tomato expression | 无accession映射，不能审计 | 0/1 | 0/1 | 0/1 |
+| External maize expression | 无accession映射，不能审计 | 0/1 | 0/1 | 0/1 |
+| External multispecies lncRNA | 无accession映射，不能审计 | 0/6 | 0/6 | 0/4个科 |
+
+核心test物种是黄瓜、水稻和马铃薯。三个任务都满足：下游监督train/validation/test在物种和属层面互斥；test使用的三个assembly accession均未进入Stage B训练。科层面只有黄瓜的葫芦科和马铃薯的茄科相对下游train为留出，水稻与train中的谷子、高粱同属禾本科，因此整体不是family-disjoint。
+
+相对Stage B预训练，黄瓜的同物种序列未进入train，但同属的甜瓜及同科物种进入过；水稻和马铃薯都有同物种其他assembly进入过Stage B。故准确表述是“3/3 test assembly accession隔离、1/3 test物种在预训练中未见、0/3 test属未见、0/3 test科未见”，不能统一写成“跨未见科属种零样本”。
+
+外部7任务采用官方样本级监督划分。六个单物种任务的同一物种同时存在于train/validation/test；多物种lncRNA的6个物种也都同时存在于三个split。拟南芥没有出现在Stage B train的物种或属中，但十字花科通过Brassica出现过，而且下游ridge仍使用拟南芥train样本，所以它是“预训练未见种/属上的监督迁移”，不是零样本预测。
 
 ## 11. 核心任务全部正式性能
 
@@ -334,15 +396,29 @@ GC均值按任务/split匹配，跨split坐标不重复，N比例≤5%。
 
 数据来自Hugging Face `InstaDeepAI/plant-genomic-benchmark`，实际下载manifest和dataset manifest共同绑定revision `78ec8156c2ffb3e5475277fdb7eb603294224e53`，共33个原始artifact，约1.356 GB。构建后对跨split完全相同序列去重；删重只删除train/validation中的冲突样本，test保持冻结；处理后每任务跨split exact duplicate=0。
 
-| 任务 | 类型/维度 | 总样本 | train | validation | test | 长度min/median/max(bp) | 去重前跨split重复 | 删除train/val | 去重后重复 | 验证集策略 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| lncrna_multispecies | binary / 1 | 56,795 | 45,588 | 5,112 | 6,095 | 102/498/6000 | 1074 | 1260/7 | 0 | sha256(sample identity) modulo 10 from official train; official test preserved |
-| enhancer_cassava_proseq | binary / 1 | 18,893 | 16,852 | 1,229 | 812 | 1000/1000/1000 | 0 | 0/0 | 0 | official validation split |
-| gene_expression_arabidopsis_thaliana | multi_regression / 56 | 32,529 | 25,728 | 3,399 | 3,402 | 6000/6000/6000 | 5 | 3/2 | 0 | official validation split |
-| gene_expression_glycine_max | multi_regression / 14 | 56,709 | 47,105 | 4,801 | 4,803 | 6000/6000/6000 | 5 | 31/2 | 0 | official validation split |
-| gene_expression_oryza_sativa | multi_regression / 7 | 38,626 | 31,224 | 3,700 | 3,702 | 6000/6000/6000 | 20 | 20/2 | 0 | official validation split |
-| gene_expression_solanum_lycopersicum | multi_regression / 10 | 34,960 | 27,307 | 3,826 | 3,827 | 6000/6000/6000 | 15 | 14/1 | 0 | official validation split |
-| gene_expression_zea_mays | multi_regression / 23 | 43,452 | 34,487 | 4,482 | 4,483 | 6000/6000/6000 | 7 | 6/1 | 0 | official validation split |
+#### 12.1.1 样本规模、输出维度和序列长度
+
+| 任务 | 类型/维度 | 总样本 | train | validation | test | 长度min/median/max(bp) |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| lncrna_multispecies | binary / 1 | 56,795 | 45,588 | 5,112 | 6,095 | 102/498/6000 |
+| enhancer_cassava_proseq | binary / 1 | 18,893 | 16,852 | 1,229 | 812 | 1000/1000/1000 |
+| gene_expression_arabidopsis_thaliana | multi_regression / 56 | 32,529 | 25,728 | 3,399 | 3,402 | 6000/6000/6000 |
+| gene_expression_glycine_max | multi_regression / 14 | 56,709 | 47,105 | 4,801 | 4,803 | 6000/6000/6000 |
+| gene_expression_oryza_sativa | multi_regression / 7 | 38,626 | 31,224 | 3,700 | 3,702 | 6000/6000/6000 |
+| gene_expression_solanum_lycopersicum | multi_regression / 10 | 34,960 | 27,307 | 3,826 | 3,827 | 6000/6000/6000 |
+| gene_expression_zea_mays | multi_regression / 23 | 43,452 | 34,487 | 4,482 | 4,483 | 6000/6000/6000 |
+
+#### 12.1.2 跨split重复清理和validation策略
+
+| 任务 | 去重前跨split重复 | 删除train/validation | 去重后重复 | validation策略 |
+| --- | ---: | --- | ---: | --- |
+| lncrna_multispecies | 1,074 | 1,260 / 7 | 0 | sha256(sample identity) modulo 10 from official train；official test preserved |
+| enhancer_cassava_proseq | 0 | 0 / 0 | 0 | official validation split |
+| gene_expression_arabidopsis_thaliana | 5 | 3 / 2 | 0 | official validation split |
+| gene_expression_glycine_max | 5 | 31 / 2 | 0 | official validation split |
+| gene_expression_oryza_sativa | 20 | 20 / 2 | 0 | official validation split |
+| gene_expression_solanum_lycopersicum | 15 | 14 / 1 | 0 | official validation split |
+| gene_expression_zea_mays | 7 | 6 / 1 | 0 | official validation split |
 
 ### 12.2 七项任务含义
 
@@ -422,6 +498,31 @@ GC均值按任务/split匹配，跨split坐标不重复，N比例≤5%。
 
 PlantCaduceus l32本地权重为426,689,552个参数，也是当前强植物长上下文基线。Evo2、HyenaDNA和Caduceus用于覆盖通用进化规模或长上下文架构。
 
+### 14.2 当前离“通用任务媲美关键植物基线”还有多远
+
+下表由`aggregate_primary_metrics.tsv`自动计算，比较本模型与同一panel、同一context、同一指标下当前最强的AgroNT 1B、PlantCAD2 Small或PlantCaduceus l32。它是点估计差值，不是非劣检验的CI；NT-v2 500M仍没有本项目结果。
+
+| 面板 | context | 指标 | CropGenome-FM | 当前最强植物基线（值） | 差值（本模型−基线） | 当前判断 |
+| --- | ---: | --- | ---: | --- | ---: | --- |
+| 核心3任务宏平均 | 512 | AUPRC | 0.8328 | PlantCAD2 Small（0.8450） | −0.0122 | 点估计接近；正式非劣仍需配对CI |
+| 核心3任务宏平均 | 2,048 | AUPRC | 0.8835 | AgroNT 1B（0.8514） | +0.0320 | 当前已评估植物基线中领先 |
+| 核心3任务宏平均 | 8,192 | AUPRC | 0.8549 | PlantCaduceus l32（0.8222） | +0.0327 | 当前已评估植物基线中领先 |
+| 外部二分类宏平均 | 512 | AUPRC | 0.7395 | PlantCAD2 Small（0.7996） | −0.0601 | 明确差距，下一版必须缩小 |
+| 外部表达宏平均 | 512 | Pearson | 0.1448 | PlantCaduceus l32（0.1832） | −0.0385 | 明确差距 |
+| 外部二分类宏平均 | 6,000 | AUPRC | 0.7697 | PlantCAD2 Small（0.8008） | −0.0311 | 仍有差距 |
+| 外部表达宏平均 | 6,000 | Pearson | 0.5693 | PlantCaduceus l32（0.5972） | −0.0279 | 点估计接近预设0.03界限；仍需CI |
+
+这张表定义下一版的双目标：通用任务先达到对最强植物基线的预注册非劣；作物专属任务再证明有意义的优效。不能用新专属任务掩盖外部通用任务上的真实差距，也不能把2K/8K核心领先外推为所有植物任务领先。
+
+![当前通用任务基线差距与作物专属任务策略图](figures/figure_05_strategy_map.png)
+
+### 14.3 四个指定关键基线如何公平进入下一版
+
+- **AgroNT 1B：** 代表大规模可食用植物预训练。所有其token上限内的common native任务必须直接比较；64–256K任务必须另给compute-matched chunked版本，不能只写N/E。
+- **PlantCAD2 Small与PlantCaduceus l32：** 代表当前最强植物长序列表征。它们在现有外部任务上总体更强，是作物专属任务native-long赛道的首要对手，而不是可排除的“旧模型”。
+- **Nucleotide Transformer v2 500M：** 代表规模更大的通用多物种Transformer。下一版必须下载、hash冻结revision、完成zero-truncation审计和common任务评估；在此之前只能写“计划加入”，不能用100M成绩替代500M。
+- **Evo2 1B：** 代表进化尺度、多域、字符级通用模型。当前成绩只适用于本地冻结的8K embedding＋probe协议；未来长任务需先真实Gate其可运行长度，不能从当前弱结果推断它在所有用法都弱。
+
 ## 15. 当前证据能回答什么
 
 ### 15.1 已支持
@@ -457,17 +558,33 @@ PlantCaduceus l32本地权重为426,689,552个参数，也是当前强植物长�
 
 下面9项是预注册候选。最低样本数是任务建设门槛，不是现有数据。P0先做，P1在公开数据release/accession冻结后做，P2缺可靠标签时明确暂停。
 
-| 优先级 | 任务ID | 科学问题 | 标签 | 输入长度 | 最低计划train/val/test | 数据状态 | 主指标 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| P0_data_ready | CROP-LONGGENE-SEG | 能否在完整长基因上下文中联合标注启动子、UTR、CDS、内含子、剪接边界和TES | token-level multiclass segmentation + boundary detection | 8192;32768;65536;131072 | 100000 windows / 10000 windows / 10000 windows | current source available; task release not built | macro-F1; boundary-F1@2/10bp; segment IoU |
-| P0_buildable_plus_functional_labels | CROP-DISTAL-CIS-PAIR | 局部2K序列近似相同时，远端顺式调控背景能否决定启动子/TES活性 | paired binary/ranking with local-context matched pairs | 2048;8192;32768;65536 | 40000 paired windows / 5000 pairs / 5000 pairs | candidate sources partly available; exact functional accessions must be frozen | paired AUPRC; pair accuracy; context gain; calibration |
-| P1_needs_release_freeze | CROP-ISOFORM-LR | 能否利用完整基因上下文预测组织/胁迫条件下的可变剪接和可变poly(A)使用 | multi-label junction/polyA usage; delta-PSI or usage regression | 8192;65536;131072 | 30000 genes/isoform windows / 5000 / 5000 | not frozen; no current formal result | macro-AUPRC; Pearson(delta-PSI); junction boundary F1 |
-| P1_crop_specific | CROP-POLYPLOID-HOMEOLOG | 能否识别小麦/棉花/油菜同源亚基因组基因的表达优势、抑制或平衡状态 | 3-class dominance + continuous homoeolog expression difference | 8192;32768;65536 | 20000 homoeolog sets / 4000 sets / 4000 sets | not frozen; no current formal result | macro-F1; macro Pearson; within-triad ranking accuracy |
-| P1_crop_specific_long_context | CROP-TE-SV-REG | 能否从含/不含TE插入的等位/单倍型序列对预测表达方向和幅度变化 | paired ref/alt delta regression + direction classification + TE boundary | 32768;131072;262144 | 20000 allele pairs / 4000 pairs / 4000 pairs | blocked until EDTA QC and paired functional labels are frozen | delta-expression Pearson; sign AUROC/AUPRC; boundary F1; calibration |
-| P1_crop_specific_repeat_rich | CROP-NLR-CLUSTER | 能否在重复富集的抗病NLR基因簇中识别完整基因、伪基因和簇边界 | token segmentation + intact-copy count + cluster classification | 65536;131072;262144 | 20000 cluster/background windows / 3000 / 3000 | not frozen; computational labels require manual QC tier | boundary F1; copy-count MAE; macro-F1; low-homology sensitivity |
-| P1_functional | CROP-ACR-STRESS | 能否跨作物预测组织/胁迫特异开放染色质与远端调控元件 | multi-label accessibility/activity classification | 2048;8192;32768;65536 | 50000 peaks+matched negatives / 10000 / 10000 | one cassava task available; cross-crop panel not frozen | macro-AUPRC; per-tissue AUPRC; calibration; cross-species transfer |
-| P2_breeding_relevance | CROP-PANGENOME-SV | 能否从成对单倍型长序列预测基因PAV/SV类别及其转录影响 | paired structural variant classification + expression delta | 32768;131072;262144 | 30000 locus pairs / 5000 pairs / 5000 pairs | not frozen; no current formal result | macro-F1; delta-expression Pearson; top-k locus ranking |
-| P2_requires_curated_labels | CROP-QTL-VAR-RANK | 能否在QTL/GWAS区间内排序有实验或精细定位支持的候选基因/变异 | locus-wise ranking; ref-alt delta scoring | 8192;65536;131072 | at least 500 independent loci / at least 100 loci / at least 100 loci | currently blocked; missing locked labels/crosswalk | MRR; hit@1/5/10; locus-level AUCPR; bootstrap by locus |
+### 17.1 科学问题、信息范围和当前数据状态
+
+| 优先级 | 任务ID | 科学问题 | 输入长度(bp) | 数据状态 |
+| --- | --- | --- | --- | --- |
+| P0_data_ready | CROP-LONGGENE-SEG | 完整长基因中联合标注启动子、UTR、CDS、内含子、剪接边界和TES | 8192;32768;65536;131072 | source available；task release not built |
+| P0_buildable_plus_functional_labels | CROP-DISTAL-CIS-PAIR | 局部2K近似相同时，远端顺式背景能否决定启动子/TES活性 | 2048;8192;32768;65536 | candidate sources partly available；functional accessions not frozen |
+| P1_needs_release_freeze | CROP-ISOFORM-LR | 完整基因上下文预测条件特异可变剪接和可变poly(A) | 8192;65536;131072 | not frozen；no formal result |
+| P1_crop_specific | CROP-POLYPLOID-HOMEOLOG | 小麦/棉花/油菜同源亚基因组表达优势、抑制或平衡 | 8192;32768;65536 | not frozen；no formal result |
+| P1_crop_specific_long_context | CROP-TE-SV-REG | 含/不含TE插入的等位/单倍型序列对预测表达delta | 32768;131072;262144 | blocked pending EDTA QC and paired labels |
+| P1_crop_specific_repeat_rich | CROP-NLR-CLUSTER | 重复富集NLR簇中的完整基因、伪基因、拷贝数和边界 | 65536;131072;262144 | not frozen；manual QC tier required |
+| P1_functional | CROP-ACR-STRESS | 跨作物、组织和胁迫的开放染色质与远端调控活性 | 2048;8192;32768;65536 | one cassava task exists；cross-crop panel not frozen |
+| P2_breeding_relevance | CROP-PANGENOME-SV | 成对单倍型预测PAV/SV类别及其转录影响 | 32768;131072;262144 | not frozen；no formal result |
+| P2_requires_curated_labels | CROP-QTL-VAR-RANK | QTL/GWAS区间内候选基因/变异的位点内排序 | 8192;65536;131072 | blocked；missing locked labels/crosswalk |
+
+### 17.2 标签、最低计划规模和主指标
+
+| 任务ID | 标签/输出 | 最低计划train / validation / test | 主指标 |
+| --- | --- | --- | --- |
+| CROP-LONGGENE-SEG | token multiclass segmentation＋boundary detection | 100,000 / 10,000 / 10,000 windows | macro-F1；boundary-F1@2/10bp；segment IoU |
+| CROP-DISTAL-CIS-PAIR | local-matched paired binary/ranking | 40,000 / 5,000 / 5,000 pairs | paired AUPRC；pair accuracy；context gain；calibration |
+| CROP-ISOFORM-LR | junction/poly(A) multi-label；delta-PSI/usage regression | 30,000 / 5,000 / 5,000 genes/windows | macro-AUPRC；Pearson(delta-PSI)；junction boundary F1 |
+| CROP-POLYPLOID-HOMEOLOG | dominance 3-class＋homoeolog expression difference | 20,000 / 4,000 / 4,000 homoeolog sets | macro-F1；macro Pearson；within-triad ranking accuracy |
+| CROP-TE-SV-REG | ref/alt delta regression＋direction classification＋TE boundary | 20,000 / 4,000 / 4,000 allele pairs | delta-expression Pearson；sign AUROC/AUPRC；boundary F1；calibration |
+| CROP-NLR-CLUSTER | token segmentation＋intact-copy count＋cluster class | 20,000 / 3,000 / 3,000 windows | boundary F1；copy-count MAE；macro-F1；low-homology sensitivity |
+| CROP-ACR-STRESS | tissue/stress multi-label accessibility/activity | 50,000 / 10,000 / 10,000 peaks＋matched negatives | macro-AUPRC；per-tissue AUPRC；calibration；cross-species transfer |
+| CROP-PANGENOME-SV | paired SV class＋expression delta | 30,000 / 5,000 / 5,000 locus pairs | macro-F1；delta-expression Pearson；top-k locus ranking |
+| CROP-QTL-VAR-RANK | locus-wise candidate ranking＋ref/alt delta | at least 500 / 100 / 100 independent loci | MRR；hit@1/5/10；locus-level AUCPR；locus bootstrap |
 
 ## 18. 每个新增任务的详细设计
 
@@ -633,6 +750,24 @@ PlantCaduceus l32本地权重为426,689,552个参数，也是当前强植物长�
 - **多seed：** 至少5个probe/fine-tune seeds；报告mean、SD、95% CI和最高单seed，不能用最高单seed冒充稳定值。
 - **多任务校正：** 主要claim family内使用Holm校正；effect size和CI优先于只报p值。
 
+### 19.4 九项作物专属任务如何对关键基线形成真实压力测试
+
+下表中的“预计限制”是待检验假设，不是已观察到的失败结果。任何任务都必须先运行所有符合资格的强基线，才能判断本模型是否真正解决了别人解决不了或性能较差的问题。完整逐基线说明见`source_data/future_task_baseline_capability_matrix.tsv`。
+
+| 任务 | 作物专属或复杂信息 | AgroNT 1B、NT-v2 500M、Evo2的压力点 | PlantCAD2/PlantCaduceus角色 | 本模型必须满足的胜出条件 |
+| --- | --- | --- | --- | --- |
+| CROP-LONGGENE-SEG | 64–128K完整基因内同时标注启动子、UTR、CDS、长内含子、剪接和TES | AgroNT/NT-v2原生窗口短；Evo2当前本地runtime只冻结8K；都必须给chunked或重新Gate结果 | 真正植物长上下文强对手 | 对最强native植物基线macro-F1至少+0.02且CI下界>0；同时超过最佳chunked短模型至少+0.03 |
+| CROP-DISTAL-CIS-PAIR | 中心2K匹配、只有远端背景改变标签的配对调控任务 | 短模型native看不到决定标签的远端序列；Evo2需重新冻结64K能力 | 必须同样读取完整远端上下文 | 64K相对2K有配对增益，超过最强native至少+0.02，且远端置换后增益消失 |
+| CROP-ISOFORM-LR | 长内含子、多候选剪接和poly(A)位点的条件使用率 | 分块可能丢失跨内含子与位点竞争；通用模型还缺作物条件标签 | gene-family和study隔离下的首要长模型对手 | AUPRC至少+0.02或Pearson至少+0.03且CI下界>0 |
+| CROP-POLYPLOID-HOMEOLOG | 小麦、棉花、油菜同源亚基因组表达优势 | 通用模型缺作物多倍体域；但序列模型都必须与表达先验比较 | 最重要的植物序列对手 | 超过五个指定基础模型的同口径最优值，并超过表达/同源组传统强基线 |
+| CROP-TE-SV-REG | 32–256K成对单倍型中的TE/SV边界及表达delta | AgroNT/NT-v2无法原生覆盖大SV；Evo2当前8K冻结配置不足 | 按真实Gate长度进入native赛道 | Pearson至少+0.03且CI下界>0，并显著超过SV长度/TE家族/距TSS等基线 |
+| CROP-NLR-CLUSTER | 65–256K重复富集抗病基因簇、伪基因、拷贝数和边界 | 短模型能认局部motif但难一次计数整簇；Evo2需长输入Gate | 必须比较低同源与近重复去泄漏子集 | boundary-F1至少+0.03或copy-count MAE降低至少10%，低同源子集保持 |
+| CROP-ACR-STRESS | 跨作物、组织、胁迫的开放染色质与远端活性 | AgroNT是局部植物强基线；NT-v2 500M检验规模；Evo2检验通用字符预训练 | 现有外部任务最强对手 | common子集非劣；远端作物子集优效至少+0.02；不能只报告获胜组织 |
+| CROP-PANGENOME-SV | 水稻/玉米/大豆/小麦非参考单倍型PAV/SV及转录影响 | 短模型不能完整描述复杂SV；Evo2需计算量匹配 | 在非参考单倍型上必须保持 | 超过最强native长模型的预注册MMED，并通过reference-bias审计 |
+| CROP-QTL-VAR-RANK | QTL/GWAS位点内候选变异/基因排序 | 长度未必是瓶颈，任何模型都不能靠规模自动胜出 | 同一locus候选集和ranking head公平比较 | 同时超过最佳序列模型和距离、功能注释、fine-mapping传统强基线，否则只作诊断 |
+
+最能形成“其他短模型不能原生解决”的是完整长基因、远端匹配对、TE/SV和NLR簇，因为标签所需信息被明确放在32–256K范围；但PlantCAD2、PlantCaduceus、HyenaDNA、Caduceus或经验证可长输入的Evo2仍可能解决这些任务。因此真正可发表的创新不是“别人长度不够”，而是本模型在相同信息、相同split、相同probe预算下对最强eligible baseline产生稳定、可重复、达到MMED的优势。
+
 ## 20. 推荐的下一版预训练设计
 
 ### 20.1 先冻结benchmark，再训练
@@ -716,10 +851,14 @@ validation锁定模型、任务和统计脚本后再跑test；主文同时展示
 - `source_data/aggregate_primary_metrics.tsv`
 - `source_data/core_auprc_tie_audit_summary.tsv`
 - `source_data/baseline_registry.tsv`
+- `source_data/baseline_gap_summary.tsv`
+- `source_data/downstream_taxonomy_detail.tsv`
+- `source_data/downstream_taxonomy_summary.tsv`
 - `source_data/future_task_registry.tsv`
+- `source_data/future_task_baseline_capability_matrix.tsv`
 - `source_data/public_resource_registry.tsv`
 
-`core_primary_metrics.tsv`包含全部核心正式任务×模型×context主指标；`external_primary_metrics.tsv`包含全部外部正式任务×模型×context主指标。报告中的“全部性能”可由这两个表重新生成。
+`core_primary_metrics.tsv`包含全部核心正式任务×模型×context主指标；`external_primary_metrics.tsv`包含全部外部正式任务×模型×context主指标。报告中的“全部性能”可由这两个表重新生成。`scripts/build_evidence_update_tables.py`从真实样本表、assembly manifest和聚合指标生成新增四表，避免手工维护分类学数字或基线差距。
 
 ## 24. 公开资源与冻结版本
 
@@ -747,6 +886,7 @@ validation锁定模型、任务和统计脚本后再跑test；主文同时展示
 4. Stage C1仅是可运行的64K架构＋569步partial run，没有64K科学结果。
 5. 下一步不应先盲目延长训练，而应先冻结NT-v2 500M和P0作物长程任务；然后用预注册的common/native-long/chunked三赛道决定是否训练和是否真正超过基线。
 6. “我们的模型能解决而短模型不能原生解决”的任务必须由输入信息范围客观定义；“超过PlantCAD2/PlantCaduceus”必须靠结果，而不是靠排除它们。
+7. 核心下游是species-disjoint和genus-disjoint，但整体不是family-disjoint；相对Stage B只能宣称3/3测试accession隔离，不能宣称全部测试种、属或科均未见。
 
 # 附录A：258个assembly的30物种组成
 

@@ -334,7 +334,7 @@ def configure_header_footer(section) -> None:
     fp = footer.paragraphs[0]
     fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
     fp.paragraph_format.space_before = Pt(0)
-    run = fp.add_run("机器证据截止：2026-07-21  ·  第 ")
+    run = fp.add_run("机器证据截止：2026-07-21  ·  文档更新：2026-07-27  ·  第 ")
     set_run_font(run, size=8, color=GRAY)
     add_page_number(fp)
     run = fp.add_run(" 页")
@@ -369,8 +369,9 @@ def add_cover(doc: Document) -> None:
     shade_paragraph(p, BLUE)
 
     metadata = [
-        ("文档版本", "1.0"),
+        ("文档版本", "2.0"),
         ("机器证据截止", "2026-07-21 14:04 CST（UTC+08:00）"),
+        ("本次文档更新", "2026-07-27（未新增或重跑formal test）"),
         ("当前冻结基座", "CropGenomeFM_step14000"),
         ("实际模型参数", "369,505,287"),
         ("交付格式", "Markdown + DOCX + source-data + PNG/PDF figures"),
@@ -404,6 +405,8 @@ def add_executive_page(doc: Document) -> None:
         "当前优势：2,048和8,192 bp核心三任务宏平均AUPRC排名第1，且显著超过同架构random-init。",
         "当前差距：外部表达与lncRNA任务上PlantCAD2/PlantCaduceus总体更强；NT-v2 500M没有当前成绩。",
         "新审计：旧核心AUPRC函数对并列分数处理不正确，影响多数tie-sensitive baseline；tie-safe重算后主学习模型排名不变。",
+        "分类学边界：核心3任务是下游species/genus-disjoint，但整体不是family-disjoint；相对Stage B为3/3 test accession隔离、仅1/3 test物种未见。",
+        "任务设计：9项作物专属复杂任务已逐项绑定AgroNT 1B、PlantCAD2/PlantCaduceus、NT-v2 500M、Evo2和传统强基线的公平角色及成功门槛。",
         "下一步：先冻结NT-v2 500M与P0作物长程任务，再决定是否投入mixed-context 64–256K正式训练。",
     ]
     for item in bullets:
@@ -421,11 +424,33 @@ def add_executive_page(doc: Document) -> None:
 
 
 def add_contents(doc: Document) -> None:
-    doc.add_heading("目录", level=1)
-    p = doc.add_paragraph()
-    add_toc(p)
+    doc.add_heading("目录｜章节导航", level=1)
+    headings = []
+    for line in MARKDOWN.read_text(encoding="utf-8").splitlines():
+        if re.match(r"^##\s+\d+\.\s+", line) or line.startswith("# 附录"):
+            headings.append(line.lstrip("# ").strip())
+    midpoint = (len(headings) + 1) // 2
+    left = headings[:midpoint]
+    right = headings[midpoint:]
+    table = doc.add_table(rows=max(len(left), len(right)), cols=2)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.autofit = False
+    content_width = doc.sections[-1].page_width - doc.sections[-1].left_margin - doc.sections[-1].right_margin
+    for column in table.columns:
+        column.width = int(content_width / 2)
+    for ridx, row in enumerate(table.rows):
+        prevent_row_split(row)
+        for cidx, cell in enumerate(row.cells):
+            items = left if cidx == 0 else right
+            text = items[ridx] if ridx < len(items) else ""
+            set_cell_margins(cell, top=90, start=120, bottom=90, end=120)
+            set_cell_shading(cell, LIGHT_GRAY if ridx % 2 == 0 else WHITE)
+            p = cell.paragraphs[0]
+            p.paragraph_format.space_after = Pt(0)
+            run = p.add_run(text)
+            set_run_font(run, size=9.2, bold=text.startswith(("1.", "14.", "25.", "附录")), color=NAVY if text else WHITE)
     note = doc.add_paragraph(style="Callout")
-    add_inline(note, "若目录页码未自动显示：在Microsoft Word中全选目录并按F9，选择“更新整个目录”。", 9.5)
+    add_inline(note, "本页为静态章节导航，确保LibreOffice、Microsoft Word和在线预览均可直接阅读；实际页码请以页脚为准。", 9.5)
     shade_paragraph(note, LIGHT_GRAY, BORDER)
     doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
 
@@ -519,11 +544,14 @@ def add_markdown_table(doc: Document, rows: list[list[str]], landscape_prepared:
 
 def add_figure(doc: Document, alt: str, target: str, number: int) -> None:
     path = (GUIDE / target).resolve()
+    wide = path.stem == "figure_05_strategy_map"
+    if wide:
+        set_orientation(doc, True)
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_before = Pt(7)
     run = p.add_run()
-    run.add_picture(str(path), width=Inches(6.55))
+    run.add_picture(str(path), width=Inches(10.0 if wide else 6.55))
     # Add descriptive metadata to the image drawing.
     for drawing in run._r.findall(qn("w:drawing")):
         for doc_pr in drawing.iter(qn("wp:docPr")):
@@ -532,6 +560,8 @@ def add_figure(doc: Document, alt: str, target: str, number: int) -> None:
             doc_pr.set("descr", alt)
     cap = doc.add_paragraph(f"图{number}｜{alt}", style="Caption")
     cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    if wide:
+        set_orientation(doc, False)
 
 
 def add_markdown_body(doc: Document) -> None:
@@ -570,7 +600,7 @@ def add_markdown_body(doc: Document) -> None:
                 else:
                     set_orientation(doc, True)
                 landscape_prepared = True
-            elif level == 1 and not just_started_portrait_section:
+            elif level == 1 and not just_started_portrait_section and not text.startswith("附录C"):
                 doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
             doc.add_heading(text, level=level)
             just_started_portrait_section = False
@@ -625,7 +655,7 @@ def main() -> None:
     props.subject = "模型架构、预训练数据、正式下游结果、基线比较与下一阶段预注册设计"
     props.author = "CropGenome-FM Project"
     props.keywords = "crop genome foundation model, long context, plant genomics, benchmark"
-    props.comments = "Generated from research_guide/README_CN.md and verified source-data."
+    props.comments = "Version 2.0; generated from research_guide/README_CN.md and verified source-data; no new formal test was run for this documentation update."
 
     add_cover(doc)
     add_executive_page(doc)
