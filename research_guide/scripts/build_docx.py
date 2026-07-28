@@ -369,12 +369,12 @@ def add_cover(doc: Document) -> None:
     shade_paragraph(p, BLUE)
 
     metadata = [
-        ("文档版本", "2.0"),
+        ("文档版本", "2.1（白话说明版）"),
         ("机器证据截止", "2026-07-21 14:04 CST（UTC+08:00）"),
         ("本次文档更新", "2026-07-27（未新增或重跑formal test）"),
         ("当前冻结基座", "CropGenomeFM_step14000"),
         ("实际模型参数", "369,505,287"),
-        ("交付格式", "Markdown + DOCX + source-data + PNG/PDF figures"),
+        ("交付格式", "Markdown + DOCX + 汇总数据表 + PNG/PDF图片"),
     ]
     for key, value in metadata:
         p = doc.add_paragraph()
@@ -386,7 +386,7 @@ def add_cover(doc: Document) -> None:
 
     p = doc.add_paragraph(style="Callout")
     p.paragraph_format.space_before = Pt(22)
-    add_inline(p, "**证据边界：** 8K Stage B和10项正式下游任务已经完成；64K Stage C1只到step569且没有validation；NT-v2 500M尚未评估。未来任务中的计划窗口数不是现有结果。", 10.8)
+    add_inline(p, "**证据边界：** 已完成8K阶段和10类正式下游评估。64K只训练到第569次参数更新，没有验证成绩；128K和256K只有DNA片段文件。NT-v2 500M和9项新任务尚未评估。", 10.8)
     shade_paragraph(p, LIGHT_BLUE, BLUE)
 
     p = doc.add_paragraph()
@@ -400,14 +400,14 @@ def add_cover(doc: Document) -> None:
 def add_executive_page(doc: Document) -> None:
     doc.add_heading("执行摘要", level=1)
     bullets = [
-        "已完成：369.5M参数、8,192-bp Stage B基座；validation选择step14000；核心3任务和外部7任务正式评估完成。",
-        "未完成：Stage C1停在step569、未到第一次validation；Stage C2/D只有数据，没有128K/256K模型。",
-        "当前优势：2,048和8,192 bp核心三任务宏平均AUPRC排名第1，且显著超过同架构random-init。",
-        "当前差距：外部表达与lncRNA任务上PlantCAD2/PlantCaduceus总体更强；NT-v2 500M没有当前成绩。",
-        "新审计：旧核心AUPRC函数对并列分数处理不正确，影响多数tie-sensitive baseline；tie-safe重算后主学习模型排名不变。",
-        "分类学边界：核心3任务是下游species/genus-disjoint，但整体不是family-disjoint；相对Stage B为3/3 test accession隔离、仅1/3 test物种未见。",
-        "任务设计：9项作物专属复杂任务已逐项绑定AgroNT 1B、PlantCAD2/PlantCaduceus、NT-v2 500M、Evo2和传统强基线的公平角色及成功门槛。",
-        "下一步：先冻结NT-v2 500M与P0作物长程任务，再决定是否投入mixed-context 64–256K正式训练。",
+        "已经完成：训练了一个3.695亿参数的作物DNA模型；训练在第17,000次更新停止，验证集选出第14,000次保存的模型；核心3任务和外部7任务已经正式评估。",
+        "还没完成：64K只训练到第569次更新，尚未做第一次验证；128K和256K只准备了DNA片段文件，没有对应模型。",
+        "当前优势：在2,048和8,192 bp核心三任务平均成绩上排名第1，也明显超过结构相同但没有预训练的对照模型。",
+        "当前差距：在外部表达和lncRNA任务上，PlantCAD2和PlantCaduceus总体更强；NT-v2 500M还没有运行。",
+        "指标核对：旧AUPRC代码没有正确处理大量并列分数，影响部分简单基线；用标准方法重算后，主要学习模型的排名不变。",
+        "物种边界：核心下游训练和测试不共享物种或属，但仍可能属于同一个科；3个测试基因组版本都没用于预训练，但只有黄瓜这个测试物种在预训练中完全未见。",
+        "未来任务：已设计完整长基因、远端调控、多倍体、TE/SV和NLR基因簇等9项作物任务；它们目前只是实验方案，没有成绩。",
+        "下一步：先建立两个最优先的长序列任务并加入NT-v2 500M，再决定是否值得投入64K–256K混合长度正式训练。",
     ]
     for item in bullets:
         p = doc.add_paragraph(style="List Bullet")
@@ -631,11 +631,17 @@ def add_markdown_body(doc: Document) -> None:
             just_started_portrait_section = False
             i += 1
             continue
-        numbered = re.match(r"^\d+\.\s+(.+)$", line)
+        numbered = re.match(r"^(\d+)\.\s+(.+)$", line)
         if numbered:
-            p = doc.add_paragraph(style="List Number")
+            # Keep the source number instead of Word's shared List Number
+            # counter, which otherwise continues across unrelated sections.
+            p = doc.add_paragraph()
+            p.paragraph_format.left_indent = Cm(0.63)
+            p.paragraph_format.first_line_indent = Cm(-0.50)
             p.paragraph_format.space_after = Pt(2)
-            add_inline(p, numbered.group(1), 10.2)
+            prefix = p.add_run(f"{numbered.group(1)}. ")
+            set_run_font(prefix, size=10.2, color=BLACK)
+            add_inline(p, numbered.group(2), 10.2)
             just_started_portrait_section = False
             i += 1
             continue
@@ -655,7 +661,7 @@ def main() -> None:
     props.subject = "模型架构、预训练数据、正式下游结果、基线比较与下一阶段预注册设计"
     props.author = "CropGenome-FM Project"
     props.keywords = "crop genome foundation model, long context, plant genomics, benchmark"
-    props.comments = "Version 2.0; generated from research_guide/README_CN.md and verified source-data; no new formal test was run for this documentation update."
+    props.comments = "Version 2.1 plain-language edition; generated from research_guide/README_CN.md and verified source-data; no new formal test was run for this documentation update."
 
     add_cover(doc)
     add_executive_page(doc)

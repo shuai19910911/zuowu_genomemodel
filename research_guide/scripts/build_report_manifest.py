@@ -64,6 +64,42 @@ def markdown_stats() -> dict[str, object]:
     }
 
 
+def plain_language_stats() -> dict[str, object]:
+    text = MARKDOWN.read_text(encoding="utf-8")
+    required = [
+        "一眼看懂：我们具体是怎么做的",
+        "DNA片段（window）",
+        "数据分片（shard）",
+        "它只是文件包装方式，没有额外生物学含义",
+        "模型存档（checkpoint）",
+        "简单预测头（probe）",
+        "3个测试基因组版本都未用于预训练",
+        "未来候选任务，不是已经完成的实验",
+    ]
+    banned_patterns = {
+        "unexplained_shard_workflow": r"先按\s*shard|按shard窗口数|shard窗口数",
+        "opaque_machine_status": (
+            r"\b(?:current source available|task release not built|not frozen|"
+            r"no current formal result|blocked until|currently blocked|planned_not_evaluated)\b"
+        ),
+        "raw_pipeline_jargon": (
+            r"\b(?:IterableDataset|DataLoader|logits|hidden state|proxy label|zero-truncation)\b"
+        ),
+    }
+    banned_hits = {
+        name: [i + 1 for i, line in enumerate(text.splitlines()) if re.search(pattern, line, re.I)]
+        for name, pattern in banned_patterns.items()
+    }
+    missing = [phrase for phrase in required if phrase not in text]
+    return {
+        "status": "passed" if not missing and not any(banned_hits.values()) else "failed",
+        "required_plain_language_phrases_present": not missing,
+        "missing_required_phrases": missing,
+        "banned_phrase_line_numbers": banned_hits,
+        "shard_mentions": len(re.findall(r"\bshard\b", text, re.I)),
+    }
+
+
 def docx_stats() -> dict[str, object]:
     crc_error = None
     with ZipFile(DOCX) as archive:
@@ -81,7 +117,8 @@ def docx_stats() -> dict[str, object]:
     required = [
         "369,505,287", "CropGenomeFM_step14000", "NT-v2 500M",
         "下游科、属、种独立性", "CROP-LONGGENE-SEG", "AgroNT 1B",
-        "PlantCAD2", "Evo2 1B", "3/3 test assembly accession隔离",
+        "PlantCAD2", "Evo2 1B", "一眼看懂：我们具体是怎么做的",
+        "数据分片（shard）", "3个测试基因组版本都未用于预训练",
     ]
     return {
         "status": "passed" if crc_error is None and all(x in text for x in required) else "failed",
@@ -123,13 +160,14 @@ def main() -> None:
         if p.is_file() and p != OUTPUT and "__pycache__" not in p.parts and not p.name.endswith(".pyc")
     ]
     md = markdown_stats()
+    plain = plain_language_stats()
     docx = docx_stats()
     manifest = {
-        "status": "ok",
-        "report_id": "CropGenome-FM-detailed-research-guide-cn-v2",
+        "status": "ok" if md["status"] == "passed" and plain["status"] == "passed" and docx["status"] == "passed" else "failed",
+        "report_id": "CropGenome-FM-detailed-research-guide-cn-v2.1-plain-language",
         "evidence_cutoff": "2026-07-21T14:04:09+08:00",
         "document_updated": "2026-07-27",
-        "formal_test_rerun_for_v2": False,
+        "formal_test_rerun_for_document_update": False,
         "scope": {
             "completed_evidence": [
                 "Stage B 8K selected checkpoint step14000",
@@ -141,6 +179,12 @@ def main() -> None:
                 "10-task downstream taxonomy and Stage B overlap audit",
                 "7-panel gap to current strongest plant baseline",
                 "9-task baseline capability and preregistered success matrix",
+            ],
+            "new_v2_1_plain_language_changes": [
+                "10-step plain-language end-to-end workflow",
+                "Chinese-first definitions for shard/window/token/checkpoint/probe and related terms",
+                "plain-language rewrites of sampling, architecture, training, evaluation, future tasks and stopping rules",
+                "no metric, model or formal-test result changed",
             ],
             "partial_or_not_completed": [
                 "Stage C1 64K stopped at step569 before first validation",
@@ -161,6 +205,7 @@ def main() -> None:
         },
         "validation": {
             "markdown": md,
+            "plain_language": plain,
             "docx_schema": {
                 "status": "passed",
                 "validator": "docx skill OOXML validator",
@@ -170,11 +215,12 @@ def main() -> None:
             "docx_content": docx,
             "docx_visual": {
                 "status": "passed",
-                "renderer": "LibreOffice 25.8.7.3",
+                "renderer": "LibreOffice 26.2.4.2",
                 "rendered_pdf_pages": 36,
                 "png_pages_checked": 36,
                 "near_blank_pages": 0,
                 "contact_sheets_checked": 6,
+                "numbered_lists_reset_per_markdown_section": True,
                 "final_overflow_or_crop_errors": 0,
                 "final_blank_pages": 0,
             },

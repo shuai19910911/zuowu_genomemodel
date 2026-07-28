@@ -1,9 +1,9 @@
 {
   "status": "ok",
-  "report_id": "CropGenome-FM-detailed-research-guide-cn-v2",
+  "report_id": "CropGenome-FM-detailed-research-guide-cn-v2.1-plain-language",
   "evidence_cutoff": "2026-07-21T14:04:09+08:00",
   "document_updated": "2026-07-27",
-  "formal_test_rerun_for_v2": false,
+  "formal_test_rerun_for_document_update": false,
   "scope": {
     "completed_evidence": [
       "Stage B 8K selected checkpoint step14000",
@@ -15,6 +15,12 @@
       "10-task downstream taxonomy and Stage B overlap audit",
       "7-panel gap to current strongest plant baseline",
       "9-task baseline capability and preregistered success matrix"
+    ],
+    "new_v2_1_plain_language_changes": [
+      "10-step plain-language end-to-end workflow",
+      "Chinese-first definitions for shard/window/token/checkpoint/probe and related terms",
+      "plain-language rewrites of sampling, architecture, training, evaluation, future tasks and stopping rules",
+      "no metric, model or formal-test result changed"
     ],
     "partial_or_not_completed": [
       "Stage C1 64K stopped at step569 before first validation",
@@ -36,21 +42,32 @@
   "validation": {
     "markdown": {
       "status": "passed",
-      "lines": 938,
-      "characters": 55885,
-      "tables": 24,
+      "lines": 983,
+      "characters": 52982,
+      "tables": 25,
       "images": 5,
       "broken_relative_links": 0,
       "broken_targets": [],
       "absolute_home_paths": 0
+    },
+    "plain_language": {
+      "status": "passed",
+      "required_plain_language_phrases_present": true,
+      "missing_required_phrases": [],
+      "banned_phrase_line_numbers": {
+        "unexplained_shard_workflow": [],
+        "opaque_machine_status": [],
+        "raw_pipeline_jargon": []
+      },
+      "shard_mentions": 3
     },
     "docx_schema": {
       "status": "passed",
       "validator": "docx skill OOXML validator",
       "validator_output": "All validations PASSED!",
       "counts": {
-        "ooxml_paragraph_elements": 2137,
-        "tables": 25,
+        "ooxml_paragraph_elements": 2203,
+        "tables": 26,
         "section_properties": 12,
         "drawing_elements": 5
       }
@@ -58,8 +75,8 @@
     "docx_content": {
       "status": "passed",
       "counts": {
-        "ooxml_paragraph_elements": 2137,
-        "tables": 25,
+        "ooxml_paragraph_elements": 2203,
+        "tables": 26,
         "section_properties": 12,
         "drawing_elements": 5
       },
@@ -70,11 +87,12 @@
     },
     "docx_visual": {
       "status": "passed",
-      "renderer": "LibreOffice 25.8.7.3",
+      "renderer": "LibreOffice 26.2.4.2",
       "rendered_pdf_pages": 36,
       "png_pages_checked": 36,
       "near_blank_pages": 0,
       "contact_sheets_checked": 6,
+      "numbered_lists_reset_per_markdown_section": true,
       "final_overflow_or_crop_errors": 0,
       "final_blank_pages": 0
     },
@@ -102,21 +120,21 @@
   "files": [
     {
       "path": "research_guide/CropGenome-FM_详细研究设计与评估报告_CN.docx",
-      "bytes": 1718641,
-      "sha256": "50c266b657fd016a0ce57d3391dd92c6e8de5db792f1a07db7783f16681b6586"
+      "bytes": 1726752,
+      "sha256": "62e2b3e1ed5d417e4995f50a63ae6818db3b9497d7938208674ea3abe73ccd26"
     },
     {
       "path": "research_guide/README.md",
-      "bytes": 1030,
-      "sha256": "a91511f25fe2d5b975db945720ce253138a75a7438bac087687784b9082f8514"
+      "bytes": 1519,
+      "sha256": "293655e97af9ed70896173592d0b8261bc8d9705ef5ea9aa0e1206bfef147460"
     },
     {
       "path": "research_guide/README_CN.md",
-      "bytes": 82295,
-      "sha256": "f0abb8f9d9ad4489ac5365805452d73e6e4b4973e52445fdb41e7a7e0d7d54bc",
-      "lines": 938,
-      "characters": 55885,
-      "markdown_tables": 24,
+      "bytes": 100515,
+      "sha256": "62d89cefccd48204930e315f6c2bfca3fc7ccc504f98e210e468a282d7eb2742",
+      "lines": 983,
+      "characters": 52982,
+      "markdown_tables": 25,
       "markdown_images": 5
     },
     {
@@ -181,8 +199,8 @@
     },
     {
       "path": "research_guide/scripts/build_docx.py",
-      "bytes": 27072,
-      "sha256": "675bf7660491d9f2392bfbfb4c9066c5c752bc109551797776e9c0535f1748cf"
+      "bytes": 27681,
+      "sha256": "571bb6c4733f40be1976a2106d6de3737803aa113b1746313f05b4ebdb589faf"
     },
     {
       "path": "research_guide/scripts/build_evidence_update_tables.py",
@@ -196,8 +214,8 @@
     },
     {
       "path": "research_guide/scripts/build_report_manifest.py",
-      "bytes": 8407,
-      "sha256": "16085246214544cd8b1b791b545464388808e502183f7dfa3163787b405b34af"
+      "bytes": 10774,
+      "sha256": "4751308354320cb2b4972d0348c60524cb7a40e2be16c188ba555d815678ed8f"
     },
     {
       "path": "research_guide/source_data/README.md",
