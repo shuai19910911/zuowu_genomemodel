@@ -1,0 +1,4 @@
+split	assemblies_with_windows	species_with_windows	windows	assembly_overlap_with_other_splits
+train	180	28	5485240	0
+val	29	17	54695	0
+test	29	15	54846	0

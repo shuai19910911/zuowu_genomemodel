@@ -1,6 +1,6 @@
 {
   "status": "ok",
-  "report_id": "CropGenome-FM-detailed-research-guide-cn-v2.2-shard-sampling-correction",
+  "report_id": "CropGenome-FM-detailed-research-guide-cn-v2.3-stage-b-data-and-region-coverage",
   "evidence_cutoff": "2026-07-21T14:04:09+08:00",
   "document_updated": "2026-07-29",
   "formal_test_rerun_for_document_update": false,
@@ -30,6 +30,14 @@
       "confirmed validation and test windows were filtered before parameter updates",
       "no metric, checkpoint or formal-test result changed"
     ],
+    "new_v2_3_stage_b_data_and_region_coverage": [
+      "corrected the 258-assembly planned split to 192 train, 35 validation and 31 test candidates",
+      "audited 180, 29 and 29 assemblies actually contributing Stage B windows with zero cross-split assembly overlap",
+      "documented annotation-derived regions, context selection, quotas, boundaries, sequence QC, encoding and the 30B-to-41.243B outcome",
+      "published exact seven-region train-pool counts and expected draws at steps 14000 and 17000",
+      "distinguished near-certain category exposure from absent historical per-region observed counters",
+      "no metric, checkpoint or formal-test result changed"
+    ],
     "partial_or_not_completed": [
       "Stage C1 64K stopped at step569 before first validation",
       "Stage C2 128K data only",
@@ -43,6 +51,11 @@
     "plant_genomic_benchmark_revision": "78ec8156c2ffb3e5475277fdb7eb603294224e53",
     "stage_b_manifest": "training_server_transfer/runs/Stage_B_cropgenome_fm_v2_stable/stage_B_8k_final_manifest.json",
     "stage_b_shard_sampling_audit": "research_guide/source_data/stage_b_shard_sampling_audit.tsv",
+    "stage_b_region_training_coverage": "research_guide/source_data/stage_b_region_training_coverage.tsv",
+    "stage_b_split_assembly_coverage": "research_guide/source_data/stage_b_split_assembly_coverage.tsv",
+    "stage_b_window_candidate_builder_local_sha256": "fe0b59af3c8176533cc42d193225851c3cee78f5d45e1db8de9dc146956de320",
+    "stage_b_region_candidate_builder_local_sha256": "64d92668247c5c75cd805afdabb2892331ecd4bddbf8200d96d90519b8048a36",
+    "stage_b_encoder_local_sha256": "100e1aacaf3ba81ab921a6d24f1e2ce7f493a43282c1b738d1325af9159d647e",
     "stage_b_sampler_implementation": "training_server_transfer/scripts/train.py",
     "stage_b_local_input_manifest_sha256": "710c633b66c7ec8d3aa1465526cd32b6a97fc846eba964b2a0059c01dd68c2ff",
     "publication_v2_final_report": "PUBLICATION_V2_FINAL_RESULTS_CN.md",
@@ -53,9 +66,9 @@
   "validation": {
     "markdown": {
       "status": "passed",
-      "lines": 1014,
-      "characters": 54812,
-      "tables": 26,
+      "lines": 1115,
+      "characters": 59501,
+      "tables": 30,
       "images": 5,
       "broken_relative_links": 0,
       "broken_targets": [],
@@ -77,8 +90,8 @@
       "validator": "docx skill OOXML validator",
       "validator_output": "All validations PASSED!",
       "counts": {
-        "ooxml_paragraph_elements": 2236,
-        "tables": 27,
+        "ooxml_paragraph_elements": 2395,
+        "tables": 31,
         "section_properties": 12,
         "drawing_elements": 5
       }
@@ -86,8 +99,8 @@
     "docx_content": {
       "status": "passed",
       "counts": {
-        "ooxml_paragraph_elements": 2236,
-        "tables": 27,
+        "ooxml_paragraph_elements": 2395,
+        "tables": 31,
         "section_properties": 12,
         "drawing_elements": 5
       },
@@ -112,7 +125,19 @@
         "full_shard_window_max_exact": true,
         "relative_weight_min_matches": true,
         "relative_weight_max_matches": true,
-        "sampler_code_shape_present": true
+        "sampler_code_shape_present": true,
+        "seven_region_rows": true,
+        "region_all_counts_exact": true,
+        "region_train_counts_exact": true,
+        "step14000_expected_draws_exact": true,
+        "step17000_expected_draws_exact": true,
+        "region_draws_explicitly_not_observed": true,
+        "split_rows_exact": true,
+        "split_assembly_and_window_counts_exact": true,
+        "split_assembly_overlap_zero": true,
+        "planned_assembly_split_exact": true,
+        "actual_contributing_assemblies_238": true,
+        "data_builder_hashes_exact": true
       },
       "rows": 42,
       "tokens_total": 41242505216,
@@ -132,14 +157,33 @@
         0.98042086,
         1.067065238
       ],
-      "audit_sha256": "544f681c9e4c7e3692d5e280c5481a943d2fb084e935556f58a45f18aad67abb",
-      "sampler_implementation_sha256": "801b95ac5614e3f2cae57bb89639d19bb5321d1f44c7368ce713b89549aaad14"
+      "audit_sha256": "1043f665ca7822f384436636cc65e93da9fa13c97e5adef76ce475ac89c9b1ad",
+      "region_coverage_sha256": "307184ee6b852776a77678188c737c6af99fb65156bd43fe5f9221aef68215db",
+      "split_assembly_coverage_sha256": "809a703daa6e109d796d5fe8c6b1ccfee9bf63e2c2c6b236fbe47302b59e99ba",
+      "planned_assembly_split": {
+        "total": 258,
+        "train": 192,
+        "validation": 35,
+        "test": 31
+      },
+      "actual_contributing_assembly_split": {
+        "train": 180,
+        "val": 29,
+        "test": 29
+      },
+      "region_training_coverage_rows": 7,
+      "sampler_implementation_sha256": "801b95ac5614e3f2cae57bb89639d19bb5321d1f44c7368ce713b89549aaad14",
+      "data_builder_sha256": {
+        "window_builder": "fe0b59af3c8176533cc42d193225851c3cee78f5d45e1db8de9dc146956de320",
+        "region_builder": "64d92668247c5c75cd805afdabb2892331ecd4bddbf8200d96d90519b8048a36",
+        "stage_encoder": "100e1aacaf3ba81ab921a6d24f1e2ce7f493a43282c1b738d1325af9159d647e"
+      }
     },
     "docx_visual": {
       "status": "passed",
       "renderer": "LibreOffice 26.2.4.2",
-      "rendered_pdf_pages": 37,
-      "png_pages_checked": 37,
+      "rendered_pdf_pages": 39,
+      "png_pages_checked": 39,
       "near_blank_pages": 0,
       "contact_sheets_checked": 7,
       "numbered_lists_reset_per_markdown_section": true,
@@ -158,6 +202,8 @@
       "taxonomy_summary_rows": 10,
       "baseline_gap_rows": 7,
       "future_task_capability_rows": 9,
+      "stage_b_region_training_coverage_rows": 7,
+      "stage_b_split_assembly_coverage_rows": 3,
       "crlf_rows": 0,
       "empty_cells": 0
     }
@@ -170,21 +216,21 @@
   "files": [
     {
       "path": "research_guide/CropGenome-FM_详细研究设计与评估报告_CN.docx",
-      "bytes": 1729277,
-      "sha256": "08dcd8b67cad0e25a5ee2c988974412e904c6d7e808d002a84b461500efada96"
+      "bytes": 1735547,
+      "sha256": "f84af31edff8dd562e9202ca698dbe154300c965a0eeaa4a9f0f3fffd3192b41"
     },
     {
       "path": "research_guide/README.md",
-      "bytes": 2194,
-      "sha256": "e84e2df2687362ed78a4e812bcbc961d2228d2ad6c50470d8925bc8eb96eb0bb"
+      "bytes": 3083,
+      "sha256": "ee98677515a0bd6edfde9455bb55abd904eb1b7b6f6ac60f526048468e972de9"
     },
     {
       "path": "research_guide/README_CN.md",
-      "bytes": 104593,
-      "sha256": "21fb486331883dd29fc86e674f745ed03b3b831f5a0f6376dabc60557cb59315",
-      "lines": 1014,
-      "characters": 54812,
-      "markdown_tables": 26,
+      "bytes": 114770,
+      "sha256": "d8947e091f932baec5ee20b30f95141ac0df7e8bc5b912f5694dbe08bbec839d",
+      "lines": 1115,
+      "characters": 59501,
+      "markdown_tables": 30,
       "markdown_images": 5
     },
     {
@@ -249,8 +295,8 @@
     },
     {
       "path": "research_guide/scripts/build_docx.py",
-      "bytes": 27941,
-      "sha256": "907e1c5a4c7362b958970b791cd60bd411ff62237423d55e012fa25c64bef891"
+      "bytes": 28057,
+      "sha256": "025de0bf3329b24b333ceda3190d3668927c1ade9de0f4f9b19283b33b342264"
     },
     {
       "path": "research_guide/scripts/build_evidence_update_tables.py",
@@ -264,18 +310,18 @@
     },
     {
       "path": "research_guide/scripts/build_report_manifest.py",
-      "bytes": 15294,
-      "sha256": "7742537df2ccf363f2c02f60a3caa85aeb3c6b589ebc8b2da0970328d72fa824"
+      "bytes": 22514,
+      "sha256": "4dfc7d187ddd863b9ab0707cb4c7d4b71bf8b9cd3336b1fa23ba5e355362ab0c"
     },
     {
       "path": "research_guide/scripts/build_stage_b_shard_sampling_audit.py",
-      "bytes": 6412,
-      "sha256": "1e4e39a7e92ba94a9002afb7f7f02e53a1d5fc5e8c79c9eb3413f87b04d9c462"
+      "bytes": 12528,
+      "sha256": "56afa37790c35a2793422fb5d0324e2853ff4ba56b7c812f7a6194e9a4869f46"
     },
     {
       "path": "research_guide/source_data/README.md",
-      "bytes": 3540,
-      "sha256": "f291279bc9ffeb05531a415366b494b5a1776f11585827c4f2755aaaa85778a1"
+      "bytes": 4235,
+      "sha256": "382d855672524c94e18e631b07db082d24c37aa85623631f9accddbef74c7435"
     },
     {
       "path": "research_guide/source_data/aggregate_primary_metrics.tsv",
@@ -397,11 +443,25 @@
       "columns": 6
     },
     {
+      "path": "research_guide/source_data/stage_b_region_training_coverage.tsv",
+      "bytes": 1077,
+      "sha256": "307184ee6b852776a77678188c737c6af99fb65156bd43fe5f9221aef68215db",
+      "rows": 7,
+      "columns": 9
+    },
+    {
       "path": "research_guide/source_data/stage_b_shard_sampling_audit.tsv",
-      "bytes": 9673,
-      "sha256": "544f681c9e4c7e3692d5e280c5481a943d2fb084e935556f58a45f18aad67abb",
+      "bytes": 13134,
+      "sha256": "1043f665ca7822f384436636cc65e93da9fa13c97e5adef76ce475ac89c9b1ad",
       "rows": 42,
-      "columns": 14
+      "columns": 28
+    },
+    {
+      "path": "research_guide/source_data/stage_b_split_assembly_coverage.tsv",
+      "bytes": 154,
+      "sha256": "809a703daa6e109d796d5fe8c6b1ccfee9bf63e2c2c6b236fbe47302b59e99ba",
+      "rows": 3,
+      "columns": 5
     }
   ],
   "manifest_self_hash": "excluded_by_design"

@@ -16,7 +16,13 @@ MARKDOWN = GUIDE / "README_CN.md"
 DOCX = GUIDE / "CropGenome-FM_详细研究设计与评估报告_CN.docx"
 OUTPUT = GUIDE / "report_manifest.json"
 SHARD_AUDIT = GUIDE / "source_data" / "stage_b_shard_sampling_audit.tsv"
+REGION_COVERAGE = GUIDE / "source_data" / "stage_b_region_training_coverage.tsv"
+SPLIT_COVERAGE = GUIDE / "source_data" / "stage_b_split_assembly_coverage.tsv"
+ASSEMBLY_SUMMARY = GUIDE / "source_data" / "assembly_species_summary.tsv"
 TRAIN_SCRIPT = ROOT / "training_server_transfer" / "scripts" / "train.py"
+WINDOW_BUILDER = ROOT / "scripts" / "build_stage_window_candidates.py"
+REGION_BUILDER = ROOT / "scripts" / "build_region_candidates.py"
+STAGE_ENCODER = ROOT / "scripts" / "encode_stage_inputs.py"
 NS = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
@@ -47,6 +53,12 @@ def count_tsv(path: Path) -> tuple[int, int]:
 def stage_b_shard_sampling_stats() -> dict[str, object]:
     with SHARD_AUDIT.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle, delimiter="\t"))
+    with REGION_COVERAGE.open(encoding="utf-8", newline="") as handle:
+        region_rows = list(csv.DictReader(handle, delimiter="\t"))
+    with SPLIT_COVERAGE.open(encoding="utf-8", newline="") as handle:
+        split_rows = list(csv.DictReader(handle, delimiter="\t"))
+    with ASSEMBLY_SUMMARY.open(encoding="utf-8", newline="") as handle:
+        assembly_rows = list(csv.DictReader(handle, delimiter="\t"))
     train_code = TRAIN_SCRIPT.read_text(encoding="utf-8")
     sampler_snippets = [
         'row["windows_count"]',
@@ -62,6 +74,33 @@ def stage_b_shard_sampling_stats() -> dict[str, object]:
     test_windows = sum(int(row["test_windows"]) for row in rows)
     full_rows = [row for row in rows if int(row["tokens"]) >= 900_000_000]
     weights = [float(row["relative_train_sampling_weight"]) for row in rows]
+    region_by_name = {row["region"]: row for row in region_rows}
+    split_by_name = {row["split"]: row for row in split_rows}
+    expected_region_all = {
+        "background": 223_487, "coding": 1_790_629, "gene_body": 559_494,
+        "promoter": 783_111, "splice": 1_175_065, "tes": 447_604, "utr": 615_391,
+    }
+    expected_region_train = {
+        "background": 219_169, "coding": 1_755_568, "gene_body": 548_536,
+        "promoter": 767_774, "splice": 1_152_040, "tes": 438_839, "utr": 603_314,
+    }
+    expected_step14000 = {
+        "background": 20_040.432, "coding": 161_083.532, "gene_body": 50_314.052,
+        "promoter": 70_416.248, "splice": 105_693.289, "tes": 40_246.474, "utr": 55_205.972,
+    }
+    expected_step17000 = {
+        "background": 24_343.348, "coding": 195_670.056, "gene_body": 61_117.069,
+        "promoter": 85_535.442, "splice": 128_386.878, "tes": 48_887.864, "utr": 67_059.342,
+    }
+    expected_splits = {
+        "train": (180, 5_485_240), "val": (29, 54_695), "test": (29, 54_846),
+    }
+    planned_assemblies = {
+        "total": sum(int(row["assemblies"]) for row in assembly_rows),
+        "train": sum(int(row["train"]) for row in assembly_rows),
+        "validation": sum(int(row["validation"]) for row in assembly_rows),
+        "test": sum(int(row["test"]) for row in assembly_rows),
+    }
     checks = {
         "rows_42": len(rows) == 42,
         "full_shards_41": len(full_rows) == 41,
@@ -77,6 +116,52 @@ def stage_b_shard_sampling_stats() -> dict[str, object]:
         "relative_weight_min_matches": abs(min(weights) - 0.980420860) < 1e-9,
         "relative_weight_max_matches": abs(max(weights) - 1.067065238) < 1e-9,
         "sampler_code_shape_present": all(snippet in train_code for snippet in sampler_snippets),
+        "seven_region_rows": set(region_by_name) == set(expected_region_all),
+        "region_all_counts_exact": all(
+            int(region_by_name[name]["all_pool_windows"]) == value
+            for name, value in expected_region_all.items()
+        ),
+        "region_train_counts_exact": all(
+            int(region_by_name[name]["train_pool_windows"]) == value
+            for name, value in expected_region_train.items()
+        ),
+        "step14000_expected_draws_exact": all(
+            abs(float(region_by_name[name]["expected_draws_step14000"]) - value) < 0.0011
+            for name, value in expected_step14000.items()
+        ),
+        "step17000_expected_draws_exact": all(
+            abs(float(region_by_name[name]["expected_draws_step17000"]) - value) < 0.0011
+            for name, value in expected_step17000.items()
+        ),
+        "region_draws_explicitly_not_observed": all(
+            row["actual_draw_count_recorded"] == "no"
+            and row["evidence_boundary"] == "expected_from_verified_sampler_not_an_observed_draw_log"
+            for row in region_rows
+        ),
+        "split_rows_exact": set(split_by_name) == set(expected_splits),
+        "split_assembly_and_window_counts_exact": all(
+            int(split_by_name[name]["assemblies_with_windows"]) == expected[0]
+            and int(split_by_name[name]["windows"]) == expected[1]
+            for name, expected in expected_splits.items()
+        ),
+        "split_assembly_overlap_zero": all(
+            int(row["assembly_overlap_with_other_splits"]) == 0 for row in split_rows
+        ),
+        "planned_assembly_split_exact": planned_assemblies == {
+            "total": 258, "train": 192, "validation": 35, "test": 31,
+        },
+        "actual_contributing_assemblies_238": sum(
+            int(row["assemblies_with_windows"]) for row in split_rows
+        ) == 238,
+        "data_builder_hashes_exact": {
+            "window_builder": sha256(WINDOW_BUILDER),
+            "region_builder": sha256(REGION_BUILDER),
+            "stage_encoder": sha256(STAGE_ENCODER),
+        } == {
+            "window_builder": "fe0b59af3c8176533cc42d193225851c3cee78f5d45e1db8de9dc146956de320",
+            "region_builder": "64d92668247c5c75cd805afdabb2892331ecd4bddbf8200d96d90519b8048a36",
+            "stage_encoder": "100e1aacaf3ba81ab921a6d24f1e2ce7f493a43282c1b738d1325af9159d647e",
+        },
     }
     return {
         "status": "passed" if all(checks.values()) else "failed",
@@ -97,7 +182,19 @@ def stage_b_shard_sampling_stats() -> dict[str, object]:
         ],
         "relative_train_sampling_weight_range": [min(weights), max(weights)],
         "audit_sha256": sha256(SHARD_AUDIT),
+        "region_coverage_sha256": sha256(REGION_COVERAGE),
+        "split_assembly_coverage_sha256": sha256(SPLIT_COVERAGE),
+        "planned_assembly_split": planned_assemblies,
+        "actual_contributing_assembly_split": {
+            name: int(row["assemblies_with_windows"]) for name, row in split_by_name.items()
+        },
+        "region_training_coverage_rows": len(region_rows),
         "sampler_implementation_sha256": sha256(TRAIN_SCRIPT),
+        "data_builder_sha256": {
+            "window_builder": sha256(WINDOW_BUILDER),
+            "region_builder": sha256(REGION_BUILDER),
+            "stage_encoder": sha256(STAGE_ENCODER),
+        },
     }
 
 
@@ -134,6 +231,12 @@ def plain_language_stats() -> dict[str, object]:
         "每个分片按碱基总数装满，不是按片段条数装满",
         "最低约为理想均匀值的0.980倍",
         "最高约为1.067倍",
+        "原始258个版本的预设划分",
+        "最终实际贡献Stage B片段",
+        "当前构建流程没有做全数据集序列相似性去重",
+        "没有按区域强制配额",
+        "没有保存逐区域实际抽样计数",
+        "预计到第14,000次抽取",
         "模型存档（checkpoint）",
         "简单预测头（probe）",
         "3个测试基因组版本都未用于预训练",
@@ -185,6 +288,10 @@ def docx_stats() -> dict[str, object]:
         "理论上可以写成一个约41.24 GB的大文件",
         "每个分片按碱基总数装满，不是按片段条数装满",
         "最低约为理想均匀值的0.980倍", "最高约为1.067倍",
+        "原始258个版本的预设划分", "最终实际贡献Stage B片段",
+        "当前构建流程没有做全数据集序列相似性去重",
+        "没有按区域强制配额", "没有保存逐区域实际抽样计数",
+        "预计到第14,000次抽取",
     ]
     return {
         "status": "passed" if crc_error is None and all(x in text for x in required) else "failed",
@@ -231,7 +338,7 @@ def main() -> None:
     shard_sampling = stage_b_shard_sampling_stats()
     manifest = {
         "status": "ok" if md["status"] == "passed" and plain["status"] == "passed" and docx["status"] == "passed" and shard_sampling["status"] == "passed" else "failed",
-        "report_id": "CropGenome-FM-detailed-research-guide-cn-v2.2-shard-sampling-correction",
+        "report_id": "CropGenome-FM-detailed-research-guide-cn-v2.3-stage-b-data-and-region-coverage",
         "evidence_cutoff": "2026-07-21T14:04:09+08:00",
         "document_updated": "2026-07-29",
         "formal_test_rerun_for_document_update": False,
@@ -261,6 +368,14 @@ def main() -> None:
                 "confirmed validation and test windows were filtered before parameter updates",
                 "no metric, checkpoint or formal-test result changed",
             ],
+            "new_v2_3_stage_b_data_and_region_coverage": [
+                "corrected the 258-assembly planned split to 192 train, 35 validation and 31 test candidates",
+                "audited 180, 29 and 29 assemblies actually contributing Stage B windows with zero cross-split assembly overlap",
+                "documented annotation-derived regions, context selection, quotas, boundaries, sequence QC, encoding and the 30B-to-41.243B outcome",
+                "published exact seven-region train-pool counts and expected draws at steps 14000 and 17000",
+                "distinguished near-certain category exposure from absent historical per-region observed counters",
+                "no metric, checkpoint or formal-test result changed",
+            ],
             "partial_or_not_completed": [
                 "Stage C1 64K stopped at step569 before first validation",
                 "Stage C2 128K data only",
@@ -274,6 +389,11 @@ def main() -> None:
             "plant_genomic_benchmark_revision": "78ec8156c2ffb3e5475277fdb7eb603294224e53",
             "stage_b_manifest": "training_server_transfer/runs/Stage_B_cropgenome_fm_v2_stable/stage_B_8k_final_manifest.json",
             "stage_b_shard_sampling_audit": "research_guide/source_data/stage_b_shard_sampling_audit.tsv",
+            "stage_b_region_training_coverage": "research_guide/source_data/stage_b_region_training_coverage.tsv",
+            "stage_b_split_assembly_coverage": "research_guide/source_data/stage_b_split_assembly_coverage.tsv",
+            "stage_b_window_candidate_builder_local_sha256": "fe0b59af3c8176533cc42d193225851c3cee78f5d45e1db8de9dc146956de320",
+            "stage_b_region_candidate_builder_local_sha256": "64d92668247c5c75cd805afdabb2892331ecd4bddbf8200d96d90519b8048a36",
+            "stage_b_encoder_local_sha256": "100e1aacaf3ba81ab921a6d24f1e2ce7f493a43282c1b738d1325af9159d647e",
             "stage_b_sampler_implementation": "training_server_transfer/scripts/train.py",
             "stage_b_local_input_manifest_sha256": "710c633b66c7ec8d3aa1465526cd32b6a97fc846eba964b2a0059c01dd68c2ff",
             "publication_v2_final_report": "PUBLICATION_V2_FINAL_RESULTS_CN.md",
@@ -295,8 +415,8 @@ def main() -> None:
             "docx_visual": {
                 "status": "passed",
                 "renderer": "LibreOffice 26.2.4.2",
-                "rendered_pdf_pages": 37,
-                "png_pages_checked": 37,
+                "rendered_pdf_pages": 39,
+                "png_pages_checked": 39,
                 "near_blank_pages": 0,
                 "contact_sheets_checked": 7,
                 "numbered_lists_reset_per_markdown_section": True,
@@ -315,6 +435,8 @@ def main() -> None:
                 "taxonomy_summary_rows": 10,
                 "baseline_gap_rows": 7,
                 "future_task_capability_rows": 9,
+                "stage_b_region_training_coverage_rows": 7,
+                "stage_b_split_assembly_coverage_rows": 3,
                 "crlf_rows": 0,
                 "empty_cells": 0,
             },

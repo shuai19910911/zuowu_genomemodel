@@ -369,7 +369,7 @@ def add_cover(doc: Document) -> None:
     shade_paragraph(p, BLUE)
 
     metadata = [
-        ("文档版本", "2.2（分片与抽样纠错版）"),
+        ("文档版本", "2.3（Stage B数据生成与区域训练覆盖完整版）"),
         ("机器证据截止", "2026-07-21 14:04 CST（UTC+08:00）"),
         ("本次文档更新", "2026-07-29（未新增或重跑formal test）"),
         ("当前冻结基座", "CropGenomeFM_step14000"),
@@ -405,7 +405,7 @@ def add_executive_page(doc: Document) -> None:
         "当前优势：在2,048和8,192 bp核心三任务平均成绩上排名第1，也明显超过结构相同但没有预训练的对照模型。",
         "当前差距：在外部表达和lncRNA任务上，PlantCAD2和PlantCaduceus总体更强；NT-v2 500M还没有运行。",
         "指标核对：旧AUPRC代码没有正确处理大量并列分数，影响部分简单基线；用标准方法重算后，主要学习模型的排名不变。",
-        "抽样局限：旧Stage B读取器按分片全部片段数选择文件后才过滤训练组，单条训练片段的相对抽样权重约为理想均匀值的0.980至1.067倍；验证和测试片段没有进入参数更新。",
+        "数据与抽样：258个原始版本预设为训练192、验证35、测试候选31，筛选后238个版本实际贡献Stage B片段。7类区域几乎肯定都被大量抽到，但旧日志没有逐区域真实计数；单条训练片段相对抽样权重约为理想值的0.980至1.067倍。",
         "物种边界：核心下游训练和测试不共享物种或属，但仍可能属于同一个科；3个测试基因组版本都没用于预训练，但只有黄瓜这个测试物种在预训练中完全未见。",
         "未来任务：已设计完整长基因、远端调控、多倍体、TE/SV和NLR基因簇等9项作物任务；它们目前只是实验方案，没有成绩。",
         "下一步：先建立两个最优先的长序列任务并加入NT-v2 500M，再决定是否值得投入64K–256K混合长度正式训练。",
@@ -662,7 +662,7 @@ def main() -> None:
     props.subject = "模型架构、预训练数据、正式下游结果、基线比较与下一阶段预注册设计"
     props.author = "CropGenome-FM Project"
     props.keywords = "crop genome foundation model, long context, plant genomics, benchmark"
-    props.comments = "Version 2.2 shard-and-sampling correction edition; generated from research_guide/README_CN.md and verified source-data; no new formal test was run for this documentation update."
+    props.comments = "Version 2.3 Stage B data-generation and region-training coverage edition; generated from research_guide/README_CN.md and verified source-data; no new formal test was run for this documentation update."
 
     add_cover(doc)
     add_executive_page(doc)

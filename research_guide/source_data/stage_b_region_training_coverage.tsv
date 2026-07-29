@@ -1,0 +1,8 @@
+region	all_pool_windows	train_pool_windows	train_pool_fraction	historical_sampler_probability_per_draw	expected_draws_step14000	expected_draws_step17000	actual_draw_count_recorded	evidence_boundary
+background	223487	219169	0.039956137	0.039841813	20040.432	24343.348	no	expected_from_verified_sampler_not_an_observed_draw_log
+coding	1790629	1755568	0.320053088	0.320245591	161083.532	195670.056	no	expected_from_verified_sampler_not_an_observed_draw_log
+gene_body	559494	548536	0.100002188	0.100027936	50314.052	61117.069	no	expected_from_verified_sampler_not_an_observed_draw_log
+promoter	783111	767774	0.139970904	0.139992540	70416.248	85535.442	no	expected_from_verified_sampler_not_an_observed_draw_log
+splice	1175065	1152040	0.210025450	0.210125824	105693.289	128386.878	no	expected_from_verified_sampler_not_an_observed_draw_log
+tes	447604	438839	0.080003610	0.080012871	40246.474	48887.864	no	expected_from_verified_sampler_not_an_observed_draw_log
+utr	615391	603314	0.109988624	0.109753424	55205.972	67059.342	no	expected_from_verified_sampler_not_an_observed_draw_log
