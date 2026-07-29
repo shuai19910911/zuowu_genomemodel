@@ -334,7 +334,7 @@ def configure_header_footer(section) -> None:
     fp = footer.paragraphs[0]
     fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
     fp.paragraph_format.space_before = Pt(0)
-    run = fp.add_run("机器证据截止：2026-07-21  ·  文档更新：2026-07-27  ·  第 ")
+    run = fp.add_run("机器证据截止：2026-07-21  ·  文档更新：2026-07-29  ·  第 ")
     set_run_font(run, size=8, color=GRAY)
     add_page_number(fp)
     run = fp.add_run(" 页")
@@ -369,9 +369,9 @@ def add_cover(doc: Document) -> None:
     shade_paragraph(p, BLUE)
 
     metadata = [
-        ("文档版本", "2.1（白话说明版）"),
+        ("文档版本", "2.2（分片与抽样纠错版）"),
         ("机器证据截止", "2026-07-21 14:04 CST（UTC+08:00）"),
-        ("本次文档更新", "2026-07-27（未新增或重跑formal test）"),
+        ("本次文档更新", "2026-07-29（未新增或重跑formal test）"),
         ("当前冻结基座", "CropGenomeFM_step14000"),
         ("实际模型参数", "369,505,287"),
         ("交付格式", "Markdown + DOCX + 汇总数据表 + PNG/PDF图片"),
@@ -405,6 +405,7 @@ def add_executive_page(doc: Document) -> None:
         "当前优势：在2,048和8,192 bp核心三任务平均成绩上排名第1，也明显超过结构相同但没有预训练的对照模型。",
         "当前差距：在外部表达和lncRNA任务上，PlantCAD2和PlantCaduceus总体更强；NT-v2 500M还没有运行。",
         "指标核对：旧AUPRC代码没有正确处理大量并列分数，影响部分简单基线；用标准方法重算后，主要学习模型的排名不变。",
+        "抽样局限：旧Stage B读取器按分片全部片段数选择文件后才过滤训练组，单条训练片段的相对抽样权重约为理想均匀值的0.980至1.067倍；验证和测试片段没有进入参数更新。",
         "物种边界：核心下游训练和测试不共享物种或属，但仍可能属于同一个科；3个测试基因组版本都没用于预训练，但只有黄瓜这个测试物种在预训练中完全未见。",
         "未来任务：已设计完整长基因、远端调控、多倍体、TE/SV和NLR基因簇等9项作物任务；它们目前只是实验方案，没有成绩。",
         "下一步：先建立两个最优先的长序列任务并加入NT-v2 500M，再决定是否值得投入64K–256K混合长度正式训练。",
@@ -661,7 +662,7 @@ def main() -> None:
     props.subject = "模型架构、预训练数据、正式下游结果、基线比较与下一阶段预注册设计"
     props.author = "CropGenome-FM Project"
     props.keywords = "crop genome foundation model, long context, plant genomics, benchmark"
-    props.comments = "Version 2.1 plain-language edition; generated from research_guide/README_CN.md and verified source-data; no new formal test was run for this documentation update."
+    props.comments = "Version 2.2 shard-and-sampling correction edition; generated from research_guide/README_CN.md and verified source-data; no new formal test was run for this documentation update."
 
     add_cover(doc)
     add_executive_page(doc)

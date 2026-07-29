@@ -1,8 +1,8 @@
 {
   "status": "ok",
-  "report_id": "CropGenome-FM-detailed-research-guide-cn-v2.1-plain-language",
+  "report_id": "CropGenome-FM-detailed-research-guide-cn-v2.2-shard-sampling-correction",
   "evidence_cutoff": "2026-07-21T14:04:09+08:00",
-  "document_updated": "2026-07-27",
+  "document_updated": "2026-07-29",
   "formal_test_rerun_for_document_update": false,
   "scope": {
     "completed_evidence": [
@@ -22,6 +22,14 @@
       "plain-language rewrites of sampling, architecture, training, evaluation, future tasks and stopping rules",
       "no metric, model or formal-test result changed"
     ],
+    "new_v2_2_shard_sampling_corrections": [
+      "corrected the claim that Stage B windows could not fit in one file",
+      "documented the one-billion-base shard cap and variable window counts",
+      "audited all 42 shard indexes and the historical split-filtered sampler",
+      "disclosed the 0.980-1.067 relative train-window sampling weight range",
+      "confirmed validation and test windows were filtered before parameter updates",
+      "no metric, checkpoint or formal-test result changed"
+    ],
     "partial_or_not_completed": [
       "Stage C1 64K stopped at step569 before first validation",
       "Stage C2 128K data only",
@@ -34,6 +42,9 @@
     "assembly_manifest": "data_manifests/assemblies.canonical.tsv",
     "plant_genomic_benchmark_revision": "78ec8156c2ffb3e5475277fdb7eb603294224e53",
     "stage_b_manifest": "training_server_transfer/runs/Stage_B_cropgenome_fm_v2_stable/stage_B_8k_final_manifest.json",
+    "stage_b_shard_sampling_audit": "research_guide/source_data/stage_b_shard_sampling_audit.tsv",
+    "stage_b_sampler_implementation": "training_server_transfer/scripts/train.py",
+    "stage_b_local_input_manifest_sha256": "710c633b66c7ec8d3aa1465526cd32b6a97fc846eba964b2a0059c01dd68c2ff",
     "publication_v2_final_report": "PUBLICATION_V2_FINAL_RESULTS_CN.md",
     "core_full_metrics": "training_server_transfer/runs/cropgenome_bench_v1_8k_complete/summary/full_data_metrics.tsv",
     "external_full_metrics": "training_server_transfer/runs/plant_genomic_benchmark_publication_v2/summary/full_data_metrics.tsv",
@@ -42,9 +53,9 @@
   "validation": {
     "markdown": {
       "status": "passed",
-      "lines": 983,
-      "characters": 52982,
-      "tables": 25,
+      "lines": 1014,
+      "characters": 54812,
+      "tables": 26,
       "images": 5,
       "broken_relative_links": 0,
       "broken_targets": [],
@@ -59,15 +70,15 @@
         "opaque_machine_status": [],
         "raw_pipeline_jargon": []
       },
-      "shard_mentions": 3
+      "shard_mentions": 2
     },
     "docx_schema": {
       "status": "passed",
       "validator": "docx skill OOXML validator",
       "validator_output": "All validations PASSED!",
       "counts": {
-        "ooxml_paragraph_elements": 2203,
-        "tables": 26,
+        "ooxml_paragraph_elements": 2236,
+        "tables": 27,
         "section_properties": 12,
         "drawing_elements": 5
       }
@@ -75,8 +86,8 @@
     "docx_content": {
       "status": "passed",
       "counts": {
-        "ooxml_paragraph_elements": 2203,
-        "tables": 26,
+        "ooxml_paragraph_elements": 2236,
+        "tables": 27,
         "section_properties": 12,
         "drawing_elements": 5
       },
@@ -85,13 +96,52 @@
       "absolute_home_paths": 0,
       "zip_crc_error": null
     },
+    "stage_b_shard_sampling": {
+      "status": "passed",
+      "checks": {
+        "rows_42": true,
+        "full_shards_41": true,
+        "tokens_total_exact": true,
+        "windows_total_exact": true,
+        "train_windows_exact": true,
+        "val_windows_exact": true,
+        "test_windows_exact": true,
+        "full_shard_token_min_exact": true,
+        "full_shard_token_max_exact": true,
+        "full_shard_window_min_exact": true,
+        "full_shard_window_max_exact": true,
+        "relative_weight_min_matches": true,
+        "relative_weight_max_matches": true,
+        "sampler_code_shape_present": true
+      },
+      "rows": 42,
+      "tokens_total": 41242505216,
+      "windows_total": 5594781,
+      "train_windows": 5485240,
+      "val_windows": 54695,
+      "test_windows": 54846,
+      "full_shard_tokens_range": [
+        999993344,
+        999997440
+      ],
+      "full_shard_windows_range": [
+        122062,
+        141012
+      ],
+      "relative_train_sampling_weight_range": [
+        0.98042086,
+        1.067065238
+      ],
+      "audit_sha256": "544f681c9e4c7e3692d5e280c5481a943d2fb084e935556f58a45f18aad67abb",
+      "sampler_implementation_sha256": "801b95ac5614e3f2cae57bb89639d19bb5321d1f44c7368ce713b89549aaad14"
+    },
     "docx_visual": {
       "status": "passed",
       "renderer": "LibreOffice 26.2.4.2",
-      "rendered_pdf_pages": 36,
-      "png_pages_checked": 36,
+      "rendered_pdf_pages": 37,
+      "png_pages_checked": 37,
       "near_blank_pages": 0,
-      "contact_sheets_checked": 6,
+      "contact_sheets_checked": 7,
       "numbered_lists_reset_per_markdown_section": true,
       "final_overflow_or_crop_errors": 0,
       "final_blank_pages": 0
@@ -120,21 +170,21 @@
   "files": [
     {
       "path": "research_guide/CropGenome-FM_详细研究设计与评估报告_CN.docx",
-      "bytes": 1726752,
-      "sha256": "62e2b3e1ed5d417e4995f50a63ae6818db3b9497d7938208674ea3abe73ccd26"
+      "bytes": 1729277,
+      "sha256": "08dcd8b67cad0e25a5ee2c988974412e904c6d7e808d002a84b461500efada96"
     },
     {
       "path": "research_guide/README.md",
-      "bytes": 1519,
-      "sha256": "293655e97af9ed70896173592d0b8261bc8d9705ef5ea9aa0e1206bfef147460"
+      "bytes": 2194,
+      "sha256": "e84e2df2687362ed78a4e812bcbc961d2228d2ad6c50470d8925bc8eb96eb0bb"
     },
     {
       "path": "research_guide/README_CN.md",
-      "bytes": 100515,
-      "sha256": "62d89cefccd48204930e315f6c2bfca3fc7ccc504f98e210e468a282d7eb2742",
-      "lines": 983,
-      "characters": 52982,
-      "markdown_tables": 25,
+      "bytes": 104593,
+      "sha256": "21fb486331883dd29fc86e674f745ed03b3b831f5a0f6376dabc60557cb59315",
+      "lines": 1014,
+      "characters": 54812,
+      "markdown_tables": 26,
       "markdown_images": 5
     },
     {
@@ -199,8 +249,8 @@
     },
     {
       "path": "research_guide/scripts/build_docx.py",
-      "bytes": 27681,
-      "sha256": "571bb6c4733f40be1976a2106d6de3737803aa113b1746313f05b4ebdb589faf"
+      "bytes": 27941,
+      "sha256": "907e1c5a4c7362b958970b791cd60bd411ff62237423d55e012fa25c64bef891"
     },
     {
       "path": "research_guide/scripts/build_evidence_update_tables.py",
@@ -214,13 +264,18 @@
     },
     {
       "path": "research_guide/scripts/build_report_manifest.py",
-      "bytes": 10774,
-      "sha256": "4751308354320cb2b4972d0348c60524cb7a40e2be16c188ba555d815678ed8f"
+      "bytes": 15294,
+      "sha256": "7742537df2ccf363f2c02f60a3caa85aeb3c6b589ebc8b2da0970328d72fa824"
+    },
+    {
+      "path": "research_guide/scripts/build_stage_b_shard_sampling_audit.py",
+      "bytes": 6412,
+      "sha256": "1e4e39a7e92ba94a9002afb7f7f02e53a1d5fc5e8c79c9eb3413f87b04d9c462"
     },
     {
       "path": "research_guide/source_data/README.md",
-      "bytes": 2960,
-      "sha256": "904faf001ce45cea1bd96193590845657633796a36fa9ed5649e3afc8d7e1118"
+      "bytes": 3540,
+      "sha256": "f291279bc9ffeb05531a415366b494b5a1776f11585827c4f2755aaaa85778a1"
     },
     {
       "path": "research_guide/source_data/aggregate_primary_metrics.tsv",
@@ -340,6 +395,13 @@
       "sha256": "b238e3439756e8dbea5ee622f9dfe705f6aa43047856b39174fea6c7e7a5bfbd",
       "rows": 11,
       "columns": 6
+    },
+    {
+      "path": "research_guide/source_data/stage_b_shard_sampling_audit.tsv",
+      "bytes": 9673,
+      "sha256": "544f681c9e4c7e3692d5e280c5481a943d2fb084e935556f58a45f18aad67abb",
+      "rows": 42,
+      "columns": 14
     }
   ],
   "manifest_self_hash": "excluded_by_design"

@@ -15,6 +15,8 @@ GUIDE = ROOT / "research_guide"
 MARKDOWN = GUIDE / "README_CN.md"
 DOCX = GUIDE / "CropGenome-FM_详细研究设计与评估报告_CN.docx"
 OUTPUT = GUIDE / "report_manifest.json"
+SHARD_AUDIT = GUIDE / "source_data" / "stage_b_shard_sampling_audit.tsv"
+TRAIN_SCRIPT = ROOT / "training_server_transfer" / "scripts" / "train.py"
 NS = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
@@ -40,6 +42,63 @@ def count_tsv(path: Path) -> tuple[int, int]:
     with path.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.reader(handle, delimiter="\t"))
     return max(0, len(rows) - 1), len(rows[0]) if rows else 0
+
+
+def stage_b_shard_sampling_stats() -> dict[str, object]:
+    with SHARD_AUDIT.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle, delimiter="\t"))
+    train_code = TRAIN_SCRIPT.read_text(encoding="utf-8")
+    sampler_snippets = [
+        'row["windows_count"]',
+        "weights / weights.sum()",
+        "load_window_index(windows_path, self.split",
+        "rng.choice(len(self.shards), p=self.shard_probs)",
+        "rng.integers(0, len(offsets))",
+    ]
+    tokens_total = sum(int(row["tokens"]) for row in rows)
+    windows_total = sum(int(row["windows_total"]) for row in rows)
+    train_windows = sum(int(row["train_windows"]) for row in rows)
+    val_windows = sum(int(row["val_windows"]) for row in rows)
+    test_windows = sum(int(row["test_windows"]) for row in rows)
+    full_rows = [row for row in rows if int(row["tokens"]) >= 900_000_000]
+    weights = [float(row["relative_train_sampling_weight"]) for row in rows]
+    checks = {
+        "rows_42": len(rows) == 42,
+        "full_shards_41": len(full_rows) == 41,
+        "tokens_total_exact": tokens_total == 41_242_505_216,
+        "windows_total_exact": windows_total == 5_594_781,
+        "train_windows_exact": train_windows == 5_485_240,
+        "val_windows_exact": val_windows == 54_695,
+        "test_windows_exact": test_windows == 54_846,
+        "full_shard_token_min_exact": min(int(row["tokens"]) for row in full_rows) == 999_993_344,
+        "full_shard_token_max_exact": max(int(row["tokens"]) for row in full_rows) == 999_997_440,
+        "full_shard_window_min_exact": min(int(row["windows_total"]) for row in full_rows) == 122_062,
+        "full_shard_window_max_exact": max(int(row["windows_total"]) for row in full_rows) == 141_012,
+        "relative_weight_min_matches": abs(min(weights) - 0.980420860) < 1e-9,
+        "relative_weight_max_matches": abs(max(weights) - 1.067065238) < 1e-9,
+        "sampler_code_shape_present": all(snippet in train_code for snippet in sampler_snippets),
+    }
+    return {
+        "status": "passed" if all(checks.values()) else "failed",
+        "checks": checks,
+        "rows": len(rows),
+        "tokens_total": tokens_total,
+        "windows_total": windows_total,
+        "train_windows": train_windows,
+        "val_windows": val_windows,
+        "test_windows": test_windows,
+        "full_shard_tokens_range": [
+            min(int(row["tokens"]) for row in full_rows),
+            max(int(row["tokens"]) for row in full_rows),
+        ],
+        "full_shard_windows_range": [
+            min(int(row["windows_total"]) for row in full_rows),
+            max(int(row["windows_total"]) for row in full_rows),
+        ],
+        "relative_train_sampling_weight_range": [min(weights), max(weights)],
+        "audit_sha256": sha256(SHARD_AUDIT),
+        "sampler_implementation_sha256": sha256(TRAIN_SCRIPT),
+    }
 
 
 def markdown_stats() -> dict[str, object]:
@@ -71,6 +130,10 @@ def plain_language_stats() -> dict[str, object]:
         "DNA片段（window）",
         "数据分片（shard）",
         "它只是文件包装方式，没有额外生物学含义",
+        "理论上可以写成一个约41.24 GB的大文件",
+        "每个分片按碱基总数装满，不是按片段条数装满",
+        "最低约为理想均匀值的0.980倍",
+        "最高约为1.067倍",
         "模型存档（checkpoint）",
         "简单预测头（probe）",
         "3个测试基因组版本都未用于预训练",
@@ -119,6 +182,9 @@ def docx_stats() -> dict[str, object]:
         "下游科、属、种独立性", "CROP-LONGGENE-SEG", "AgroNT 1B",
         "PlantCAD2", "Evo2 1B", "一眼看懂：我们具体是怎么做的",
         "数据分片（shard）", "3个测试基因组版本都未用于预训练",
+        "理论上可以写成一个约41.24 GB的大文件",
+        "每个分片按碱基总数装满，不是按片段条数装满",
+        "最低约为理想均匀值的0.980倍", "最高约为1.067倍",
     ]
     return {
         "status": "passed" if crc_error is None and all(x in text for x in required) else "failed",
@@ -162,11 +228,12 @@ def main() -> None:
     md = markdown_stats()
     plain = plain_language_stats()
     docx = docx_stats()
+    shard_sampling = stage_b_shard_sampling_stats()
     manifest = {
-        "status": "ok" if md["status"] == "passed" and plain["status"] == "passed" and docx["status"] == "passed" else "failed",
-        "report_id": "CropGenome-FM-detailed-research-guide-cn-v2.1-plain-language",
+        "status": "ok" if md["status"] == "passed" and plain["status"] == "passed" and docx["status"] == "passed" and shard_sampling["status"] == "passed" else "failed",
+        "report_id": "CropGenome-FM-detailed-research-guide-cn-v2.2-shard-sampling-correction",
         "evidence_cutoff": "2026-07-21T14:04:09+08:00",
-        "document_updated": "2026-07-27",
+        "document_updated": "2026-07-29",
         "formal_test_rerun_for_document_update": False,
         "scope": {
             "completed_evidence": [
@@ -186,6 +253,14 @@ def main() -> None:
                 "plain-language rewrites of sampling, architecture, training, evaluation, future tasks and stopping rules",
                 "no metric, model or formal-test result changed",
             ],
+            "new_v2_2_shard_sampling_corrections": [
+                "corrected the claim that Stage B windows could not fit in one file",
+                "documented the one-billion-base shard cap and variable window counts",
+                "audited all 42 shard indexes and the historical split-filtered sampler",
+                "disclosed the 0.980-1.067 relative train-window sampling weight range",
+                "confirmed validation and test windows were filtered before parameter updates",
+                "no metric, checkpoint or formal-test result changed",
+            ],
             "partial_or_not_completed": [
                 "Stage C1 64K stopped at step569 before first validation",
                 "Stage C2 128K data only",
@@ -198,6 +273,9 @@ def main() -> None:
             "assembly_manifest": "data_manifests/assemblies.canonical.tsv",
             "plant_genomic_benchmark_revision": "78ec8156c2ffb3e5475277fdb7eb603294224e53",
             "stage_b_manifest": "training_server_transfer/runs/Stage_B_cropgenome_fm_v2_stable/stage_B_8k_final_manifest.json",
+            "stage_b_shard_sampling_audit": "research_guide/source_data/stage_b_shard_sampling_audit.tsv",
+            "stage_b_sampler_implementation": "training_server_transfer/scripts/train.py",
+            "stage_b_local_input_manifest_sha256": "710c633b66c7ec8d3aa1465526cd32b6a97fc846eba964b2a0059c01dd68c2ff",
             "publication_v2_final_report": "PUBLICATION_V2_FINAL_RESULTS_CN.md",
             "core_full_metrics": "training_server_transfer/runs/cropgenome_bench_v1_8k_complete/summary/full_data_metrics.tsv",
             "external_full_metrics": "training_server_transfer/runs/plant_genomic_benchmark_publication_v2/summary/full_data_metrics.tsv",
@@ -213,13 +291,14 @@ def main() -> None:
                 "counts": docx["counts"],
             },
             "docx_content": docx,
+            "stage_b_shard_sampling": shard_sampling,
             "docx_visual": {
                 "status": "passed",
                 "renderer": "LibreOffice 26.2.4.2",
-                "rendered_pdf_pages": 36,
-                "png_pages_checked": 36,
+                "rendered_pdf_pages": 37,
+                "png_pages_checked": 37,
                 "near_blank_pages": 0,
-                "contact_sheets_checked": 6,
+                "contact_sheets_checked": 7,
                 "numbered_lists_reset_per_markdown_section": True,
                 "final_overflow_or_crop_errors": 0,
                 "final_blank_pages": 0,
