@@ -1,4 +1,0 @@
-checkpoint	checkpoint_step	task	eval_split	method	train_sample_count	eval_sample_count	accuracy	macro_f1	balanced_accuracy	note
-step_00002000	2000	full_region_annotation_probe	val	one_mer_nearest_centroid	224	224	0.18750000	0.15421042	0.18750000	lightweight sampled region probe; not a substitute for splice/promoter/TES formal benchmarks
-step_00002000	2000	full_region_annotation_probe	val	model_embedding_nearest_centroid	224	224	0.25892857	0.20530071	0.25892857	lightweight sampled region probe; not a substitute for splice/promoter/TES formal benchmarks
-step_00002000	2000	full_region_annotation_probe	val	model_region_head_argmax	224	224	0.22321429	0.16455849	0.22321429	lightweight sampled region probe; not a substitute for splice/promoter/TES formal benchmarks

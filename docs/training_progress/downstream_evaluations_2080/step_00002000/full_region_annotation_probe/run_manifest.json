@@ -1,7 +1,0 @@
-{
-  "status": "ok",
-  "checkpoint_step": 2000,
-  "device": "cuda",
-  "checkpoint": "step_00002000",
-  "artifact_policy": "public lightweight manifest; internal absolute paths redacted"
-}

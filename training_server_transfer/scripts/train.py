@@ -2,12 +2,14 @@
 import argparse
 import csv
 import gzip
+import hashlib
 import json
 import math
 import os
 import random
 import signal
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -119,6 +121,21 @@ def is_main(rank):
     return rank == 0
 
 
+def seed_training_step(base_seed, step, rank):
+    words = np.random.SeedSequence([
+        int(base_seed), int(step), int(rank), 0x43524F50,
+    ]).generate_state(4, dtype=np.uint32)
+    python_seed = (int(words[0]) << 32) | int(words[1])
+    numpy_seed = int(words[2])
+    torch_seed = ((int(words[2]) << 32) | int(words[3])) & ((1 << 63) - 1)
+    random.seed(python_seed)
+    np.random.seed(numpy_seed)
+    torch.manual_seed(torch_seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(torch_seed)
+    return torch_seed
+
+
 def read_manifest(stage_dir):
     rows = []
     with open(stage_dir / "manifest.tsv", newline="", encoding="utf-8") as fh:
@@ -157,6 +174,205 @@ def deterministic_window_order(shard_lengths, seed):
     return order
 
 
+class NoReplacementBatchPlan:
+    """Deterministic global batches with no repeated window in one epoch.
+
+    Complete batches contain one sequence length so every DDP rank receives
+    equal-shaped work. Per-length remainders are shuffled into a small mixed
+    tail so no training window is dropped.
+    """
+
+    _TAIL_BUCKET = -1
+
+    def __init__(self, references_by_length, global_batch_size, seed):
+        self.global_batch_size = int(global_batch_size)
+        if self.global_batch_size <= 0:
+            raise ValueError("global_batch_size must be positive")
+        if not references_by_length:
+            raise ValueError("references_by_length must not be empty")
+        rng = np.random.default_rng(int(seed))
+        self._bucket_lengths = sorted(int(length) for length in references_by_length)
+        self._batches_by_length = {}
+        descriptor_buckets = []
+        descriptor_indices = []
+        tail_references = []
+        tail_lengths = []
+        for bucket_idx, length in enumerate(self._bucket_lengths):
+            references = np.asarray(references_by_length[length], dtype=np.uint64).reshape(-1)
+            if references.size == 0:
+                continue
+            references = references[rng.permutation(references.size)]
+            complete_count = references.size // self.global_batch_size
+            complete_size = complete_count * self.global_batch_size
+            complete = references[:complete_size].reshape(complete_count, self.global_batch_size)
+            self._batches_by_length[length] = complete
+            if complete_count:
+                descriptor_buckets.append(np.full(complete_count, bucket_idx, dtype=np.int16))
+                descriptor_indices.append(np.arange(complete_count, dtype=np.int64))
+            remainder = references[complete_size:]
+            if remainder.size:
+                tail_references.append(remainder)
+                tail_lengths.append(np.full(remainder.size, length, dtype=np.int32))
+
+        self._tail_batches = []
+        self._tail_batch_lengths = []
+        if tail_references:
+            tail_refs = np.concatenate(tail_references)
+            tail_lens = np.concatenate(tail_lengths)
+            order = rng.permutation(tail_refs.size)
+            tail_refs = tail_refs[order]
+            tail_lens = tail_lens[order]
+            for start in range(0, tail_refs.size, self.global_batch_size):
+                self._tail_batches.append(tail_refs[start:start + self.global_batch_size])
+                self._tail_batch_lengths.append(tail_lens[start:start + self.global_batch_size])
+            descriptor_buckets.append(np.full(len(self._tail_batches), self._TAIL_BUCKET, dtype=np.int16))
+            descriptor_indices.append(np.arange(len(self._tail_batches), dtype=np.int64))
+
+        if not descriptor_buckets:
+            raise ValueError("references_by_length contains no windows")
+        buckets = np.concatenate(descriptor_buckets)
+        indices = np.concatenate(descriptor_indices)
+        descriptor_order = rng.permutation(buckets.size)
+        self._descriptor_buckets = buckets[descriptor_order]
+        self._descriptor_indices = indices[descriptor_order]
+
+    @property
+    def total_batches(self):
+        return int(self._descriptor_buckets.size)
+
+    def _descriptor(self, position):
+        position = int(position)
+        if position < 0 or position >= self.total_batches:
+            raise IndexError(f"batch position out of range: {position}")
+        return int(self._descriptor_buckets[position]), int(self._descriptor_indices[position])
+
+    def global_batch(self, position):
+        bucket_idx, batch_idx = self._descriptor(position)
+        if bucket_idx == self._TAIL_BUCKET:
+            return self._tail_batches[batch_idx]
+        length = self._bucket_lengths[bucket_idx]
+        return self._batches_by_length[length][batch_idx]
+
+    def batch_length(self, position):
+        bucket_idx, batch_idx = self._descriptor(position)
+        if bucket_idx == self._TAIL_BUCKET:
+            lengths = self._tail_batch_lengths[batch_idx]
+            return int(lengths[0]) if lengths.size and bool(np.all(lengths == lengths[0])) else None
+        return self._bucket_lengths[bucket_idx]
+
+    def local_batch(self, position, rank, world_size):
+        rank = int(rank)
+        world_size = int(world_size)
+        if world_size <= 0 or rank < 0 or rank >= world_size:
+            raise ValueError(f"invalid rank/world_size: {rank}/{world_size}")
+        chunks = np.array_split(self.global_batch(position), world_size)
+        if any(chunk.size == 0 for chunk in chunks):
+            raise RuntimeError("global tail batch is too small to give every DDP rank work")
+        return chunks[rank]
+
+
+def reference_catalog_sha256(references_by_length):
+    digest = hashlib.sha256()
+    digest.update(b"cropgenome-no-replacement-catalog-v1\0")
+    for length in sorted(references_by_length):
+        references = np.asarray(references_by_length[length], dtype="<u8").reshape(-1)
+        digest.update(int(length).to_bytes(8, "little", signed=False))
+        digest.update(int(references.size).to_bytes(8, "little", signed=False))
+        digest.update(references.tobytes(order="C"))
+    return digest.hexdigest()
+
+
+class NoReplacementBatchStream:
+    STATE_SCHEMA_VERSION = 1
+
+    def __init__(self, dataset, micro_batch_size, rank, world_size, seed, state=None):
+        self.dataset = dataset
+        self.micro_batch_size = int(micro_batch_size)
+        self.rank = int(rank)
+        self.world_size = int(world_size)
+        self.seed = int(seed)
+        if self.micro_batch_size <= 0:
+            raise ValueError("micro_batch_size must be positive")
+        if self.world_size <= 0 or self.rank < 0 or self.rank >= self.world_size:
+            raise ValueError(f"invalid rank/world_size: {self.rank}/{self.world_size}")
+        self.references_by_length = dataset.reference_catalog_by_length()
+        self.catalog_sha256 = reference_catalog_sha256(self.references_by_length)
+        self.global_batch_size = self.micro_batch_size * self.world_size
+        self.epoch = 0
+        self.batch_position = 0
+        if state is not None:
+            self._restore_state(state)
+        self._build_plan()
+
+    def _build_plan(self):
+        self.plan = NoReplacementBatchPlan(
+            self.references_by_length,
+            global_batch_size=self.global_batch_size,
+            seed=self.seed + self.epoch * 1000003,
+        )
+        if self.batch_position < 0 or self.batch_position > self.plan.total_batches:
+            raise ValueError(
+                f"sampler batch_position {self.batch_position} is outside epoch with "
+                f"{self.plan.total_batches} batches"
+            )
+
+    def _restore_state(self, state):
+        if not isinstance(state, dict):
+            raise ValueError("sampler state must be a dictionary")
+        required = {
+            "schema_version", "seed", "global_batch_size", "catalog_sha256",
+            "epoch", "batch_position",
+        }
+        if set(state) != required:
+            raise ValueError(f"sampler state fields mismatch: {sorted(state)}")
+        expected = {
+            "schema_version": self.STATE_SCHEMA_VERSION,
+            "seed": self.seed,
+            "global_batch_size": self.global_batch_size,
+            "catalog_sha256": self.catalog_sha256,
+        }
+        for key, value in expected.items():
+            if state.get(key) != value:
+                raise ValueError(f"sampler state {key} mismatch: {state.get(key)!r} != {value!r}")
+        self.epoch = int(state["epoch"])
+        self.batch_position = int(state["batch_position"])
+        if self.epoch < 0:
+            raise ValueError("sampler epoch must be non-negative")
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.batch_position >= self.plan.total_batches:
+            self.epoch += 1
+            self.batch_position = 0
+            self._build_plan()
+        position = self.batch_position
+        references = self.plan.local_batch(position, self.rank, self.world_size)
+        rng_seed = np.random.SeedSequence([
+            self.seed, self.epoch, position, self.rank,
+        ]).generate_state(1, dtype=np.uint64)[0]
+        rng = np.random.default_rng(rng_seed)
+        batch = [self.dataset.materialize_reference(reference, rng) for reference in references]
+        self.batch_position += 1
+        return batch
+
+    def state_dict(self):
+        return {
+            "schema_version": self.STATE_SCHEMA_VERSION,
+            "seed": self.seed,
+            "global_batch_size": self.global_batch_size,
+            "catalog_sha256": self.catalog_sha256,
+            "epoch": self.epoch,
+            "batch_position": self.batch_position,
+        }
+
+
+def iter_collated_batches(stream, collate_fn):
+    while True:
+        yield collate_fn(next(stream))
+
+
 class StageWindowDataset(IterableDataset):
     def __init__(self, root, stage_dir, split, seed=1, rc_prob=0.5, region_label_map=None, deterministic=False):
         super().__init__()
@@ -186,6 +402,25 @@ class StageWindowDataset(IterableDataset):
         self._cache[shard_idx] = (ids, offsets, lengths, region_labels)
         return self._cache[shard_idx]
 
+    def reference_catalog_by_length(self):
+        buckets = {}
+        for shard_idx in range(len(self.shards)):
+            _, _, lengths, _ = self._get_shard(shard_idx)
+            valid = lengths > 0
+            if not bool(valid.any()):
+                continue
+            window_indices = np.arange(lengths.size, dtype=np.uint64)
+            references = (np.uint64(shard_idx) << np.uint64(32)) | window_indices
+            for length in np.unique(lengths[valid]):
+                length = int(length)
+                buckets.setdefault(length, []).append(references[lengths == length])
+        if not buckets:
+            raise RuntimeError(f"No {self.split} windows found in {self.stage_dir}")
+        return {
+            length: np.concatenate(parts).astype(np.uint64, copy=False)
+            for length, parts in sorted(buckets.items())
+        }
+
     def _materialize_window(self, shard_idx, window_idx, rng):
         ids, offsets, lengths, region_labels = self._get_shard(shard_idx)
         start = int(offsets[window_idx])
@@ -195,6 +430,14 @@ class StageWindowDataset(IterableDataset):
         if rng.random() < self.rc_prob:
             seq = DNA_COMPLEMENT[seq.flip(0)]
         return seq, int(region_labels[window_idx])
+
+    def materialize_reference(self, reference, rng):
+        reference = int(reference)
+        shard_idx = reference >> 32
+        window_idx = reference & 0xFFFFFFFF
+        if shard_idx < 0 or shard_idx >= len(self.shards):
+            raise IndexError(f"window reference shard out of range: {reference}")
+        return self._materialize_window(shard_idx, window_idx, rng)
 
     def __iter__(self):
         worker = torch.utils.data.get_worker_info()
@@ -566,6 +809,14 @@ def load_model_state_safely(model, model_state, allow_partial=False):
     return report
 
 
+def training_checkpoint_extra(train_stream, extra=None):
+    payload = dict(extra or {})
+    if train_stream is not None:
+        payload["sampler_state"] = train_stream.state_dict()
+        payload["rng_policy"] = "stateless_step_rank_v1"
+    return payload
+
+
 def save_checkpoint(path, model, optimizer, step, cfg, model_cfg, rank, filename=None, extra=None):
     if not is_main(rank):
         return
@@ -596,6 +847,18 @@ def count_pretraining_components(batches, device):
         counts[1] += attention_mask.sum()
         counts[2] += region_labels.ne(REGION_IGNORE_INDEX).sum()
     return counts.to(device=device)
+
+
+def gradient_accumulation_sync_context(model, ddp_enabled, microbatch_index, accumulation_steps):
+    microbatch_index = int(microbatch_index)
+    accumulation_steps = int(accumulation_steps)
+    if accumulation_steps <= 0 or microbatch_index < 0 or microbatch_index >= accumulation_steps:
+        raise ValueError(
+            f"invalid microbatch_index/accumulation_steps: {microbatch_index}/{accumulation_steps}"
+        )
+    if ddp_enabled and microbatch_index < accumulation_steps - 1:
+        return model.no_sync()
+    return nullcontext()
 
 
 def weighted_pretraining_objective(losses, counts, global_counts, model_cfg, world_size=1):
@@ -841,6 +1104,30 @@ def resolve_resume_policy(cfg, mode):
     return policy
 
 
+def validate_resume_contract(root, resume_path, checkpoint, cfg, resume_mode):
+    contract = cfg.get("resume_contract")
+    if contract is None:
+        return None
+    required = {"checkpoint", "checkpoint_step", "resume_mode", "sampler_epoch_starts_fresh"}
+    missing = sorted(required - set(contract))
+    if missing:
+        raise RuntimeError(f"resume_contract is missing fields: {missing}")
+    expected_path = resolve_under(root, contract["checkpoint"], "resume_contract.checkpoint")
+    if Path(resume_path).resolve() != expected_path:
+        raise RuntimeError(f"resume_contract checkpoint mismatch: {resume_path} != {expected_path}")
+    expected_step = int(contract["checkpoint_step"])
+    observed_step = int(checkpoint["step"])
+    if observed_step != expected_step:
+        raise RuntimeError(
+            f"resume_contract checkpoint_step mismatch: {observed_step} != {expected_step}"
+        )
+    if str(resume_mode) != str(contract["resume_mode"]):
+        raise RuntimeError(
+            f"resume_contract resume_mode mismatch: {resume_mode} != {contract['resume_mode']}"
+        )
+    return contract
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--data-root", default=".")
@@ -857,10 +1144,17 @@ def main():
     root = Path(args.data_root).resolve()
     cfg = load_json(resolve_under(root, args.config, "config"))
     model_cfg = load_json(resolve_under(root, args.model_config, "model_config"))
-    seed = int(cfg.get("seed", 1)) + rank
+    base_seed = int(cfg.get("seed", 1))
+    seed = base_seed + rank
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+
+    expected_world_size = cfg.get("expected_world_size")
+    if expected_world_size is not None and world_size != int(expected_world_size):
+        raise RuntimeError(
+            f"world_size={world_size} does not match expected_world_size={expected_world_size}"
+        )
 
     device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
     rc_augment_prob = float(model_cfg.get("rc_augmentation_prob", 0.0))
@@ -872,13 +1166,21 @@ def main():
         float(model_cfg.get("mlm_probability", 0.15)),
         force_mask_per_sequence=bool(model_cfg.get("force_mask_per_sequence", True)),
     )
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=int(cfg["micro_batch_size"]),
-        num_workers=int(cfg.get("num_workers", 2)),
-        pin_memory=torch.cuda.is_available(),
-        collate_fn=collate,
-    )
+    sampler_mode = str(cfg.get("sampler_mode", "with_replacement"))
+    if sampler_mode not in {"with_replacement", "global_no_replacement"}:
+        raise ValueError(f"unknown sampler_mode: {sampler_mode}")
+    train_loader = None
+    train_stream = None
+    train_iter = None
+    if sampler_mode == "with_replacement":
+        train_loader = DataLoader(
+            train_ds,
+            batch_size=int(cfg["micro_batch_size"]),
+            num_workers=int(cfg.get("num_workers", 2)),
+            pin_memory=torch.cuda.is_available(),
+            collate_fn=collate,
+        )
+        train_iter = iter(train_loader)
     val_loader = DataLoader(
         val_ds,
         batch_size=1,
@@ -886,17 +1188,24 @@ def main():
         pin_memory=torch.cuda.is_available(),
         collate_fn=collate,
     )
-    train_iter = iter(train_loader)
-
     model = CropGenomeFM(model_cfg).to(device)
     if ddp:
-        model = DDP(model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=False)
+        model = DDP(
+            model,
+            device_ids=[local_rank],
+            output_device=local_rank,
+            find_unused_parameters=False,
+            static_graph=bool(cfg.get("ddp_static_graph", False)),
+            gradient_as_bucket_view=bool(cfg.get("ddp_gradient_as_bucket_view", False)),
+        )
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(cfg["learning_rate"]), weight_decay=float(cfg["weight_decay"]))
     start_step = 0
     reset_step = False
     resume_checkpoint = None
     if args.resume:
-        ckpt = safe_torch_load_checkpoint(resolve_under(root, args.resume, "resume"))
+        resume_path = resolve_under(root, args.resume, "resume")
+        ckpt = safe_torch_load_checkpoint(resume_path)
+        validate_resume_contract(root, resume_path, ckpt, cfg, args.resume_mode)
         resume_checkpoint = ckpt
         model_state = ckpt["model"]
         resume_policy = resolve_resume_policy(cfg, args.resume_mode)
@@ -919,6 +1228,39 @@ def main():
                 "missing_keys": resume_report["missing_keys"][:20],
                 "unexpected_keys": resume_report["unexpected_keys"][:20],
                 "skipped_shape_mismatch": resume_report["skipped_shape_mismatch"][:20],
+            }), flush=True)
+
+    if sampler_mode == "global_no_replacement":
+        sampler_state = None if resume_checkpoint is None else resume_checkpoint.get("sampler_state")
+        sampler_reset = sampler_state is None and start_step > 0
+        contract_allows_reset = bool(
+            cfg.get("resume_contract", {}).get("sampler_epoch_starts_fresh", False)
+        )
+        if sampler_reset and not (
+            bool(cfg.get("allow_sampler_reset_on_resume", False)) and contract_allows_reset
+        ):
+            raise RuntimeError(
+                "resume checkpoint has no sampler_state; set allow_sampler_reset_on_resume=true "
+                "only when intentionally starting a new no-replacement epoch"
+            )
+        train_stream = NoReplacementBatchStream(
+            train_ds,
+            micro_batch_size=int(cfg["micro_batch_size"]),
+            rank=rank,
+            world_size=world_size,
+            seed=int(cfg.get("sampler_seed", base_seed)),
+            state=sampler_state,
+        )
+        train_iter = iter_collated_batches(train_stream, collate)
+        if is_main(rank):
+            print(json.dumps({
+                "sampler_mode": sampler_mode,
+                "sampler_reset_from_legacy_checkpoint": sampler_reset,
+                "sampler_state": train_stream.state_dict(),
+                "length_bucket_counts": {
+                    str(length): int(references.size)
+                    for length, references in train_stream.references_by_length.items()
+                },
             }), flush=True)
 
     amp_dtype = torch.bfloat16 if cfg.get("precision", "bf16") == "bf16" else torch.float16
@@ -1017,6 +1359,8 @@ def main():
         }), flush=True)
     last_step = start_step
     for step in range(start_step + 1, max_steps + 1):
+        if bool(cfg.get("stateless_step_rng", False)):
+            seed_training_step(base_seed, step, rank)
         lr = cosine_lr(step, cfg)
         for group in optimizer.param_groups:
             group["lr"] = lr
@@ -1032,34 +1376,40 @@ def main():
         }
         metric_sums = torch.zeros(4, dtype=torch.float64, device=device)
         all_finite = torch.ones((), dtype=torch.bool, device=device)
-        for input_ids, labels, attention_mask, region_labels in step_batches:
-            input_ids = input_ids.to(device, non_blocking=True)
-            labels = labels.to(device, non_blocking=True)
-            attention_mask = attention_mask.to(device, non_blocking=True)
-            region_labels = region_labels.to(device, non_blocking=True)
-            with torch.autocast(device_type="cuda", dtype=amp_dtype, enabled=device.type == "cuda"):
-                _, metrics, components, counts = pretraining_loss(
-                    model,
-                    input_ids,
-                    labels,
-                    attention_mask,
-                    rc_weight,
-                    region_labels=region_labels,
-                    region_weight=region_weight,
-                    mlm_weight=mlm_weight,
-                    region_label_smoothing=region_label_smoothing,
-                    rc_selection_weight=rc_selection_weight,
-                    return_components=True,
-                )
-                weighted_loss = weighted_pretraining_objective(
-                    components,
-                    counts,
-                    global_counts,
-                    model_cfg,
-                    world_size=world_size,
-                )
-            all_finite &= torch.stack([value.detach().float() for value in components.values()]).isfinite().all()
-            weighted_loss.backward()
+        for microbatch_index, (input_ids, labels, attention_mask, region_labels) in enumerate(step_batches):
+            with gradient_accumulation_sync_context(
+                model,
+                ddp_enabled=ddp,
+                microbatch_index=microbatch_index,
+                accumulation_steps=grad_accum,
+            ):
+                input_ids = input_ids.to(device, non_blocking=True)
+                labels = labels.to(device, non_blocking=True)
+                attention_mask = attention_mask.to(device, non_blocking=True)
+                region_labels = region_labels.to(device, non_blocking=True)
+                with torch.autocast(device_type="cuda", dtype=amp_dtype, enabled=device.type == "cuda"):
+                    _, metrics, components, counts = pretraining_loss(
+                        model,
+                        input_ids,
+                        labels,
+                        attention_mask,
+                        rc_weight,
+                        region_labels=region_labels,
+                        region_weight=region_weight,
+                        mlm_weight=mlm_weight,
+                        region_label_smoothing=region_label_smoothing,
+                        rc_selection_weight=rc_selection_weight,
+                        return_components=True,
+                    )
+                    weighted_loss = weighted_pretraining_objective(
+                        components,
+                        counts,
+                        global_counts,
+                        model_cfg,
+                        world_size=world_size,
+                    )
+                all_finite &= torch.stack([value.detach().float() for value in components.values()]).isfinite().all()
+                weighted_loss.backward()
             batch_counts = torch.stack([counts["mlm"], counts["rc"], counts["region"]]).to(torch.float64)
             metric_sums += torch.stack([
                 metrics["mlm_loss"] * batch_counts[0],
@@ -1102,7 +1452,10 @@ def main():
                 model_cfg,
                 rank,
                 filename=interrupted_name,
-                extra={"interrupted": True, "signal": stop_controller.signal_number},
+                extra=training_checkpoint_extra(
+                    train_stream,
+                    {"interrupted": True, "signal": stop_controller.signal_number},
+                ),
             )
             if is_main(rank):
                 print(json.dumps({"graceful_stop": True, "step": step, "checkpoint": interrupted_name}), flush=True)
@@ -1147,7 +1500,10 @@ def main():
                         model_cfg,
                         rank,
                         filename="checkpoint_best.pt",
-                        extra={"best_step": best_step, "best_selection_loss": best_selection, "validation_metrics": val_metrics},
+                        extra=training_checkpoint_extra(
+                            train_stream,
+                            {"best_step": best_step, "best_selection_loss": best_selection, "validation_metrics": val_metrics},
+                        ),
                     )
                 payload = {"step": step, "best_step": best_step, "best_selection_loss": best_selection, "stale_evals": stale_evals}
                 payload.update({f"val_{key}": value for key, value in val_metrics.items()})
@@ -1176,8 +1532,14 @@ def main():
             if stop_training:
                 break
         if step % int(cfg["save_every"]) == 0:
-            save_checkpoint(out_dir / "checkpoints", model, optimizer, step, cfg, model_cfg, rank)
-    save_checkpoint(out_dir / "checkpoints", model, optimizer, last_step, cfg, model_cfg, rank)
+            save_checkpoint(
+                out_dir / "checkpoints", model, optimizer, step, cfg, model_cfg, rank,
+                extra=training_checkpoint_extra(train_stream),
+            )
+    save_checkpoint(
+        out_dir / "checkpoints", model, optimizer, last_step, cfg, model_cfg, rank,
+        extra=training_checkpoint_extra(train_stream),
+    )
     cleanup_distributed(ddp)
 
 

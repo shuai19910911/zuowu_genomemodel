@@ -1,200 +1,62 @@
-# CropGenome-FM 模型结构解释
+# CropGenome-FM 模型结构
 
-更新时间: 2026-07-10 19:03 CST
+本页只描述当前Stage B 8K模型，不混入历史Stage C试验方案。
 
-![CropGenome-FM-v2-Stable-8K 模型架构图](assets/cropgenome_fm_model_architecture.svg)
-
-## 0. 当前主模型
-
-当前主模型是 `CropGenome-FM-v2-Stable-8K`（作物基因组基础模型第二版稳健 8192 碱基版）。设计目标是先稳定训练、稳定验证、稳定产生下游结果，而不是把论文卖点放在复杂架构创新上。
-
-核心结构:
+## 核心结构
 
 ```text
-single-base DNA tokens（单碱基 DNA 输入）
-  -> token embedding（碱基嵌入；当前没有 region/quality input embedding）
-  -> 32-layer HyenaLite backbone（32 层 kernel=127 局部逐通道卷积主干）
-  -> chunk attention every 4 layers（每 4 层分块注意力）
-  -> MLM head（遮盖碱基预测头）
-  -> RC consistency regularizer（反向互补一致性约束）
-  -> weak region auxiliary head（弱监督区域辅助头）
-  -> selection loss for best checkpoint（最佳模型存档点选择指标）
+单碱基DNA token
+  → 1024维embedding
+  → 32层HyenaLite局部卷积主干
+  → 每4层插入一次512 bp分块注意力
+  → MLM碱基预测头
+  → RC反向互补一致性约束
+  → 7类区域弱监督辅助头
 ```
 
-解释: 模型使用单碱基 token（输入单位），保留 SNP/indel（单核苷酸变异/插入缺失）解释能力。当前 `HyenaLiteBlock` 实际是 kernel=127 的局部 depthwise convolution（逐通道卷积）；8K 版本的固定分块注意力补充局部交互，64K 版本通过 dilated chunk attention（膨胀分块注意力）建立跨块连接。
+按当前`training_server_transfer/configs/model_large.json`和`training_server_transfer/scripts/train.py`实构计数：**369,505,287个参数（约3.70亿）**。
 
-评估: 这是稳健工程路线。它不像大型 Transformer（注意力模型）那样显存爆炸，也不像纯卷积那样完全缺少局部注意力补充。论文表述应强调“作物专用预训练和 benchmark（基准评测）”，不要把架构本身夸成唯一创新。
+## 关键配置
 
-## 1. 输入定义
-
-### 1.1 token vocabulary（输入词表）
-
-| token（输入符号） | id | 含义 |
+| 项目 | 当前值 | 含义 |
 |---|---:|---|
-| A | 0 | 腺嘌呤 |
-| C | 1 | 胞嘧啶 |
-| G | 2 | 鸟嘌呤 |
-| T | 3 | 胸腺嘧啶 |
-| N | 4 | 未知碱基 |
-| MASK | 5 | MLM（遮盖碱基预测）使用的遮盖符号 |
-| PAD | 6 | padding（补齐符号） |
+| 输入单位 | single base | A/C/G/T/N/MASK/PAD共7个token |
+| 最大上下文 | 8192 bp | 当前正式Stage B训练长度 |
+| hidden size | 1024 | 每个位置的隐藏维度 |
+| 层数 | 32 | HyenaLite残差块数量 |
+| 卷积核 | 127 | 局部序列混合范围 |
+| 注意力间隔 | 每4层 | 共8个分块注意力层 |
+| attention chunk | 512 bp | 控制显存和局部精确交互 |
+| dropout | 0.05 | 正则化 |
+| 参数精度 | bf16训练 | 3×A100 DDP |
+| gradient checkpointing | 开启 | 用额外计算换显存 |
 
-N/PAD（未知碱基/补齐符号）不参与主 MLM loss（遮盖预测损失）。
-
-解释: 使用单碱基而不是 k-mer（固定长度片段）或 BPE（子词切分），是为了避免一个 SNP（单核苷酸变异）改变多个 token 边界。
-
-评估: 单碱基序列更长，训练更贵；但对变异效应、剪接边界和单碱基注释任务更自然。对于本项目的作物功能基因组任务，这是合理取舍。
-
-### 1.2 batch（批次）字段
-
-| 字段 | 形状/类型 | 用途 |
-|---|---|---|
-| `input_ids` | `[B, L]` | 输入碱基 token；Stage B 的 `L≤8192`，Stage C1 的 `L≤65536`。 |
-| `labels` | `[B, L]` | MLM（遮盖碱基预测）标签，非 mask 位置为 `-100`。 |
-| `attention_mask` | `[B, L]` | 有效 token 为真，PAD 为假。 |
-| `region_labels` | `[B]` | 每个窗口一个区域弱标签，如 coding（编码区）、promoter（启动子）等。 |
-
-解释: 训练输入窗口已经在本服务器按 Stage（阶段）固化，但 mask（遮盖）、labels（标签）和 batch order（批次顺序）在训练服务器动态生成。
-
-评估: 固化输入提高可复现性，动态 mask/label 提高训练多样性。这个设计也让训练服务器只需要接收 `training_server_transfer/`，不用访问原始 plantDB（植物数据库）全量数据。
-
-## 2. 主干结构
-
-当前配置来自 `training_server_transfer/configs/model_large.json`：
-
-| 参数 | 当前值 | 解释与评估 |
-|---|---:|---|
-| `d_model` | 1024 | hidden size（隐藏维度）；容量足够，但仍能在单张 A100 40G 上训练。 |
-| `n_layers` | 32 | 层数；比小模型更有表达力，训练成本可控。 |
-| `conv_kernel` | 127 | HyenaLite（轻量长卷积）卷积核；有助于局部到中程模式。 |
-| `attention_every` | 4 | 每 4 层插入 local attention（局部注意力）；平衡显存与局部精确建模。 |
-| `attention_heads` | 8 | 注意力头数；用于局部片段内部交互。 |
-| `attention_chunk_size` | 512 | 局部注意力块长度；避免全局注意力显存过高。 |
-| `dropout` | 0.05 | dropout（随机失活）防过拟合。 |
-| `gradient_checkpointing` | true | 梯度检查点，节省显存，增加一点计算时间。 |
-
-解释: 当前 HyenaLite block 提供 kernel=127 的局部序列混合；chunk attention 补充剪接位点、motif（短序列模式）和边界任务所需的精确交互。64K 的跨块依赖由下一节的 dilation schedule 建立。
-
-评估: 固定分块版本适合 8K，但梯度审计证明它不能把 token 级依赖扩展到完整 64K。Stage C1 因此使用独立配置和膨胀连接；128K 仍需重新做依赖、显存和下游有效性 gate。
-
-### 2.1 Stage C1 64K 连接结构
-
-Stage C1 使用 `training_server_transfer/configs/model_stage_C1_64k.json`，参数形状与 8K 模型完全相同。8 个注意力层的 dilation（跨块间隔）依次为 `1/2/4/8/16/32/64/128`，chunk size 保持 512。
-
-等拓扑梯度实验保留真实的 128 个 chunk，只把 chunk size 缩小到 64：旧固定分块结构只覆盖中心附近 992/8192 个输入位置，新结构覆盖 8192/8192。按 8 倍 chunk size 映射后，对应真实 65,536 bp 连接拓扑。该证据证明远距离信息存在计算路径，但不等于下游任务已证明 64K 优于 8K。
-
-## 3. 训练目标和 loss（损失函数）
-
-### 3.1 MLM loss（遮盖碱基预测损失）
-
-- mask probability（遮盖比例）: 0.15。
-- `force_mask_per_sequence=true`，避免某些短有效窗口完全没有 mask。
-- 主 loss weight（损失权重）: 1.0。
-
-解释: MLM（masked language modeling，遮盖碱基预测）是主预训练目标。模型需要根据上下文恢复被遮盖的碱基。
-
-评估: MLM loss 是最可信的预训练学习信号；后续 best checkpoint（最佳模型存档点）也主要依赖它。若 MLM loss 不下降，其他辅助任务结果都不应过度解释。
-
-### 3.2 RC consistency（反向互补一致性）
-
-- `rc_consistency_weight=0.02`。
-- `rc_selection_weight=0.02`。
-- selection loss（选择损失）中用小权重加入 RC loss（反向互补损失）。
-
-解释: DNA 双链有 reverse-complement（反向互补）关系。RC consistency（反向互补一致性）要求模型对正向序列和反向互补序列的表示/预测更一致。
-
-评估: 当前 v2 可以称为 RC-aware / RC-consistency（反向互补感知/一致性约束）。是否宣称严格 RC-equivariant（反向互补等变）必须以后续代码审计、数学定义和消融验证为准；文档和论文不要过度声明。
-
-### 3.3 Region auxiliary head（区域辅助头）
-
-区域类别:
-
-- background（背景）
-- coding（编码区）
-- gene_body（基因体）
-- promoter（启动子）
-- splice（剪接区）
-- tes（转录终止区）
-- utr（非翻译区）
-
-配置:
-
-- `region_classification_weight=0.05`。
-- `region_label_smoothing=0.05`。
-
-解释: 区域辅助头给模型一个弱监督信号，让表示更关注结构注释区域。但这些标签来自预训练数据构建过程，不是独立外部验证。
-
-评估: 这个头只能作为 weak supervision（弱监督）和 sanity check（健康检查）。正式结论必须通过独立下游 benchmark（基准评测）证明；不能说“region_acc（区域准确率）高，所以模型学会了作物基因结构”。
-
-## 4. checkpoint（模型存档点）和 early stopping（早停）
-
-原始训练配置来自 `training_server_transfer/configs/train_stage_B.json`；step1570 发生 CUDA OOM（显存不足）后，当前恢复训练使用 `training_server_transfer/configs/train_stage_B_resume_mb4_accum9.json`：
-
-| 项 | 当前值 | 解释 |
-|---|---:|---|
-| `max_steps` | 50000 | 最大训练步数，不代表一定跑满。 |
-| `micro_batch_size` | 4 | OOM 后恢复配置；单次显卡小批量从 5 降到 4。 |
-| `grad_accum_steps` | 9 | OOM 后恢复配置；梯度累积从 7 升到 9，使有效 batch（有效批量）约为 36。 |
-| `learning_rate` | 1e-4 | 学习率上限。 |
-| `warmup_steps` | 1000 | 学习率预热步数。 |
-| `save_every` | 1000 | 每 1000 step 保存 checkpoint（模型存档点）。 |
-| `eval_every` | 1000 | 每 1000 step 做 validation（验证）。 |
-| `early_stopping_min_steps` | 5000 | step5000 前不触发早停。 |
-| `early_stopping_patience_evals` | 3 | 连续 3 次验证无有效改善才早停。 |
-| `early_stopping_min_delta` | 0.002 | 小于 0.002 的改善不算有效改善。 |
-
-选择指标:
+## 训练目标
 
 ```text
-selection_loss = val_mlm_loss + 0.02 × val_rc_loss
+训练总目标 = MLM + 0.02 × RC consistency + 0.05 × region auxiliary
+checkpoint选择 = validation MLM + 0.02 × validation RC
 ```
 
-解释: best checkpoint（最佳模型存档点）按 selection loss（选择损失）保存，而不是按 final step（最后一步）保存。region loss（区域辅助损失）不参与 best checkpoint 选择。
+- MLM（掩码碱基预测）是主学习目标。
+- RC consistency（反向互补一致性）约束正反链行为，但不能仅凭该损失宣称严格数学等变。
+- region auxiliary（区域辅助头）有background、coding、gene body、promoter、splice、TES、UTR七类，只是弱监督健康信号，不是独立正式基准。
 
-评估: 这是防止过拟合和防止辅助标签虚高的关键。正式下游评测应优先使用 best checkpoint，而不是随手使用最后 checkpoint。
+## 当前训练协议
 
-## 5. 下游接口
+- 从step14000完整恢复模型、优化器和步数。
+- 3个DDP rank，每rank micro-batch=4、梯度累积=3，全局有效batch=36。
+- 同长度桶内执行全局无放回抽样；一个coverage cycle结束后才允许再次使用窗口。
+- 每500步永久保存完整checkpoint，每1000步做固定validation。
+- 目标step50000，早停关闭；best checkpoint仍按validation selection loss记录。
 
-模型可提供:
+## 下游接口
 
-- frozen embedding（冻结表示）: 不更新主模型，只训练轻量分类器或 nearest centroid（最近中心分类器）。
-- fine-tune（微调）: 在下游任务上更新部分或全部模型参数。
-- per-base score（单碱基评分）: 用于 splice（剪接）、TSS/TES（转录起止位点）、variant effect（变异效应）等位置敏感任务。
-- sequence embedding（序列向量表示）: 用于 promoter（启动子）、lncRNA/mRNA 分类、区域分类等任务。
+- sequence embedding：启动子、lncRNA、表达预测等序列级任务。
+- token embedding：exon/intron/UTR逐碱基分割和边界任务。
+- frozen encoder + probe：冻结主干后训练统一轻量头，用于公平比较。
+- 后续fine-tuning必须使用同数据、同split和同调参预算，不能给本模型额外优势。
 
-解释: frozen embedding（冻结表示）适合快速检查表示是否有信号；fine-tune（微调）更接近实际应用，但更容易过拟合，需要严格 split（划分）。
+## 结论边界
 
-评估: 第一阶段应先用 frozen embedding 和轻量 baseline（基线）判断 checkpoint 是否值得，再做正式 fine-tune。不要用一个小样本 probe（探针评测）直接宣称模型已优于公开模型。
-
-## 6. 模型边界和论文表述边界
-
-可以说:
-
-- 模型是 crop-specific（作物专用）预训练。
-- 使用 single-base tokenization（单碱基输入）。
-- 使用局部 HyenaLite depthwise convolution + chunk attention 处理 8K；Stage C1 用无新增参数的 dilated chunk attention 扩展到 64K 连接拓扑。
-- 使用 RC consistency（反向互补一致性）作为小权重约束。
-- 使用 region auxiliary head（区域辅助头）作为弱监督训练辅助。
-- best checkpoint（最佳模型存档点）由 MLM+RC 选择指标决定。
-
-不应过度说:
-
-- 不应把 region_bucket（区域桶）辅助任务当作独立 benchmark（基准评测）。
-- 不应把旧 formal CaduceusRC（旧反向互补一致性模型）结果混入 v2 Stable 的 from-scratch（从头训练）结论。
-- 不应在没有严格消融前宣称 RC-equivariant（反向互补等变）架构带来决定性收益。
-- 不应只凭 train loss（训练损失）下降宣称模型成功。
-
-评估: 这些边界能保护论文结论。模型结构是研究载体，最终可信度来自独立下游任务、公开基线和消融。
-
-## 7. 后续架构扩展路线
-
-优先级:
-
-1. 先完成 v2 Stable 8K 的 validation（验证）、best checkpoint（最佳模型存档点）和第一波 benchmark（基准评测）。
-2. 若 8K 有收益，再扩展 64K/128K context（上下文长度）。
-3. 若 RC consistency（反向互补一致性）消融显示收益，再考虑更显式的 cross-strand communication（跨链通信）模块。
-4. 若 EDTA（转座元件注释软件）可靠完成，再纳入 TE/repeat（转座元件/重复序列）专门 head 或下游任务。
-
-解释: 架构扩展必须由结果驱动，而不是为了复杂而复杂。
-
-评估: 当前最重要的不是加模块，而是证明 v2 Stable 在独立下游任务中确实比基线强。只有基线扎实后，扩展模块才有解释价值。
+当前架构的创新重点是作物专用语料、区域感知预训练和作物基准，而不是宣称全新的序列算子。训练loss下降只说明优化正常；论文结论必须来自固定下游任务、强公开模型基线、跨属划分和多seed稳定性。

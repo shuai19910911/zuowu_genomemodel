@@ -1,4 +1,0 @@
-task_id	train_0	train_1	val_0	val_1	samples_tsv
-promoter_TSS	256	256	128	128	[not published: sample-level internal paths omitted]
-TES_polyA	256	256	128	128	[not published: sample-level internal paths omitted]
-splice_acceptor	256	256	128	128	[not published: sample-level internal paths omitted]

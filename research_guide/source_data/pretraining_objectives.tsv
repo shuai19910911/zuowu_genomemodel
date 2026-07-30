@@ -1,8 +1,0 @@
-objective_id	version	target	loss	weight	selection_use	status	boundary
-MLM	current	随机遮盖15%的有效A/C/G/T位置并恢复原碱基	cross-entropy over masked positions	1.0	yes	implemented	自监督序列建模，不直接等于功能标签
-RC-consistency	current	正向与反向互补方向的对齐分布一致	symmetric KL divergence over valid positions	0.02	0.02	implemented	主要验证链方向稳健性；random-init也可能因结构获得一致性
-region-classification	current	每个窗口的7类来源区域	label-smoothed cross-entropy	0.05	no	implemented	窗口级辅助标签，不是逐碱基结构标注
-token-region-segmentation	recommended_v3	逐碱基/分块预测promoter/UTR/CDS/intron/splice/TES/background	class-balanced focal or cross-entropy + Dice	TBD by validation-only pilot	candidate	not_implemented	必须对预训练与下游benchmark标签来源做隔离
-boundary-distance	recommended_v3	到TSS/TES/splice/TE边界的有符号距离或区间	Huber + boundary classification	TBD	candidate	not_implemented	只用train assemblies生成标签
-multi-context-consistency	recommended_v3	同一中心位点在1K/8K/32K/64K/128K上下文保持局部表示一致，同时允许远端全局表示增益	stop-gradient contrastive/cosine consistency	TBD	candidate	not_implemented	不能强迫所有层完全相同而抹除长程信息
-allele-pair-contrastive	recommended_v3	同一locus ref/alt或同源单倍型的表示差异与真实序列变化对应	contrastive + delta reconstruction	TBD	candidate	not_implemented	若使用功能效应标签则属于监督适配，不得混入相同formal test

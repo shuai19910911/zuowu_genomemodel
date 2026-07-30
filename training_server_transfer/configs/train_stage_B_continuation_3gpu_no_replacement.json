@@ -1,0 +1,67 @@
+{
+  "stage": "Stage_B_continuation_3gpu_no_replacement",
+  "stage_dir": "inputs/Stage_B",
+  "max_steps": 50000,
+  "micro_batch_size": 4,
+  "grad_accum_steps": 3,
+  "expected_world_size": 3,
+  "ddp_static_graph": false,
+  "ddp_gradient_as_bucket_view": true,
+  "learning_rate": 0.0001,
+  "min_learning_rate": 0.00001,
+  "weight_decay": 0.1,
+  "warmup_steps": 1000,
+  "save_every": 500,
+  "eval_every": 1000,
+  "eval_batches": 64,
+  "num_workers": 0,
+  "precision": "bf16",
+  "seed": 20260609,
+  "eval_seed": 20262609,
+  "sampler_mode": "global_no_replacement",
+  "sampler_seed": 20260729,
+  "allow_sampler_reset_on_resume": true,
+  "stateless_step_rng": true,
+  "output_dir": "runs/Stage_B_continuation_3gpu_no_replacement_from_step14000",
+  "allow_partial_resume": false,
+  "resume_optimizer": true,
+  "reset_step_on_resume": false,
+  "early_stopping_enabled": false,
+  "early_stopping_min_steps": 0,
+  "early_stopping_patience_evals": 0,
+  "early_stopping_min_delta": 0.0,
+  "resume_contract": {
+    "checkpoint": "runs/Stage_B_cropgenome_fm_v2_stable/checkpoints/step_00014000.pt",
+    "checkpoint_sha256": "732ab039ed2b8d344a61de6b6f4b72c94f5f0cd5e5a9d2b4a0735ef2c9ab74bc",
+    "checkpoint_step": 14000,
+    "resume_mode": "exact",
+    "sampler_epoch_starts_fresh": true
+  },
+  "downstream_contract": {
+    "trigger_every_steps": 1000,
+    "available_core_tasks": [
+      "splice_donor_acceptor",
+      "promoter_TSS",
+      "TES_polyA"
+    ],
+    "available_external_tasks": [
+      "lncrna_multispecies",
+      "enhancer_cassava_proseq",
+      "gene_expression_arabidopsis_thaliana",
+      "gene_expression_glycine_max",
+      "gene_expression_oryza_sativa",
+      "gene_expression_solanum_lycopersicum",
+      "gene_expression_zea_mays"
+    ],
+    "requested_external_task_count": 7,
+    "scope_confirmed": true,
+    "checkpoint_selection_by_researcher": true,
+    "test_results_participate_in_checkpoint_selection": true
+  },
+  "launch_gate": {
+    "protocol_target": "step50000_on_original_cosine_timeline",
+    "protocol_target_confirmed": true,
+    "a100_gpu_indices": [0, 1, 2],
+    "require_explicit_launch_authorization": true
+  }
+}
