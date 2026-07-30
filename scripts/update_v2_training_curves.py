@@ -172,12 +172,12 @@ def write_png(path: Path, metric_key: str, title: str, description: str, train_p
     fig.savefig(path, format="png", facecolor="white")
     plt.close(fig)
 
-def write_summary(path: Path, rows, figures_dir):
+def write_summary(path: Path, rows, figures_dir, metrics, artifact_prefix):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh, delimiter="\t", lineterminator="\n")
         writer.writerow(["metric", "train_points", "val_points", "latest_train_step", "latest_train_value", "latest_val_step", "latest_val_value", "png"])
-        for key, _, _ in METRICS:
+        for key, _, _ in metrics:
             tr = metric_points(rows, key, "train")
             va = metric_points(rows, key, "val")
             writer.writerow([
@@ -188,7 +188,7 @@ def write_summary(path: Path, rows, figures_dir):
                 f"{tr[-1][1]:.8g}" if tr else "",
                 va[-1][0] if va else "",
                 f"{va[-1][1]:.8g}" if va else "",
-                str(figures_dir / f"v2_stable_stageB_{key}.png"),
+                str(figures_dir / f"{artifact_prefix}_{key}.png"),
             ])
 
 def write_readme(path: Path, log_path: Path, rows, source_rel: str, summary_rel: str):
@@ -235,20 +235,31 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--log", required=True, action="append", help="Training log path. Repeat to merge resumed runs; later resume logs truncate earlier rows after their start_step.")
     p.add_argument("--out-dir", default="docs/training_progress")
+    p.add_argument("--artifact-prefix", default="v2_stable_stageB", help="Filename prefix for TSV and PNG artifacts. Use a generation-specific prefix for continuation runs.")
+    p.add_argument("--title-prefix", default="CropGenome-FM v2 Stable Stage B", help="English plot-title prefix.")
+    p.add_argument("--metrics", default=",".join(key for key, _, _ in METRICS), help="Comma-separated metric keys to plot. Source TSV always retains all metrics.")
     args = p.parse_args()
     log_paths = [Path(path) for path in args.log]
     out_dir = Path(args.out_dir)
     source_dir = out_dir / "source_data"
     figures_dir = out_dir / "figures"
     rows = merge_logs(log_paths)
-    source_path = source_dir / "v2_stable_stageB_metrics.tsv"
-    summary_path = source_dir / "v2_stable_stageB_curve_summary.tsv"
+    metric_map = {key: (key, title, description) for key, title, description in METRICS}
+    requested = [key.strip() for key in args.metrics.split(",") if key.strip()]
+    unknown = [key for key in requested if key not in metric_map]
+    if unknown:
+        p.error(f"unknown metric key(s): {', '.join(unknown)}")
+    if not requested:
+        p.error("--metrics must select at least one metric")
+    selected_metrics = [metric_map[key] for key in requested]
+    source_path = source_dir / f"{args.artifact_prefix}_metrics.tsv"
+    summary_path = source_dir / f"{args.artifact_prefix}_curve_summary.tsv"
     write_source_tsv(source_path, rows)
-    for key, title, description in METRICS:
+    for key, title, description in selected_metrics:
         train_points = metric_points(rows, key, "train")
         val_points = metric_points(rows, key, "val")
-        write_png(figures_dir / f"v2_stable_stageB_{key}.png", key, f"CropGenome-FM v2 Stable Stage B — {title}", description, train_points, val_points)
-    write_summary(summary_path, rows, Path("figures"))
+        write_png(figures_dir / f"{args.artifact_prefix}_{key}.png", key, f"{args.title_prefix} — {title}", description, train_points, val_points)
+    write_summary(summary_path, rows, Path("figures"), selected_metrics, args.artifact_prefix)
     print(f"v2_curves: rows={len(rows)} out_dir={out_dir}")
 
 

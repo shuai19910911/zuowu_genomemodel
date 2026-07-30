@@ -1,0 +1,3 @@
+metric	train_points	val_points	latest_train_step	latest_train_value	latest_val_step	latest_val_value	png
+loss	479	4	18790	1.017608	18000	1.1120432	figures/v2_stageB_continuation_no_replacement_loss.png
+selection_loss	479	4	18790	0.95563411	18000	1.0358543	figures/v2_stageB_continuation_no_replacement_selection_loss.png

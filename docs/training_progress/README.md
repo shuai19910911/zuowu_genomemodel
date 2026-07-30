@@ -12,6 +12,9 @@
 | [figures/v2_stable_stageB_loss.png](figures/v2_stable_stageB_loss.png) | v2 Stable total loss（总损失）曲线 | 看训练是否稳定下降。 |
 | [figures/v2_stable_stageB_selection_loss.png](figures/v2_stable_stageB_selection_loss.png) | selection loss（选择损失）曲线 | 看 checkpoint 选择指标。 |
 | [source_data/v2_stable_stageB_metrics.tsv](source_data/v2_stable_stageB_metrics.tsv) | 训练/验证指标原始轻量表 | 训练曲线源数据。 |
+| [figures/v2_stageB_continuation_no_replacement_loss.png](figures/v2_stageB_continuation_no_replacement_loss.png) | 三GPU无放回续训total loss | 灰色原始点、蓝色滚动中位数、红色validation和紫色最新点。 |
+| [figures/v2_stageB_continuation_no_replacement_selection_loss.png](figures/v2_stageB_continuation_no_replacement_selection_loss.png) | 三GPU无放回续训selection loss | 当前续训checkpoint选择指标趋势。 |
+| [source_data/v2_stageB_continuation_no_replacement_metrics.tsv](source_data/v2_stageB_continuation_no_replacement_metrics.tsv) | 当前续训训练/验证指标 | 新训练代际独立源数据，不覆盖历史曲线。 |
 
 ## 历史/辅助结果
 
@@ -23,4 +26,4 @@
 
 ## 当前阶段结论
 
-训练运行到 step17000 后早停；唯一 8K 最终版和后续长上下文训练基座统一为 `checkpoint_best.pt = step14000`。修复后的 Stage C1 已通过执行、远程依赖、目标归一化和固定验证选择四项 gate，并在 A100 GPU2 正式运行；step17000 只保留为论文敏感性对照。
+2026年7月21日冻结的publication-v2正式证据继续绑定step14000。新的Stage B三GPU全局无放回续训已从step14000启动并继续向step50000运行，每500步永久保存checkpoint。A类10项和B类7项全部保留，待17项协议冻结后手动评估候选checkpoint。历史Stage C1只完成64K计算gate并停在step569，不是当前运行。

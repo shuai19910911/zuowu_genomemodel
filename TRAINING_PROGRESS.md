@@ -1,28 +1,27 @@
 # CropGenome-FM 训练进展与评估
 
-更新时间：2026-07-10 19:03 CST
+更新时间：2026-07-30 09:03 CST
 
 本文件是 GitHub 上的训练进展主入口。详细方案见 `PROJECT_PLAN.md`，模型结构见 `MODEL_ARCHITECTURE.md`，本次正式结果的小白版逐项解读见 [CropGenome-Bench v1 A100 正式评估](docs/training_progress/cropgenome_bench_v1_formal_a100/README.md)。
 
 ## 1. 当前一句话结论
 
-`CropGenome-FM-v2-Stable-8K` 训练运行到 step17000 后 early stop（早停）并冻结，**唯一 8K 最终版统一为 early-stop `checkpoint_best.pt = step14000`**。修复后的 Stage C1 已同时通过真实 64K 执行、64K 依赖跨度、token-aware objective（按有效 token 加权目标）和固定验证选择四项 gate；corrected 正式训练正在 A100 GPU2 运行。
+2026年7月21日冻结的publication-v2正式证据仍绑定`CropGenome-FM step14000`；新的Stage B三GPU全局无放回续训已从step14000启动，当前曲线同步到step18790，最近一次validation为step18000且刷新当前最佳selection loss。训练继续到目标step50000，每500步永久保存完整checkpoint。下游不再要求自动触发：A类10项和B类7项已全部保留，待17项协议冻结后手动评估候选checkpoint。
 
 ## 2. 当前状态表
 
 | 项目 | 当前值 | 解释 |
 |---|---:|---|
-| 主模型 | `CropGenome-FM-v2-Stable-8K` | 8K context（8192 碱基上下文）作物基因组预训练模型。 |
-| Stage B 状态 | step17000 early stop | 当前阶段已冻结，不再盲目加训或扫描更多 checkpoint。 |
-| 最新 train loss | 1.0611 | step17000 训练损失。 |
-| 最新 val loss | 1.1410 | step17000 验证总损失。 |
-| 最新 val selection loss | 1.0729 | `MLM loss + 0.02 × RC loss`。 |
-| Stage B 8K 最终版 | early-stop `checkpoint_best.pt = step14000` | 唯一续训基座；SHA-256=`c81bce39...c83fed`。 |
+| 正式结果基座 | `CropGenomeFM_step14000` | publication-v2冻结模型；历史正式结论不被续训追溯修改。 |
+| 当前训练代际 | `Stage_B_continuation_3gpu_no_replacement_from_step14000` | 三GPU DDP；coverage cycle内全局无放回。 |
+| 最新 train step/loss | 18790 / 1.0176 | 训练原始点波动较大，应结合rolling median（滚动中位数）观察。 |
+| 最新 validation | step18000 | val loss=1.1120；val selection loss=1.0359。 |
+| 当前best validation | step18000 | `selection_loss = MLM loss + 0.02 × RC loss`；早停关闭。 |
+| 保存/目标 | 每500步 / step50000 | 完整checkpoint永久保留，不滚动删除。 |
 | 正式 benchmark | 3 个 GFF-derived hard-negative 任务完成 | promoter/TSS、splice donor/acceptor、TES/poly(A)。 |
-| 正式主比较 | k-mer、random-init、DNABERT-2、step14000、step17000 | 读取 test 前锁定。 |
-| 补充公开模型 | NT-v2 100M multi-species | 同口径运行，但因 test 后添加标记为 post-hoc supplementary。 |
-| Stage C1 64K gate | 4/4 PASS | 真实执行、远程依赖、目标归一化、固定验证选择全部通过。 |
-| Stage C1 正式训练 | running | A100 GPU2；launcher PID=54388，training PID=55762；只发布轻量状态，不上传运行日志。 |
+| publication-v2完整评估 | 核心3类＋外部7类 | 旧step14000正式证据已完成；不代表新续训checkpoint已评估。 |
+| 已选下游面板 | A类10项＋B类7项 | 全部保留；等待数据与协议冻结后手动执行。 |
+| 历史Stage C1 64K | Gate 4/4 PASS，训练停在step569 | 无validation、无正式下游结果；不是当前运行。 |
 | GitHub 上传策略 | 只传轻量产物 | Markdown、聚合 TSV/JSON、PNG；不上传原始数据、checkpoint、cache、逐样本预测或日志。 |
 
 ## 3. GFF-derived CropGenome-Bench v1 正式结果
@@ -79,7 +78,7 @@
 - [跨任务平均表](docs/training_progress/cropgenome_bench_v1_formal_a100/source_data/method_mean_balanced_accuracy.tsv)
 - [Stage C1 gate JSON](docs/training_progress/cropgenome_bench_v1_formal_a100/source_data/stage_c1_64k_gate.json)
 
-## 4. Stage C1 64K gate
+## 4. 历史Stage C1 64K gate
 
 A100 GPU2 真实执行结果：
 
@@ -95,7 +94,7 @@ A100 GPU2 真实执行结果：
 | 峰值 allocated / reserved 显存 | 26,416.9 / 27,946.0 MiB |
 | forward/backward/optimizer step | PASS |
 
-结论：四项前置 gate 均通过，corrected Stage C1 已正式启动。当前证明“真实 64K 拓扑可用且优化语义正确”，但仍不能声称 64K 比 8K 的下游任务更准；该结论必须等待 Stage C1 独立验证和长程任务。
+结论：四项前置gate均通过，证明“真实64K拓扑可用且优化语义正确”；但该历史运行停在step569、未到第一次validation，当前也没有继续运行。因此不能声称64K训练完成或64K下游优于8K。
 
 ## 5. 训练曲线
 
@@ -115,6 +114,22 @@ A100 GPU2 真实执行结果：
 
 `selection_loss = MLM loss + 0.02 × RC loss`。region loss/accuracy（区域辅助损失/准确率）只作健康检查，不作为论文主证据。
 
+### 5.3 三GPU无放回续训：Total loss
+
+![Stage B continuation total loss](docs/training_progress/figures/v2_stageB_continuation_no_replacement_loss.png)
+
+- 图：[docs/training_progress/figures/v2_stageB_continuation_no_replacement_loss.png](docs/training_progress/figures/v2_stageB_continuation_no_replacement_loss.png)
+- 灰线为原始训练点，蓝线为21点滚动中位数，红色菱形为每1,000步validation，紫色星形为最新训练点。
+
+### 5.4 三GPU无放回续训：Selection loss
+
+![Stage B continuation selection loss](docs/training_progress/figures/v2_stageB_continuation_no_replacement_selection_loss.png)
+
+- 图：[docs/training_progress/figures/v2_stageB_continuation_no_replacement_selection_loss.png](docs/training_progress/figures/v2_stageB_continuation_no_replacement_selection_loss.png)
+- 源数据：[docs/training_progress/source_data/v2_stageB_continuation_no_replacement_metrics.tsv](docs/training_progress/source_data/v2_stageB_continuation_no_replacement_metrics.tsv)
+- 曲线摘要：[docs/training_progress/source_data/v2_stageB_continuation_no_replacement_curve_summary.tsv](docs/training_progress/source_data/v2_stageB_continuation_no_replacement_curve_summary.tsv)
+- 当前4个validation点从step15000到step18000连续改善selection loss，但该趋势只代表预训练验证，不代替完整下游任务。
+
 ## 6. 证据分层与历史入口
 
 | 目录 | 用途 | 当前边界 |
@@ -128,42 +143,30 @@ A100 GPU2 真实执行结果：
 
 ## 7. 当前决策
 
-1. Stage B 停止在 step17000，不继续盲目加训或扩大 checkpoint test 扫描。
-2. 正式报告保留 step14000 和 step17000，明确任务级差异。
-3. 唯一 8K 最终版为 early-stop step14000；Stage C1 使用 `checkpoint_stage_B_8k_final.pt → checkpoint_best.pt` 初始化，不再用 formal test 任务差异反向切换续训基座。
-4. Stage C1 只继承 step14000 模型权重，重置 optimizer（优化器）、global step（全局步数）和 best tracking（最佳模型跟踪）；新阶段 warmup=6000，最早 step12000（约 1.97 遍训练窗口）允许早停，连续 4 次验证无至少 0.002 改善则停止。
-5. 论文主表不能写“所有任务都超过公开模型”，因为 TES/poly(A) 低于 NT-v2。
-6. 下一轮优先补长上下文真正相关的任务、TE/基因边界任务和独立模型 seed，而不是继续在这三个 test 任务上调参。
+1. publication-v2正式报告继续绑定step14000，不用新训练结果追溯改写旧final manifest。
+2. 当前Stage B续训从step14000出发，使用三GPU全局无放回抽样，目标step50000，早停关闭。
+3. 所有每500步checkpoint永久保留；候选身份必须绑定run ID、路径、SHA-256和step，不能只看同名step目录。
+4. 自动下游队列暂不作为阻塞；17项面板设计完成后手动运行候选checkpoint。
+5. A类10项和B类7项全部保留。新增B类任务尚无结果，不能写成已经验证。
+6. 论文主表不能写“所有任务都超过公开模型”，因为旧正式结果中PlantCAD2和PlantCaduceus在部分外部任务更强。
 
 ## 8. 下一步计划
 
 | 优先级 | 任务 | 完成标准 |
 |---|---|---|
-| P0 | 监控 Stage C1 64K 正式训练 | 已从唯一 8K 最终版 step14000 启动；等待首个 step10 进度和 step500 原子 checkpoint，不改 formal test。 |
-| P0 | Stage C1 validation-only 监控 | 只在预选 checkpoint 上跑验证，不反复触碰正式 test。 |
-| P1 | 长程任务 | gene boundary、长内含子/外显子结构或 TE boundary 显示 64K 相对 8K 的收益。 |
-| P1 | 扩展公开模型 | 在资源允许时补充其他可运行 DNA/植物模型；新模型均标明 predeclared 或 post-hoc。 |
-| P1 | 独立训练稳定性 | 至少增加独立预训练或微调 seeds，不能用确定性 100% probe 冒充模型稳定性。 |
-| P1 | TES 标签增强 | 引入可靠转录组/poly(A) 证据后重新构建新版本数据，旧 test 不原地修改。 |
+| P0 | 继续三GPU无放回续训 | 每500步永久checkpoint、每1,000步validation，目标step50000。 |
+| P0 | 冻结17项下游注册表 | A类10项沿用现有冻结数据；B类7项完成标签、split、指标和QC合同。 |
+| P0 | 等待EDTA完成 | 为TE边界与TE超家族任务提供高置信标签；不运行RepeatModeler。 |
+| P1 | 构建结构任务 | exon/intron/UTR分割、长内含子配对、完整基因边界、外显子归属。 |
+| P1 | 冻结迁移协议 | leave-one-species/genus-out及低同源审计，不把物种分类捷径当主结果。 |
+| P1 | 手动checkpoint评估 | 面板冻结后只重算候选CropGenome-FM表征和probe，复用哈希一致的公开基线。 |
 
-## 9. Stage C1 64K 唯一启动入口
+## 9. 当前续训与公开边界
 
-Stage C1 package preflight（运行包预检查）已通过：21 shards（分片）、20,470,165,504 tokens（碱基 token）、779,304 windows（窗口）。启动脚本会自动加载 `checkpoint_stage_B_8k_final.pt → checkpoint_best.pt = step14000`，不需要再手写 `--resume`。
-
-非交互 SSH 会优先解析 `PYTHON_BIN_OVERRIDE`/`CONDA_ENV_PREFIX`，其次使用可验证的 mamba 或 `$HOME/.local/share/mamba/envs/zuowu_genomemodel/bin/python`；preflight 会在使用 GPU 前打印实际 `sys.executable` 并导入 NumPy/PyTorch。
-
-真实 64K 单步 gate：
-
-```bash
-cd training_server_transfer
-CUDA_VISIBLE_DEVICES=2 DRY_RUN=1 bash scripts/run_stage.sh Stage_C1 1
-```
-
-正式训练：
-
-```bash
-cd training_server_transfer
-CUDA_VISIBLE_DEVICES=2 bash scripts/run_stage.sh Stage_C1 1
-```
-
-资源口径：单张 A100 40GB，`micro_batch_size=1`，`grad_accum_steps=128`；禁止使用 GPU0，启动前必须同时确认 `fuser -v /dev/nvidia2` 和 `nvidia-smi` 没有其他 compute process（计算进程）。
+- 训练代际：`Stage_B_continuation_3gpu_no_replacement_from_step14000`。
+- 起点/目标：step14000 → step50000。
+- 全局有效batch：每rank micro-batch 4 × 梯度累积3 × 3 ranks = 36。
+- 抽样：按真实长度分桶，一个coverage cycle内全局无放回；跨cycle允许再次使用窗口。
+- checkpoint：每500步完整永久保存；validation：每1,000步。
+- 公开仓库只保存本页、轻量TSV和PNG。训练日志、checkpoint、sampler状态、GPU信息和完整评估目录均不上传。
+- 训练曲线下降是健康证据，不是论文性能结论；最终模型仍需17项固定下游面板和强公开模型基线验证。
