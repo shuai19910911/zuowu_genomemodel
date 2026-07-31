@@ -1,6 +1,6 @@
 # CropGenome-FM
 
-更新时间：2026-07-31 08:46 CST
+更新时间：2026-07-31 18:06 CST
 
 CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库只保留可公开、可读、可核验的轻量材料；checkpoint、embedding缓存、逐样本预测和大日志不上传。
 
@@ -8,9 +8,10 @@ CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库�
 
 |模块|状态|最新事实|
 |---|---|---|
-|Stage B续训|RUNNING|step `25090/50000`；最新验证step25000；3×A100进程真实存活|
+|Stage B续训|RUNNING|step `27590/50000`；最新验证及当前best为step27000；3×A100进程真实存活|
 |step19000非EDTA下游|COMPLETE|A1–A10与B13–B17全部完成；10/10 embedding marker、2/2 evaluation marker、FINAL_RECEIPT闭包|
-|EDTA结构注释|RUNNING|q04：42个运行、77个等待、本轮0个完成；RepeatModeler禁用|
+|下游v4体系|CODE READY|56项任务、18个模型/基线、1008行矩阵；已完成代表性真实数据与模型链路|
+|EDTA结构注释|RUNNING|q04：2个完成、50个运行、67个等待；RepeatModeler禁用|
 |B11/B12|DEFERRED|等待正式EDTA TE标签，未使用替代标签补数|
 
 2080Ti节点现在没有本轮下游程序是正常状态：非EDTA计算已完成，控制器exit=0，GPU已释放，而不是任务仍显示active但实际停跑。
@@ -51,12 +52,13 @@ CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库�
 
 ## 训练进展
 
-- [训练状态、11个validation点和解释](TRAINING_PROGRESS.md)
+- [训练状态、13个validation点和解释](TRAINING_PROGRESS.md)
+- [56项下游任务通俗版总览与当前进展](DOWNSTREAM_TASKS_CN.md)
 - [总loss曲线](docs/training_progress/figures/stage_b_continuation_loss.png)
 - [selection loss曲线](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
 - [曲线源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
 
-最新验证step25000：`val_selection_loss=1.0185342`，是当前最佳验证点；相对step15000的1.0402384下降约2.09%。训练仍在继续，不能把step25090称为最终模型。
+最新验证step27000：`val_selection_loss=1.0156857`，是当前最佳验证点；相对step15000的1.0402384下降约2.36%。训练仍在继续，不能把step27590称为最终模型。
 
 ## 其他材料
 
