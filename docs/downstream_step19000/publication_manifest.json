@@ -1,0 +1,61 @@
+{
+  "status": "ok",
+  "created_at": "2026-07-31T08:36:28+08:00",
+  "files": [
+    {
+      "path": "README.md",
+      "size_bytes": 4929,
+      "sha256": "c09da4a2a0e1fa45f8f58e621c3b8bdbecaa3c6eee330d11e87107933ae87d77"
+    },
+    {
+      "path": "figures/b_main_vs_low_homology.png",
+      "size_bytes": 79206,
+      "sha256": "a56c30217aab41c650c4adf86f9be114c5620d6b626b50f218274c6f511be207"
+    },
+    {
+      "path": "figures/context_comparison.png",
+      "size_bytes": 264500,
+      "sha256": "f461bbac157c6b96c2a538f2300789c15e6f33f46712792707cefd08c91f4821"
+    },
+    {
+      "path": "figures/primary_metrics.png",
+      "size_bytes": 114016,
+      "sha256": "5c52edafcfc3599746ffc27d859a62121a9c761e48ef2cc57c78cd5e4ec9ab2c"
+    },
+    {
+      "path": "source_data/a_metrics_by_seed.tsv",
+      "size_bytes": 31779,
+      "sha256": "427d604233fbbbf6b4c0b0fdeb38e77296ccb0602c8aed39d62c2493adf5d4b2"
+    },
+    {
+      "path": "source_data/a_metrics_summary.tsv",
+      "size_bytes": 5819,
+      "sha256": "9308e320e1a4497e49520e388ee51c0deb958e7ad2e4c7fc4e513d7283d3428b"
+    },
+    {
+      "path": "source_data/b_metrics_by_seed.tsv",
+      "size_bytes": 9668,
+      "sha256": "13436ce3d5e23dd50848c1cd57f564dac4cdfc5606e7bd3495e6d46c5fd915c3"
+    },
+    {
+      "path": "source_data/b_metrics_summary.tsv",
+      "size_bytes": 1693,
+      "sha256": "4c0275df96281b17af6223fd6cad8e4ef04fb908657acd0463a662a6733ab4cf"
+    },
+    {
+      "path": "source_data/primary_metrics.tsv",
+      "size_bytes": 1890,
+      "sha256": "9ae71de17c7fb563b2ca96a04a4af8b0f592d3cc4855b996d60ff03c5e533380"
+    },
+    {
+      "path": "source_data/run_summary.json",
+      "size_bytes": 894,
+      "sha256": "586efbb1320017e8303e353d31b9504cb5bee5722bdb6308960f3d58d63252fe"
+    },
+    {
+      "path": "source_data/task_registry.tsv",
+      "size_bytes": 1242,
+      "sha256": "022b0bb0534adb65a1b8515c4ee97654a4e8e7110cda296ac75083b52c4527b9"
+    }
+  ]
+}

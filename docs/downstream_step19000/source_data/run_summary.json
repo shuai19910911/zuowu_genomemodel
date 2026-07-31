@@ -1,0 +1,34 @@
+{
+  "status": "ok",
+  "run_id": "cropgenome_non_edta_step19000_20260730",
+  "model_id": "CropGenomeFM_step19000_continuation",
+  "checkpoint_step": 19000,
+  "checkpoint_sha256": "957051f1adf574168d8efed46810a8a74779d0a88ba9e69552294fa08823ac35",
+  "completed_tasks": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7",
+    "A8",
+    "A9",
+    "A10",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "B17"
+  ],
+  "deferred_tasks": {
+    "B11": "waiting_for_EDTA",
+    "B12": "waiting_for_EDTA"
+  },
+  "embedding_markers": 10,
+  "evaluation_markers": 2,
+  "final_receipt_sha256": "231fcb73fd94e722e6b56ace5f82be689b04c6eb6b8a91bc67b143866c3d988f",
+  "a_manifest_sha256": "5122d02f491454e067a1d46805f7df3ab4dd3fd48e3aba1f40d7c7ccfd3f54e5",
+  "b_manifest_sha256": "d4828fe5b7c884527511dc05d58fa0d0125d4928476c197c4c9f218b482a9399",
+  "finished_at": "2026-07-31T08:31:16+08:00"
+}

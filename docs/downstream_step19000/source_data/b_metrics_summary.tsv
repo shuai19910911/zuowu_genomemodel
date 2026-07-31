@@ -1,0 +1,9 @@
+task_id	track	n_seeds	mrr_mean	mrr_std	recall_at_1_mean	recall_at_1_std	recall_at_5_mean	recall_at_5_std	auprc_mean	auprc_std	accuracy_mean	accuracy_std	macro_f1_mean	macro_f1_std	mean_iou_mean	mean_iou_std	boundary_f1_mean	boundary_f1_std	panel_code
+crop_complete_gene_boundary_pair_ranking	downstream_cold_genus_pretraining_seen_genus	5	0.5425347222222222	0.0	0.2890625	0.0	1.0	0.0	0.28301836396296404	0.0									B15
+crop_complete_gene_boundary_pair_ranking	low_homology_sensitivity	5	0.5425347222222222	0.0	0.2890625	0.0	1.0	0.0	0.28301836396296404	0.0									B15
+crop_exon_order_same_gene_membership	downstream_cold_genus_pretraining_seen_genus	5									0.3897569444444444	0.0	0.385113821213163	0.0	0.23945119884649455	0.0			B16
+crop_exon_order_same_gene_membership	low_homology_sensitivity	5									0.3897569444444444	0.0	0.385113821213163	0.0	0.23945119884649455	0.0			B16
+crop_gene_architecture_7state	downstream_cold_genus_pretraining_seen_genus	5									0.3649112099095395	0.005102117617844528	0.31450558718257715	0.01203807436435327	0.19735450085125752	0.008811557477152307	0.01149310861272163	0.0008611130006111952	B13
+crop_gene_architecture_7state	low_homology_sensitivity	5									0.3649112099095395	0.005102117617844528	0.31450558718257715	0.01203807436435327	0.19735450085125752	0.008811557477152307	0.01149310861272163	0.0008611130006111952	B13
+crop_long_intron_splice_pair_ranking	downstream_cold_genus_pretraining_seen_genus	5	0.5440538194444444	0.0	0.2916666666666667	0.0	1.0	0.0	0.2599222870764007	0.0									B14
+crop_long_intron_splice_pair_ranking	low_homology_sensitivity	5	0.5440538194444444	0.0	0.2916666666666667	0.0	1.0	0.0	0.2599222870764007	0.0									B14

@@ -1,0 +1,15 @@
+task_id	task_name_cn	context	track	metric	mean	std	n_seeds	panel_code
+splice_donor_acceptor	剪接供体/受体识别	8192	downstream_cold_genus_pretraining_seen_genus	f1	0.7944025834230356	0.0	5	A1
+promoter_TSS	启动子/TSS识别	8192	downstream_cold_genus_pretraining_seen_genus	f1	0.7425287356321839	0.0	5	A2
+TES_polyA	TES/poly(A)识别	8192	downstream_cold_genus_pretraining_seen_genus	f1	0.8113804004214964	0.0	5	A3
+lncrna_multispecies	多物种lncRNA识别	6000	official_dataset_split	f1	0.70578231292517	0.0	5	A4
+enhancer_cassava_proseq	木薯增强子识别	6000	official_dataset_split	f1	0.7696019300361882	0.0	5	A5
+gene_expression_glycine_max	大豆基因表达预测	6000	official_dataset_split	pearson_macro	0.5761245236533671	0.0	1	A6
+gene_expression_oryza_sativa	水稻基因表达预测	6000	official_dataset_split	pearson_macro	0.5064949242959157	0.0	1	A7
+gene_expression_zea_mays	玉米基因表达预测	6000	official_dataset_split	pearson_macro	0.6507714264838775	0.0	1	A8
+gene_expression_solanum_lycopersicum	番茄基因表达预测	6000	official_dataset_split	pearson_macro	0.5911702089193247	0.0	1	A9
+gene_expression_arabidopsis_thaliana	拟南芥基因表达预测	6000	official_dataset_split	pearson_macro	0.5652409723044307	0.0	1	A10
+crop_gene_architecture_7state	基因结构7态逐碱基分割	2048	downstream_cold_genus_pretraining_seen_genus	macro_f1	0.31450558718257715	0.01203807436435327	5	B13
+crop_long_intron_splice_pair_ranking	长内含子剪接配对排序	4096	downstream_cold_genus_pretraining_seen_genus	mrr	0.5440538194444444	0.0	5	B14
+crop_complete_gene_boundary_pair_ranking	完整基因边界配对排序	4096	downstream_cold_genus_pretraining_seen_genus	mrr	0.5425347222222222	0.0	5	B15
+crop_exon_order_same_gene_membership	外显子顺序/同基因归属	2048	downstream_cold_genus_pretraining_seen_genus	macro_f1	0.385113821213163	0.0	5	B16
