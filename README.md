@@ -1,6 +1,6 @@
 # CropGenome-FM
 
-更新时间：2026-07-31 18:06 CST
+更新时间：2026-08-02 09:33 CST
 
 CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库只保留可公开、可读、可核验的轻量材料；checkpoint、embedding缓存、逐样本预测和大日志不上传。
 
@@ -8,13 +8,15 @@ CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库�
 
 |模块|状态|最新事实|
 |---|---|---|
-|Stage B续训|RUNNING|step `27590/50000`；最新验证及当前best为step27000；3×A100进程真实存活|
+|Stage B续训|RUNNING|step `38000/50000`；最新验证及当前best为step38000；3×A100持续运行|
 |step19000非EDTA下游|COMPLETE|A1–A10与B13–B17全部完成；10/10 embedding marker、2/2 evaluation marker、FINAL_RECEIPT闭包|
-|下游v4体系|CODE READY|56项任务、18个模型/基线、1008行矩阵；已完成代表性真实数据与模型链路|
-|EDTA结构注释|RUNNING|q04：2个完成、50个运行、67个等待；RepeatModeler禁用|
+|下游任务目录|56项|A类10项、B类7项、C类36项、D类3项；逐项说明见`DOWNSTREAM_TASKS_CN.md`|
+|新增C/D数据准备|31/39|原始数据源11/11、公共模型14/14及真实GPU冒烟14/14完成；剩余8项仅在SLURM q02–q05排队|
+|完整正式评测|NOT STARTED|等待39项数据整理与审计、Stage B step50000和no-region对照完成后统一启动|
+|EDTA结构注释|RUNNING|继续在q04执行；RepeatModeler禁用|
 |B11/B12|DEFERRED|等待正式EDTA TE标签，未使用替代标签补数|
 
-2080Ti节点现在没有本轮下游程序是正常状态：非EDTA计算已完成，控制器exit=0，GPU已释放，而不是任务仍显示active但实际停跑。
+当前新增下游仍处于CPU数据整理阶段，不占用2080Ti。该阶段硬限制为只允许SLURM `q02`–`q05`，禁止使用`cu`和`fat`；普通分区没有资源时保持排队，不回退。
 
 ## step19000非EDTA主结果
 
@@ -58,7 +60,7 @@ CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库�
 - [selection loss曲线](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
 - [曲线源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
 
-最新验证step27000：`val_selection_loss=1.0156857`，是当前最佳验证点；相对step15000的1.0402384下降约2.36%。训练仍在继续，不能把step27590称为最终模型。
+最新验证step38000：`val_selection_loss=0.9973677`，是当前最佳验证点。训练仍在继续，不能把step38000称为最终模型，也不能在完整正式评测前声称超过公共强基线。
 
 ## 其他材料
 

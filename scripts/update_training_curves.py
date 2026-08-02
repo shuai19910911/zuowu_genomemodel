@@ -150,8 +150,19 @@ def write_png(path: Path, metric_key: str, title: str, description: str, train_p
         vy = [y for _, y in val_points]
         ax.scatter(vx, vy, marker="D", s=70, color="#DC2626", edgecolor="white", linewidth=0.8, zorder=6, label="validation checkpoints")
         ax.plot(vx, vy, color="#DC2626", linewidth=1.5, alpha=0.65)
-        for x, y in val_points:
-            ax.annotate(f"val {x}\n{y:.4f}", xy=(x, y), xytext=(8, -28), textcoords="offset points", fontsize=8, color="#7F1D1D", arrowprops={"arrowstyle": "->", "color": "#DC2626", "lw": 0.7})
+        if len(val_points) <= 12:
+            label_indices = list(range(len(val_points)))
+        else:
+            stride = max(1, math.ceil((len(val_points) - 1) / 8))
+            label_indices = sorted(set(range(0, len(val_points), stride)) | {len(val_points) - 1, min(range(len(val_points)), key=lambda i: val_points[i][1])})
+        for label_rank, point_index in enumerate(label_indices):
+            x, y = val_points[point_index]
+            if point_index == len(val_points) - 1:
+                offset, align = (-72, -34), "right"
+            else:
+                offset = (8, 18) if label_rank % 2 == 0 else (8, -30)
+                align = "left"
+            ax.annotate(f"val {x}\n{y:.4f}", xy=(x, y), xytext=offset, textcoords="offset points", ha=align, fontsize=8, color="#7F1D1D", arrowprops={"arrowstyle": "->", "color": "#DC2626", "lw": 0.7})
     ax.set_title(title, fontsize=15, weight="bold", pad=12)
     ax.set_xlabel("Training step", fontsize=12)
     ylabel = "Selection loss (MLM + 0.02 × RC; lower is better)" if metric_key == "selection_loss" else f"{title.split('—')[-1].strip()} (lower is better)"
