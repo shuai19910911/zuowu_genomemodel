@@ -1,6 +1,6 @@
 # CropGenome-FM
 
-更新时间：2026-08-02 17:31 CST
+更新时间：2026-08-02 21:42 CST
 
 CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库只保留可公开、可读、可核验的轻量材料；checkpoint、embedding缓存、逐样本预测和大日志不上传。
 
@@ -8,7 +8,7 @@ CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库�
 
 |模块|状态|最新事实|
 |---|---|---|
-|Stage B续训|RUNNING|已完成step `40000/50000`（80%）；最新验证及当前best均为step40000；3×A100持续运行|
+|Stage B续训|RUNNING|已完成step `41000/50000`（82%）；最新验证及当前best均为step41000；3×A100持续运行|
 |step19000非EDTA下游|COMPLETE|A1–A10与B13–B17全部完成；10/10 embedding marker、2/2 evaluation marker、FINAL_RECEIPT闭包|
 |下游任务目录|56项|A类10项、B类7项、C类36项、D类3项；逐项说明见`DOWNSTREAM_TASKS_CN.md`|
 |新增C/D数据准备|39/39|原始数据源11/11、统一数据整理39/39、公共模型14/14及真实GPU冒烟14/14完成；统一完整性审计正在q05运行|
@@ -25,9 +25,9 @@ C/D新增任务的CPU数据整理已全部完成，目前只剩统一完整性�
 
 ## 当前做到哪一步了
 
-一句话概括：**模型训练完成80%，正式数据和公共模型已经备齐，但论文级统一模型对比还没有启动。**
+一句话概括：**模型训练完成82%，正式数据和公共模型已经备齐，但论文级统一模型对比还没有启动。**
 
-1. **主模型训练**：Stage B已从step14000无替换续训到step40000；step40000的`val_selection_loss=0.9951305`，是当前最佳验证点。相对正式候选起点step16000下降约4.37%，说明预训练目标仍在改善。
+1. **主模型训练**：Stage B已从step14000无替换续训到step41000；step41000的`val_selection_loss=0.9937523`，是当前最佳验证点。相对正式候选起点step16000下降约4.51%，说明预训练目标仍在改善。
 2. **下游数据**：C/D新增39项已经全部转换为统一格式并生成回执；连同既有任务，当前正式非EDTA数据索引为53/53 ready。最后一次全量完整性审计仍在SLURM运行。
 3. **公共模型**：14个公共DNA/植物模型均已下载、固定版本并通过真实GPU前向smoke（冒烟测试），证明加载和特征提取链路可运行。
 4. **公平比较协议**：正式矩阵固定为3597行、5个seed（随机种子），覆盖CropGenome-FM、14个公共模型和适用简单基线；数据、split、context和下游头预算保持一致。
@@ -69,13 +69,13 @@ C/D新增任务的CPU数据整理已全部完成，目前只剩统一完整性�
 
 ## 训练进展
 
-- [训练状态、26个validation点和解释](TRAINING_PROGRESS.md)
+- [训练状态、27个validation点和解释](TRAINING_PROGRESS.md)
 - [56项下游任务通俗版总览与当前进展](DOWNSTREAM_TASKS_CN.md)
 - [总loss曲线](docs/training_progress/figures/stage_b_continuation_loss.png)
 - [selection loss曲线](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
 - [曲线源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
 
-最新验证step40000：`val_selection_loss=0.9951305`，是当前最佳验证点。训练仍在继续，不能把step40000称为最终模型，也不能在完整正式评测前声称超过公共强基线。
+最新验证step41000：`val_selection_loss=0.9937523`，是当前最佳验证点。训练仍在继续，不能把step41000称为最终模型，也不能在完整正式评测前声称超过公共强基线。
 
 ## 其他材料
 
