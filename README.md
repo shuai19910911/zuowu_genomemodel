@@ -1,6 +1,6 @@
 # CropGenome-FM
 
-更新时间：2026-08-02 09:33 CST
+更新时间：2026-08-02 10:17 CST
 
 CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库只保留可公开、可读、可核验的轻量材料；checkpoint、embedding缓存、逐样本预测和大日志不上传。
 
@@ -12,11 +12,13 @@ CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库�
 |step19000非EDTA下游|COMPLETE|A1–A10与B13–B17全部完成；10/10 embedding marker、2/2 evaluation marker、FINAL_RECEIPT闭包|
 |下游任务目录|56项|A类10项、B类7项、C类36项、D类3项；逐项说明见`DOWNSTREAM_TASKS_CN.md`|
 |新增C/D数据准备|31/39|原始数据源11/11、公共模型14/14及真实GPU冒烟14/14完成；剩余8项仅在SLURM q02–q05排队|
-|完整正式评测|NOT STARTED|等待39项数据整理与审计、Stage B step50000和no-region对照完成后统一启动|
+|完整正式评测|NOT STARTED|等待39项数据整理与审计、Stage B step50000后统一启动；不再运行内部模型消融|
 |EDTA结构注释|RUNNING|继续在q04执行；RepeatModeler禁用|
 |B11/B12|DEFERRED|等待正式EDTA TE标签，未使用替代标签补数|
 
 当前新增下游仍处于CPU数据整理阶段，不占用2080Ti。该阶段硬限制为只允许SLURM `q02`–`q05`，禁止使用`cu`和`fat`；普通分区没有资源时保持排队，不回退。
+
+项目已取消no-region、random-init及其他内部预训练/架构消融，不再为第二条完整预训练轨迹消耗计算资源。正式证据集中在作物专属下游任务，以及CropGenome-FM与14个公共模型和适用简单基线的同数据、同split公平比较。
 
 ## step19000非EDTA主结果
 
