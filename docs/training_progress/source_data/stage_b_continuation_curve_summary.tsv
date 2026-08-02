@@ -1,3 +1,3 @@
 metric	train_points	val_points	latest_train_step	latest_train_value	latest_val_step	latest_val_value	png
-loss	2718	27	41180	0.93251185	41000	1.0572966	figures/stage_b_continuation_loss.png
-selection_loss	2718	27	41180	0.87872923	41000	0.99375235	figures/stage_b_continuation_selection_loss.png
+loss	2804	28	42040	0.94267685	42000	1.0572362	figures/stage_b_continuation_loss.png
+selection_loss	2804	28	42040	0.88762152	42000	0.99266896	figures/stage_b_continuation_selection_loss.png
