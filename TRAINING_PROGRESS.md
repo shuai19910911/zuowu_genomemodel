@@ -1,6 +1,6 @@
 # CropGenome-FM训练进展
 
-更新时间：2026-08-03 08:40 CST
+更新时间：2026-08-03 15:24 CST
 
 ## 1. 当前训练状态
 
@@ -8,17 +8,17 @@
 |---|---|
 |运行状态|RUNNING|
 |阶段|Stage B continuation；从step14000精确续训|
-|最新公开里程碑|step44000 / 50000（88%）|
-|最新验证点|step44000|
-|当前最佳验证点|step44000|
-|best val selection loss|0.9912032|
+|最新训练日志|step45870 / 50000（91.7%）|
+|最新验证点|step45000|
+|当前最佳验证点|step45000|
+|best val selection loss|0.9902152|
 |训练资源|gpu10，3×NVIDIA A100-SXM4-40GB，GPU0–2|
 |实时核验|3个训练rank各约37.5GB；训练日志仍在增长|
 |全局有效batch|36（每rank micro-batch 4 × 3 ranks × 梯度累积3）|
 |采样|5,485,240个训练窗口；global no-replacement（全局无放回）|
 |checkpoint|每500 step永久保存完整checkpoint|
 |正式候选身份|15/18已哈希登记：step16000–44000；等待step46000、48000、50000|
-|完整曲线范围|step10–44090；4409个train点、44个validation点|
+|完整曲线范围|step10–45870；4587个train点、45个validation点|
 
 本页是时间戳快照，训练继续后step会自然前进。训练曲线下降只说明预训练仍在改善，最终模型是否更有用仍要看固定下游任务。
 
@@ -58,20 +58,21 @@
 |42000|1.0572|0.9892|0.1744|0.9927|1.2913|0.5156|
 |43000|1.0555|0.9885|0.1718|0.9919|1.2719|0.5625|
 |44000|1.0558|0.9877|0.1741|0.9912|1.2914|0.5208|
+|45000|1.0544|0.9867|0.1739|0.9902|1.2845|0.5312|
 
-从正式候选起点step16000到step44000，validation selection loss由1.0406386降至0.9912032，下降0.0494354（约4.75%）。总体趋势继续改善，但total loss和辅助region指标并非每个点都严格单调，最终模型价值仍必须由固定下游任务验证。
+从正式候选起点step16000到step45000，validation selection loss由1.0406386降至0.9902152，下降0.0504234（约4.85%）。总体趋势继续改善，但total loss和辅助region指标并非每个点都严格单调，最终模型价值仍必须由固定下游任务验证。
 
 ## 3. 曲线与源数据
 
-- [完整Stage B总loss曲线：step10–44090](docs/training_progress/figures/stage_b_full_lineage_loss.png)
-- [完整Stage B源数据：4409个train点＋44个validation点](docs/training_progress/source_data/stage_b_full_lineage_metrics.tsv)
+- [完整Stage B总loss曲线：step10–45870](docs/training_progress/figures/stage_b_full_lineage_loss.png)
+- [完整Stage B源数据：4587个train点＋45个validation点](docs/training_progress/source_data/stage_b_full_lineage_metrics.tsv)
 - [完整曲线摘要TSV](docs/training_progress/source_data/stage_b_full_lineage_curve_summary.tsv)
 - [step14000后续训总loss局部图](docs/training_progress/figures/stage_b_continuation_loss.png)
 - [step14000后续训selection loss局部图](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
 - [续训局部图源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
 - [续训局部图摘要TSV](docs/training_progress/source_data/stage_b_continuation_curve_summary.tsv)
 
-此前GitHub只展示了当前续训日志，所以横轴从step14000之后开始，看起来像训练曲线缺了一段。新增的完整图以原Stage B权威TSV保留step10–14000，再从精确resume边界接入当前无替换续训日志；续训替代掉的旧step15000–17000不会混入新谱系。绿色虚线表示step14000精确续训边界。所有44个validation标记都显示，但只标注10个关键点，避免文字遮挡。
+此前GitHub只展示了当前续训日志，所以横轴从step14000之后开始，看起来像训练曲线缺了一段。完整图以原Stage B权威TSV只保留step10–14000，再从精确resume边界接入当前无替换续训日志；续训替代掉的旧step15000–17000不会混入新谱系。绿色虚线表示step14000精确续训边界。所有45个validation标记都显示，但只标注10个关键点，避免文字遮挡。
 
 全程图和局部图都包含原始训练点、21点滚动中位数、validation checkpoint和最新训练点；图由TSV直接生成，只上传PNG，不上传SVG/PDF。现有续训图不删除，继续用于观察step14000之后的细节。
 
@@ -111,7 +112,7 @@ step19000已完成A01–A10与B13–B17，共15个已执行编号；B11/B12等�
 |资源使用策略|所有可访问数据和公共模型直接使用；许可证元数据不构成执行Gate|
 |模型/基线|16个：CropGenome-FM、14个公共模型和k-mer简单基线；不含内部消融|
 |正式运行计划|固定矩阵3597行、5个seed；checkpoint身份15/18；完整正式评测尚未启动|
-|统一数据审计|53/53非EDTA数据已进入正式索引；作业8622446正在q05逐样本检查，当前处理C05约87%|
+|统一数据审计|COMPLETE：53/53非EDTA任务逐项检查通过，数据索引与汇总检查均已关闭|
 |CPU调度边界|只允许SLURM q02–q05；禁止cu和fat，无资源时等待|
 
 当前已经完成的资产和真实链路：
@@ -120,24 +121,24 @@ step19000已完成A01–A10与B13–B17，共15个已执行编号；B11/B12等�
 - 14/14公共模型完成下载，并全部通过真实GPU前向冒烟；
 - C01–C36和D01–D03共39项已经全部转换为统一数据格式并生成回执；
 - 最后8个SLURM数据作业全部以`COMPLETED/0:0`结束；
-- 正式非EDTA数据索引已达到53/53 ready，统一完整性审计仍在运行；
+- 正式非EDTA数据索引达到53/53 ready，53项逐任务完整性检查全部通过；
 - 14/14公共模型真实GPU前向冒烟全部通过。
 
-作业8622446不是模型训练。它用2个CPU串行扫描每个任务的样本表，并通过临时SQLite索引检查样本ID重复、DNA序列跨split泄漏、候选组泄漏和哈希一致性。截至08:36，进程正在读取C05的8.4 GB样本表，文件游标约87.13%；15秒实测读取18.5 MB、写入8.2 MB，因此不是僵死进程。已有18项逐任务检查结果可复用。作业仅余约3小时58分，C05之后仍有约37.6 GB待检查，当前24小时限时不足以完成全部任务的风险很高；若未完成，应只对缺失任务分片补齐，不能从头重跑。
+原串行作业8622446在24小时上限到达后超时，已通过保留18项有效结果、只分片补齐缺失任务的方式恢复。8个q05分片全部`COMPLETED/0:0`，随后完成53/53逐任务深度核验和一次汇总检查；没有从头重复已通过项目。当前数据准备已经关闭，但3597行正式模型比较尚未启动。
 
 这些是数据、模型和程序准备状态，不是正式模型胜负。当前尚未在全部56项上完成统一正式重跑。
 
 ## 6. EDTA与B11/B12
 
-EDTA继续在q04执行，RepeatModeler明确禁用。B11/B12只在最终TE manifest、ID回映射和坐标质控全部通过后启动，不使用中间文件或替代标签。
+EDTA继续在q04执行，RepeatModeler明确禁用；119个本轮待处理组装中已有17个最终任务回执通过，最终汇总manifest尚未形成。B11/B12只在最终TE manifest、ID回映射和坐标质控全部通过后启动，不使用中间文件或替代标签。
 
 ## 7. 下一步
 
 1. Stage B继续训练到step50000，每500步永久保存checkpoint、每1000步validation。
-2. 让作业8622446完成当前C05检查；若触及24小时限时，保留已完成的逐任务结果，只对剩余任务分片补齐，禁止从头重跑。
-3. 持续完成EDTA；最终manifest关闭后运行B11/B12。
+2. step46000、48000、50000到达后补齐剩余3个checkpoint身份；当前15/18，未提前授权正式运行。
+3. 持续完成EDTA；最终manifest、ID回映射和坐标质控关闭后运行B11/B12。
 4. 不运行no-region、random-init或其他内部模型消融，把计算资源集中到作物专属下游任务和公共强模型公平比较。
-5. step46000、48000、50000到达后补齐剩余3个checkpoint身份，再在同数据、同split、同上下文和同下游头预算下统一运行公共模型与候选checkpoint；不能用反复查看test的方式悄悄挑最优模型。
+5. 18/18身份和其余启动条件全部通过后，再在同数据、同split、同上下文和同下游头预算下统一运行3597行正式矩阵；不能用反复查看test的方式悄悄挑最优模型。
 
 ## 8. 解释边界
 
