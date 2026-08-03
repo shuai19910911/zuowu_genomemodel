@@ -1,6 +1,6 @@
 # CropGenome-FM训练进展
 
-更新时间：2026-08-03 07:28 CST
+更新时间：2026-08-03 08:06 CST
 
 ## 1. 当前训练状态
 
@@ -18,12 +18,13 @@
 |采样|5,485,240个训练窗口；global no-replacement（全局无放回）|
 |checkpoint|每500 step永久保存完整checkpoint|
 |正式候选身份|14/18已哈希登记：step16000–42000；等待step44000–50000|
+|完整曲线范围|step10–43940；4394个train点、43个validation点|
 
 本页是时间戳快照，训练继续后step会自然前进。训练曲线下降只说明预训练仍在改善，最终模型是否更有用仍要看固定下游任务。
 
 ## 2. Validation轨迹
 
-`selection_loss = MLM loss + 0.02 × RC loss`，越低越好，是best checkpoint（最佳存档点）的主选择指标。
+`selection_loss = MLM loss + 0.02 × RC loss`，越低越好，是best checkpoint（最佳存档点）的主选择指标。下表聚焦step14000精确续训后的validation；step1000–14000的历史validation仍完整保留在全程曲线源数据中。
 
 |step|val total loss|val MLM loss|val RC loss|val selection loss|region loss|region acc|
 |---:|---:|---:|---:|---:|---:|---:|
@@ -61,12 +62,17 @@
 
 ## 3. 曲线与源数据
 
-- [总loss曲线](docs/training_progress/figures/stage_b_continuation_loss.png)
-- [selection loss曲线](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
-- [全部训练/验证点TSV](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
-- [曲线摘要TSV](docs/training_progress/source_data/stage_b_continuation_curve_summary.tsv)
+- [完整Stage B总loss曲线：step10–43940](docs/training_progress/figures/stage_b_full_lineage_loss.png)
+- [完整Stage B源数据：4394个train点＋43个validation点](docs/training_progress/source_data/stage_b_full_lineage_metrics.tsv)
+- [完整曲线摘要TSV](docs/training_progress/source_data/stage_b_full_lineage_curve_summary.tsv)
+- [step14000后续训总loss局部图](docs/training_progress/figures/stage_b_continuation_loss.png)
+- [step14000后续训selection loss局部图](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
+- [续训局部图源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
+- [续训局部图摘要TSV](docs/training_progress/source_data/stage_b_continuation_curve_summary.tsv)
 
-曲线包含原始训练点、21点滚动中位数、全部validation checkpoint和最新训练点；图由TSV直接生成，只上传PNG，不上传SVG/PDF。
+此前GitHub只展示了当前续训日志，所以横轴从step14000之后开始，看起来像训练曲线缺了一段。新增的完整图以原Stage B权威TSV保留step10–14000，再从精确resume边界接入当前无替换续训日志；续训替代掉的旧step15000–17000不会混入新谱系。绿色虚线表示step14000精确续训边界。所有43个validation标记都显示，但只标注10个关键点，避免文字遮挡。
+
+全程图和局部图都包含原始训练点、21点滚动中位数、validation checkpoint和最新训练点；图由TSV直接生成，只上传PNG，不上传SVG/PDF。现有续训图不删除，继续用于观察step14000之后的细节。
 
 ## 4. step19000完整非EDTA下游
 

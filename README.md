@@ -1,6 +1,6 @@
 # CropGenome-FM
 
-更新时间：2026-08-03 07:28 CST
+更新时间：2026-08-03 08:06 CST
 
 CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库只保留可公开、可读、可核验的轻量材料；checkpoint、embedding缓存、逐样本预测和大日志不上传。
 
@@ -76,11 +76,15 @@ C/D新增任务的CPU数据整理已全部完成，目前只剩统一完整性�
 
 ## 训练进展
 
-- [训练状态、29个validation点和解释](TRAINING_PROGRESS.md)
+- [训练状态、当前续训29个validation点和解释](TRAINING_PROGRESS.md)
 - [56项下游任务通俗版总览与当前进展](DOWNSTREAM_TASKS_CN.md)
-- [总loss曲线](docs/training_progress/figures/stage_b_continuation_loss.png)
-- [selection loss曲线](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
-- [曲线源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
+- [完整Stage B总loss曲线：step10到当前](docs/training_progress/figures/stage_b_full_lineage_loss.png)
+- [完整曲线源数据：step10到当前](docs/training_progress/source_data/stage_b_full_lineage_metrics.tsv)
+- [step14000后续训总loss局部图](docs/training_progress/figures/stage_b_continuation_loss.png)
+- [step14000后续训selection loss局部图](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
+- [续训局部图源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
+
+完整图覆盖step10–43940，共4394个train点和43个validation点；绿色虚线标出step14000精确续训边界。图中step10–14000来自原Stage B权威源表，step14000之后来自当前无替换续训日志；旧训练中已经被续训替代的step15000–17000没有混入新谱系。原有两张续训图继续保留，作为右半段细节放大图。
 
 最新验证step43000：`val_selection_loss=0.9919196`，是当前最佳验证点。训练仍在继续，不能把step43000称为最终模型，也不能在完整正式评测前声称超过公共强基线。
 
