@@ -1,6 +1,6 @@
 # CropGenome-FM训练进展
 
-更新时间：2026-08-03 15:24 CST
+更新时间：2026-08-03 16:29 CST
 
 ## 1. 当前训练状态
 
@@ -8,17 +8,17 @@
 |---|---|
 |运行状态|RUNNING|
 |阶段|Stage B continuation；从step14000精确续训|
-|最新训练日志|step45870 / 50000（91.7%）|
-|最新验证点|step45000|
-|当前最佳验证点|step45000|
-|best val selection loss|0.9902152|
+|最新训练日志|step46150 / 50000（92.3%）|
+|最新验证点|step46000|
+|当前最佳验证点|step46000|
+|best val selection loss|0.9891613|
 |训练资源|gpu10，3×NVIDIA A100-SXM4-40GB，GPU0–2|
 |实时核验|3个训练rank各约37.5GB；训练日志仍在增长|
 |全局有效batch|36（每rank micro-batch 4 × 3 ranks × 梯度累积3）|
 |采样|5,485,240个训练窗口；global no-replacement（全局无放回）|
 |checkpoint|每500 step永久保存完整checkpoint|
-|正式候选身份|15/18已哈希登记：step16000–44000；等待step46000、48000、50000|
-|完整曲线范围|step10–45870；4587个train点、45个validation点|
+|正式候选身份|16/18已哈希登记：step16000–46000；等待step48000、50000|
+|完整曲线范围|step10–46150；4615个train点、46个validation点|
 
 本页是时间戳快照，训练继续后step会自然前进。训练曲线下降只说明预训练仍在改善，最终模型是否更有用仍要看固定下游任务。
 
@@ -59,20 +59,21 @@
 |43000|1.0555|0.9885|0.1718|0.9919|1.2719|0.5625|
 |44000|1.0558|0.9877|0.1741|0.9912|1.2914|0.5208|
 |45000|1.0544|0.9867|0.1739|0.9902|1.2845|0.5312|
+|46000|1.0538|0.9857|0.1731|0.9892|1.2919|0.5469|
 
-从正式候选起点step16000到step45000，validation selection loss由1.0406386降至0.9902152，下降0.0504234（约4.85%）。总体趋势继续改善，但total loss和辅助region指标并非每个点都严格单调，最终模型价值仍必须由固定下游任务验证。
+从正式候选起点step16000到step46000，validation selection loss由1.0406386降至0.9891613，下降0.0514773（约4.95%）。总体趋势继续改善，但total loss和辅助region指标并非每个点都严格单调，最终模型价值仍必须由固定下游任务验证。
 
 ## 3. 曲线与源数据
 
-- [完整Stage B总loss曲线：step10–45870](docs/training_progress/figures/stage_b_full_lineage_loss.png)
-- [完整Stage B源数据：4587个train点＋45个validation点](docs/training_progress/source_data/stage_b_full_lineage_metrics.tsv)
+- [完整Stage B总loss曲线：step10–46150](docs/training_progress/figures/stage_b_full_lineage_loss.png)
+- [完整Stage B源数据：4615个train点＋46个validation点](docs/training_progress/source_data/stage_b_full_lineage_metrics.tsv)
 - [完整曲线摘要TSV](docs/training_progress/source_data/stage_b_full_lineage_curve_summary.tsv)
 - [step14000后续训总loss局部图](docs/training_progress/figures/stage_b_continuation_loss.png)
 - [step14000后续训selection loss局部图](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
 - [续训局部图源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
 - [续训局部图摘要TSV](docs/training_progress/source_data/stage_b_continuation_curve_summary.tsv)
 
-此前GitHub只展示了当前续训日志，所以横轴从step14000之后开始，看起来像训练曲线缺了一段。完整图以原Stage B权威TSV只保留step10–14000，再从精确resume边界接入当前无替换续训日志；续训替代掉的旧step15000–17000不会混入新谱系。绿色虚线表示step14000精确续训边界。所有45个validation标记都显示，但只标注10个关键点，避免文字遮挡。
+此前GitHub只展示了当前续训日志，所以横轴从step14000之后开始，看起来像训练曲线缺了一段。完整图以原Stage B权威TSV只保留step10–14000，再从精确resume边界接入当前无替换续训日志；续训替代掉的旧step15000–17000不会混入新谱系。绿色虚线表示step14000精确续训边界。所有46个validation标记都显示，但只标注10个关键点，避免文字遮挡。
 
 全程图和局部图都包含原始训练点、21点滚动中位数、validation checkpoint和最新训练点；图由TSV直接生成，只上传PNG，不上传SVG/PDF。现有续训图不删除，继续用于观察step14000之后的细节。
 
@@ -111,7 +112,7 @@ step19000已完成A01–A10与B13–B17，共15个已执行编号；B11/B12等�
 |原始资产|11/11数据源已下载校验；14/14公共模型已下载并通过真实GPU前向冒烟|
 |资源使用策略|所有可访问数据和公共模型直接使用；许可证元数据不构成执行Gate|
 |模型/基线|16个：CropGenome-FM、14个公共模型和k-mer简单基线；不含内部消融|
-|正式运行计划|固定矩阵3597行、5个seed；checkpoint身份15/18；完整正式评测尚未启动|
+|正式运行计划|固定矩阵3597行、5个seed；checkpoint身份16/18；完整正式评测尚未启动|
 |统一数据审计|COMPLETE：53/53非EDTA任务逐项检查通过，数据索引与汇总检查均已关闭|
 |CPU调度边界|只允许SLURM q02–q05；禁止cu和fat，无资源时等待|
 
@@ -135,7 +136,7 @@ EDTA继续在q04执行，RepeatModeler明确禁用；119个本轮待处理组装
 ## 7. 下一步
 
 1. Stage B继续训练到step50000，每500步永久保存checkpoint、每1000步validation。
-2. step46000、48000、50000到达后补齐剩余3个checkpoint身份；当前15/18，未提前授权正式运行。
+2. step48000、50000到达后补齐剩余2个checkpoint身份；当前16/18，未提前授权正式运行。
 3. 持续完成EDTA；最终manifest、ID回映射和坐标质控关闭后运行B11/B12。
 4. 不运行no-region、random-init或其他内部模型消融，把计算资源集中到作物专属下游任务和公共强模型公平比较。
 5. 18/18身份和其余启动条件全部通过后，再在同数据、同split、同上下文和同下游头预算下统一运行3597行正式矩阵；不能用反复查看test的方式悄悄挑最优模型。
