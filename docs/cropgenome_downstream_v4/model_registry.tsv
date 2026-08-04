@@ -1,0 +1,17 @@
+model_id	kind	model_ref	revision	license	license_state	capabilities	role
+CropGenomeFM	project_model	manual_checkpoint_required	manual_checkpoint_sha256_required	project_internal	verified	"[""embedding"", ""token_embedding"", ""masked_lm"", ""long_context"", ""variant_scoring""]"	ours
+AgroNT_1B	public_weight	InstaDeepAI/agro-nucleotide-transformer-1b	b0e1ea1f53a2bf5bb29f8eab7a7e553bf06c1ab1	cc-by-nc-sa-4.0	verified	"[""embedding"", ""masked_lm""]"	plant_primary
+PlantCaduceus_l32	public_weight	kuleshov-group/PlantCaduceus_l32	e624c13c3d35415348b854c87a218893b23564f7	apache-2.0	verified	"[""embedding"", ""token_embedding"", ""masked_lm"", ""variant_scoring""]"	plant_primary
+PlantCAD2_Small	public_weight	kuleshov-group/PlantCAD2-Small-l24-d0768	f756c255cb76e9f538c3acec04acf4214ed03fb3	apache-2.0	verified	"[""embedding"", ""token_embedding"", ""masked_lm"", ""long_context"", ""variant_scoring""]"	plant_primary
+PlantCAD2_Large	public_weight	kuleshov-group/PlantCAD2-Large-l48-d1536	f08004be336c6e1e25cb04b7a8920bf71da5358b	apache-2.0	verified	"[""embedding"", ""token_embedding"", ""masked_lm"", ""long_context"", ""variant_scoring""]"	plant_primary_scaled
+PlantBiMoE	public_weight	plant-llms/PlantBiMoE	f962c52c3a88d69e14e39c0fac6005fa4c535e58	apache-2.0	verified	"[""embedding"", ""token_embedding"", ""masked_lm""]"	plant_primary
+GPN_Brassicales	public_weight	songlab/gpn-brassicales	eb9c35d0d18571abe84390d22e74f2b21d319ce3	mit	verified	"[""embedding"", ""token_embedding"", ""masked_lm"", ""variant_scoring""]"	plant_variant_primary
+PlantDNAMamba_BPE	public_weight	zhangtaolab/plant-dnamamba-BPE	2d42b5725e07213317525d5f7d041a60b2507ca2	cc-by-nc-sa-4.0	verified	"[""embedding"", ""masked_lm""]"	plant_primary
+PlantNT_singlebase	public_weight	zhangtaolab/plant-nucleotide-transformer-singlebase	616159be91cac2695a2cdd0bd2b24b9bec8a501a	cc-by-nc-sa-4.0	verified	"[""embedding"", ""token_embedding"", ""masked_lm""]"	plant_primary
+NTv2_500M_multi_species	public_weight	InstaDeepAI/nucleotide-transformer-v2-500m-multi-species	06615c1660c892fc199840c18123f8385b3542a8	cc-by-nc-sa-4.0	verified	"[""embedding"", ""masked_lm""]"	general_primary
+DNABERT2	public_weight	zhihan1996/DNABERT-2-117M	7bce263b15377fc15361f52cfab88f8b586abda0	not_declared_on_model_card	user_authorized	"[""embedding"", ""masked_lm""]"	general_secondary
+GENA_LM_BERT_base	public_weight	AIRI-Institute/gena-lm-bert-base-t2t	4f1352bd4e820f1dba341047f54ad7795e083bf2	not_declared_on_model_card	user_authorized	"[""embedding"", ""masked_lm""]"	general_secondary
+Caduceus_Ph_131k_d_model256	public_weight	kuleshov-group/caduceus-ph_seqlen-131k_d_model-256_n_layer-16	b0477522ac5d044ad03578aa724ec8e4bdbd405b	apache-2.0	verified	"[""embedding"", ""token_embedding"", ""masked_lm"", ""long_context""]"	architecture_long_context
+HyenaDNA_medium_160k	public_weight	LongSafari/hyenadna-medium-160k-seqlen-hf	7ebf71773d22c0ede2cc55cb2be15ee8c289e1ce	bsd-3-clause	verified	"[""embedding"", ""token_embedding"", ""causal_lm"", ""long_context"", ""variant_scoring""]"	architecture_long_context
+Evo2_1B_base	public_weight	arcinstitute/evo2_1b_base	2279e1df422c991037470302360edd40d0d2ea1e	apache-2.0	verified	"[""embedding"", ""causal_lm"", ""long_context"", ""variant_scoring""]"	general_long_context_primary
+kmer_logistic	simple_baseline	in_tree	v4	project_internal	verified	"[""embedding"", ""supervised_head""]"	simple_baseline

@@ -1,2 +1,2 @@
 metric	train_points	val_points	latest_train_step	latest_train_value	latest_val_step	latest_val_value	png
-loss	4615	46	46150	0.97399038	46000	1.0537548	figures/stage_b_full_lineage_loss.png
+loss	5000	50	50000	1.050004	50000	1.0516647	figures/stage_b_full_lineage_loss.png

@@ -1,6 +1,6 @@
 # CropGenome-FM
 
-更新时间：2026-08-03 16:29 CST
+更新时间：2026-08-04 19:46 CST
 
 CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库只保留可公开、可读、可核验的轻量材料；checkpoint、embedding缓存、逐样本预测和大日志不上传。
 
@@ -8,23 +8,25 @@ CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库�
 
 |模块|状态|最新事实|
 |---|---|---|
-|Stage B续训|RUNNING|最新日志step `46150/50000`（92.3%）；最新验证及当前best均为step46000；3×A100持续运行|
+|Stage B续训|COMPLETE|已到step `50000/50000`；最终validation selection loss为0.9875776，当前Stage B最佳点为step50000|
+|Stage C1混合长度续训|RUNNING|从Stage B step50000精确续训；4K/8K/16K/32K/64K混合，最新日志step1240/30000，最新validation为step1000|
 |step19000非EDTA下游|COMPLETE|A1–A10与B13–B17全部完成；10/10 embedding marker、2/2 evaluation marker、FINAL_RECEIPT闭包|
 |下游任务目录|56项|A类10项、B类7项、C类36项、D类3项；逐项说明见`DOWNSTREAM_TASKS_CN.md`|
 |新增C/D数据准备|39/39|原始数据源11/11、统一数据整理39/39、公共模型14/14及真实GPU冒烟14/14完成|
 |全量数据审计|COMPLETE|53/53非EDTA任务逐项检查通过；8个恢复分片及最终汇总均完成|
-|正式协议|DRAFT|固定矩阵3597行；step16000–46000已有16/18个checkpoint身份，等待step48000、50000|
-|完整正式评测|NOT STARTED|等待Stage B剩余2个正式checkpoint和最终执行授权；不运行内部模型消融|
+|三checkpoint完整下游|RUNNING|冻结step40000/45000/50000；54项可执行非EDTA任务、1572行、251个GPU组；快照时22/1572行和2/251组闭合，终止失败0|
 |EDTA结构注释|RUNNING/QUEUED|本轮119个待处理组装已有17个最终任务回执通过；独立q04数组继续运行，RepeatModeler禁用|
 |B11/B12|DEFERRED|等待正式EDTA TE标签，未使用替代标签补数|
 
-C/D新增任务的CPU数据整理和统一完整性检查已经完成，尚未启动正式模型比较。CPU阶段硬限制仍为只允许SLURM `q02`–`q05`，禁止使用`cu`和`fat`分区。
+C/D新增任务的CPU数据整理和统一完整性检查已经完成。step40000、45000、50000三checkpoint完整非EDTA下游已经启动；CPU阶段仍只允许SLURM `q02`–`q05`分区，禁止使用`cu`和`fat`分区。
+
+这三个checkpoint都会访问完整下游测试集，因此其比较结果按monitoring/development evidence（监控/开发证据）管理，不能把其中表现最好的一个包装成未经test选择的独立最终模型。轻量状态快照见[`stage_b_checkpoint_set_downstream_status.tsv`](docs/training_progress/source_data/stage_b_checkpoint_set_downstream_status.tsv)。
 
 ### 全量数据审计结果
 
 这不是模型训练或正式模型对比，而是最后一轮**数据完整性检查**。程序逐项读取53个非EDTA任务的`samples.tsv`，检查重复样本、同一序列跨train/validation/test泄漏、候选组跨split泄漏、数据划分是否齐全，并重新核对文件一致性。
 
-原串行作业`8622446`在24小时上限到达后超时。恢复流程保留了18项有效结果，只把34项缺失任务分成8个q05分片补齐；8个分片全部`COMPLETED/0:0`。随后53/53逐任务深度检查、53/53正式数据索引和一次最终汇总均通过。正式GPU评测仍未启动。
+原串行作业`8622446`在24小时上限到达后超时。恢复流程保留了18项有效结果，只把34项缺失任务分成8个q05分片补齐；8个分片全部`COMPLETED/0:0`。随后53/53逐任务深度检查、53/53正式数据索引和一次最终汇总均通过。当前三checkpoint评测直接复用这批冻结数据，不重新生成split。
 
 项目已取消no-region、random-init及其他内部预训练/架构消融，不再为第二条完整预训练轨迹消耗计算资源。正式证据集中在作物专属下游任务，以及CropGenome-FM与14个公共模型和适用简单基线的同数据、同split公平比较。
 
@@ -32,13 +34,13 @@ C/D新增任务的CPU数据整理和统一完整性检查已经完成，尚未�
 
 ## 当前做到哪一步了
 
-一句话概括：**模型训练日志到92.3%，正式数据检查和公共模型冒烟已经关闭，但论文级统一模型对比还没有启动。**
+一句话概括：**Stage B已完成到step50000，Stage C1混合长度续训正在运行，step40000/45000/50000三checkpoint完整非EDTA下游已经正式启动但尚未完成。**
 
-1. **主模型训练**：Stage B已从step14000无替换续训到日志step46150；step46000的`val_selection_loss=0.9891613`，是当前最佳验证点。相对正式候选起点step16000下降约4.95%，说明预训练目标仍在改善。
-2. **下游数据**：C/D新增39项已经全部转换为统一格式；连同既有任务，当前正式非EDTA数据索引、逐任务检查和汇总检查均为53/53通过。
-3. **公共模型**：14个公共DNA/植物模型均已下载、固定版本并通过真实GPU前向smoke（冒烟测试），证明加载和特征提取链路可运行。
-4. **公平比较协议**：正式矩阵固定为3597行、5个seed（随机种子），覆盖CropGenome-FM、14个公共模型和适用简单基线；数据、split、context和下游头预算保持一致。
-5. **还差什么**：等待step48000、50000两个正式候选checkpoint及最终执行授权。正式比较尚未开始，因此现在不能宣称CropGenome-FM超过公共强模型。
+1. **Stage B**：step14000无替换续训已完成到step50000；最终`val_selection_loss=0.9875776`，相对正式候选起点step16000下降约5.10%。
+2. **Stage C1**：从Stage B step50000精确续训，单一连续run混合4K/8K/16K/32K/64K上下文；快照时训练日志到step1240，最新validation为step1000、`val_selection_loss=0.9058132`。
+3. **下游数据与公共模型**：53/53独立非EDTA数据检查通过；14个公共DNA/植物模型均已固定版本并通过真实GPU前向smoke。
+4. **三checkpoint比较**：step40000、45000、50000身份和SHA均已冻结；当前计划覆盖54项可执行任务、1572行、251个GPU组。2026-08-04 19:46 CST快照为22行和2个GPU组闭合，终止失败0。
+5. **还差什么**：等待整个1572行矩阵闭合、完成敏感性分析和统一终审；在此之前不能宣称CropGenome-FM超过公共强模型。
 
 ## step19000非EDTA主结果
 
@@ -84,12 +86,13 @@ C/D新增任务的CPU数据整理和统一完整性检查已经完成，尚未�
 - [step14000后续训selection loss局部图](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
 - [续训局部图源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
 
-完整图覆盖step10–46150，共4615个train点和46个validation点；绿色虚线标出step14000精确续训边界。图中step10–14000来自原Stage B权威源表，step14000之后来自当前无替换续训日志；旧训练中已经被续训替代的step15000–17000没有混入新谱系。原有两张续训图继续保留，作为右半段细节放大图。
+完整图覆盖step10–50000，共5000个train点和50个validation点；绿色虚线标出step14000精确续训边界。图中step10–14000来自原Stage B权威源表，step14000之后来自无替换续训日志；旧训练中已经被续训替代的step15000–17000没有混入新谱系。原有两张续训图继续保留，作为右半段细节放大图。
 
-最新验证step46000：`val_selection_loss=0.9891613`，是当前最佳验证点。训练仍在继续，不能把step46000称为最终模型，也不能在完整正式评测前声称超过公共强基线。
+Stage B最终验证step50000：`val_selection_loss=0.9875776`，是Stage B范围内最佳验证点。Stage C1已从该checkpoint精确续训；三checkpoint下游仍在运行，不能在完整矩阵闭合前声称超过公共强基线。
 
 ## 其他材料
 
+- [下游v4公开状态与注册表](docs/downstream_v4/README_CN.md)
 - [模型架构](MODEL_ARCHITECTURE.md)
 - [正式few-shot结果](docs/results/formal_fewshot_metrics.tsv)
 - [正式full-data结果](docs/results/formal_full_data_metrics.tsv)

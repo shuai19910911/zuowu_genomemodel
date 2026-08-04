@@ -1,0 +1,2 @@
+snapshot_time_cst	plan_sha256	checkpoint_steps	active_non_edta_tasks	edta_deferred_tasks	rows_total	audit_rows_resolved	gpu_groups_total	gpu_groups_complete	terminal_failures	status	evidence_classification
+2026-08-04T19:46:37+08:00	83574b1a11011bfffd430dfa00570b0c3ee81280cd0a5b8c0de2183019b72005	40000,45000,50000	54	B11,B12	1572	22	251	2	0	RUNNING	checkpoint-comparison monitoring/development evidence; not an untouched final test
