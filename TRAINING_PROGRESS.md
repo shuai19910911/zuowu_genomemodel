@@ -1,6 +1,6 @@
 # CropGenome-FM训练进展
 
-更新时间：2026-08-04 19:46 CST
+更新时间：2026-08-04 21:28 CST
 
 ## 1. 当前训练状态
 
@@ -8,10 +8,11 @@
 |---|---|
 |Stage B|COMPLETE：step14000精确续训至step50000|
 |Stage B最终/最佳验证点|step50000；val selection loss 0.9875776|
-|Stage C1|RUNNING：从Stage B step50000精确续训|
-|Stage C1最新训练日志|step1240 / 30000|
-|Stage C1最新validation|step1000；val selection loss 0.9058132|
+|Stage C1|RUNNING：从Stage B step50000权重warm-start，阶段从step0重新计步|
+|Stage C1最新训练日志|step1520 / 30000|
+|Stage C1最新validation|step1500；val selection loss 0.9056264，当前Stage C1最低|
 |Stage C1上下文|4K/8K/16K/32K/64K按预设比例混合的单一连续run|
+|Stage C1曲线范围|step10–1520；152个train点、3个validation点|
 |训练资源|gpu10，3×NVIDIA A100-SXM4-40GB，GPU0–2|
 |Stage B checkpoint|每500 step永久保存；step40000、45000、50000身份与SHA已冻结用于完整下游|
 |Stage B完整曲线范围|step10–50000；5000个train点、50个validation点|
@@ -66,6 +67,25 @@
 
 ## 3. 曲线与源数据
 
+### Stage C1混合长度训练
+
+- [Stage C1总loss曲线](docs/training_progress/figures/stage_c1_all_lengths_loss.png)
+- [Stage C1 selection loss曲线](docs/training_progress/figures/stage_c1_all_lengths_selection_loss.png)
+- [Stage C1源数据](docs/training_progress/source_data/stage_c1_all_lengths_metrics.tsv)
+- [Stage C1曲线摘要TSV](docs/training_progress/source_data/stage_c1_all_lengths_curve_summary.tsv)
+
+|Stage C1 step|val total loss|val MLM loss|val RC loss|val selection loss|region loss|region acc|
+|---:|---:|---:|---:|---:|---:|---:|
+|500|0.9746|0.9023|0.2095|0.9065|1.3624|0.5365|
+|1000|0.9700|0.9016|0.2084|0.9058|1.2840|0.5417|
+|1500|0.9667|0.9015|0.2073|0.9056|1.2223|0.5729|
+
+从step500到step1500，validation selection loss下降0.0008364（约0.09%），total loss下降约0.80%。方向略有改善，但幅度很小且目前只有3个validation点，不能据此声称长上下文阶段已经带来明确模型增益。训练raw loss会受4K–64K混合长度与每步样本组成影响，判断趋势应优先看滚动中位数和固定validation。
+
+Stage C1是新阶段：它从Stage B step50000加载模型权重，但重新建立优化器、混合长度采样和阶段步数。因此Stage C1单独画图，不把它与Stage B的loss硬连接成一条连续曲线。
+
+### Stage B完整谱系与续训局部图
+
 - [完整Stage B总loss曲线：step10–50000](docs/training_progress/figures/stage_b_full_lineage_loss.png)
 - [完整Stage B源数据：5000个train点＋50个validation点](docs/training_progress/source_data/stage_b_full_lineage_metrics.tsv)
 - [完整曲线摘要TSV](docs/training_progress/source_data/stage_b_full_lineage_curve_summary.tsv)
@@ -76,7 +96,7 @@
 
 此前GitHub只展示了当前续训日志，所以横轴从step14000之后开始，看起来像训练曲线缺了一段。完整图以原Stage B权威TSV只保留step10–14000，再从精确resume边界接入当前无替换续训日志；续训替代掉的旧step15000–17000不会混入新谱系。绿色虚线表示step14000精确续训边界。所有50个validation标记都显示，但只标注10个关键点，避免文字遮挡。
 
-全程图和局部图都包含原始训练点、21点滚动中位数、validation checkpoint和最新训练点；图由TSV直接生成，只上传PNG，不上传SVG/PDF。现有续训图不删除，继续用于观察step14000之后的细节。
+Stage B和Stage C1图都包含原始训练点、21点滚动中位数、validation checkpoint和最新训练点；图由各自TSV直接生成，只上传PNG，不上传SVG/PDF。现有Stage B续训图不删除，继续用于观察step14000之后的细节。
 
 ## 4. step19000完整非EDTA下游
 

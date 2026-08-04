@@ -1,6 +1,6 @@
 # CropGenome-FM
 
-更新时间：2026-08-04 19:46 CST
+更新时间：2026-08-04 21:28 CST
 
 CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库只保留可公开、可读、可核验的轻量材料；checkpoint、embedding缓存、逐样本预测和大日志不上传。
 
@@ -9,7 +9,7 @@ CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库�
 |模块|状态|最新事实|
 |---|---|---|
 |Stage B续训|COMPLETE|已到step `50000/50000`；最终validation selection loss为0.9875776，当前Stage B最佳点为step50000|
-|Stage C1混合长度续训|RUNNING|从Stage B step50000精确续训；4K/8K/16K/32K/64K混合，最新日志step1240/30000，最新validation为step1000|
+|Stage C1混合长度训练|RUNNING|从Stage B step50000权重warm-start并把Stage C1重新从step0计步；4K/8K/16K/32K/64K混合，最新日志step1520/30000，最新validation为step1500，selection loss 0.9056264|
 |step19000非EDTA下游|COMPLETE|A1–A10与B13–B17全部完成；10/10 embedding marker、2/2 evaluation marker、FINAL_RECEIPT闭包|
 |下游任务目录|56项|A类10项、B类7项、C类36项、D类3项；逐项说明见`DOWNSTREAM_TASKS_CN.md`|
 |新增C/D数据准备|39/39|原始数据源11/11、统一数据整理39/39、公共模型14/14及真实GPU冒烟14/14完成|
@@ -34,10 +34,10 @@ C/D新增任务的CPU数据整理和统一完整性检查已经完成。step4000
 
 ## 当前做到哪一步了
 
-一句话概括：**Stage B已完成到step50000，Stage C1混合长度续训正在运行，step40000/45000/50000三checkpoint完整非EDTA下游已经正式启动但尚未完成。**
+一句话概括：**Stage B已完成到step50000，Stage C1混合长度新阶段正在运行，step40000/45000/50000三checkpoint完整非EDTA下游已经正式启动但尚未完成。**
 
 1. **Stage B**：step14000无替换续训已完成到step50000；最终`val_selection_loss=0.9875776`，相对正式候选起点step16000下降约5.10%。
-2. **Stage C1**：从Stage B step50000精确续训，单一连续run混合4K/8K/16K/32K/64K上下文；快照时训练日志到step1240，最新validation为step1000、`val_selection_loss=0.9058132`。
+2. **Stage C1**：从Stage B step50000加载权重后重新建立优化器和阶段计数，单一连续run混合4K/8K/16K/32K/64K上下文；快照时训练日志到step1520，最新validation为step1500，也是当前最低点，`val_selection_loss=0.9056264`。
 3. **下游数据与公共模型**：53/53独立非EDTA数据检查通过；14个公共DNA/植物模型均已固定版本并通过真实GPU前向smoke。
 4. **三checkpoint比较**：step40000、45000、50000身份和SHA均已冻结；当前计划覆盖54项可执行任务、1572行、251个GPU组。2026-08-04 19:46 CST快照为22行和2个GPU组闭合，终止失败0。
 5. **还差什么**：等待整个1572行矩阵闭合、完成敏感性分析和统一终审；在此之前不能宣称CropGenome-FM超过公共强模型。
@@ -78,17 +78,23 @@ C/D新增任务的CPU数据整理和统一完整性检查已经完成。step4000
 
 ## 训练进展
 
-- [训练状态、当前续训30个validation点和解释](TRAINING_PROGRESS.md)
+- [Stage B与Stage C1训练状态、曲线和validation轨迹](TRAINING_PROGRESS.md)
 - [56项下游任务通俗版总览与当前进展](DOWNSTREAM_TASKS_CN.md)
+- [Stage C1总loss曲线](docs/training_progress/figures/stage_c1_all_lengths_loss.png)
+- [Stage C1 selection loss曲线](docs/training_progress/figures/stage_c1_all_lengths_selection_loss.png)
+- [Stage C1曲线源数据](docs/training_progress/source_data/stage_c1_all_lengths_metrics.tsv)
+- [Stage C1曲线摘要TSV](docs/training_progress/source_data/stage_c1_all_lengths_curve_summary.tsv)
 - [完整Stage B总loss曲线：step10到当前](docs/training_progress/figures/stage_b_full_lineage_loss.png)
 - [完整曲线源数据：step10到当前](docs/training_progress/source_data/stage_b_full_lineage_metrics.tsv)
 - [step14000后续训总loss局部图](docs/training_progress/figures/stage_b_continuation_loss.png)
 - [step14000后续训selection loss局部图](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
 - [续训局部图源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
 
-完整图覆盖step10–50000，共5000个train点和50个validation点；绿色虚线标出step14000精确续训边界。图中step10–14000来自原Stage B权威源表，step14000之后来自无替换续训日志；旧训练中已经被续训替代的step15000–17000没有混入新谱系。原有两张续训图继续保留，作为右半段细节放大图。
+Stage C1独立图当前覆盖step10–1520，共152个train点和3个validation点。selection loss从step500的0.9064628降到step1500的0.9056264，下降约0.09%；变化很小且只有3个验证点，暂时只能说明训练稳定、略有改善，不能据此判断最终收益。
 
-Stage B最终验证step50000：`val_selection_loss=0.9875776`，是Stage B范围内最佳验证点。Stage C1已从该checkpoint精确续训；三checkpoint下游仍在运行，不能在完整矩阵闭合前声称超过公共强基线。
+Stage B完整图覆盖step10–50000，共5000个train点和50个validation点；绿色虚线标出step14000精确续训边界。图中step10–14000来自原Stage B权威源表，step14000之后来自无替换续训日志；旧训练中已经被续训替代的step15000–17000没有混入新谱系。原有两张续训图继续保留，作为右半段细节放大图。Stage C1改变了上下文混合、运行配置和优化器状态，并重新计步，因此不把Stage B与Stage C1的loss硬连成一条曲线。
+
+Stage B最终验证step50000：`val_selection_loss=0.9875776`，是Stage B范围内最佳验证点。Stage C1从该checkpoint做权重warm-start并重新计步。本次GitHub更新只有新阶段训练曲线，没有新的下游结果；三checkpoint下游仍在运行，不能在完整矩阵闭合前声称超过公共强基线。
 
 ## 其他材料
 
