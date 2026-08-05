@@ -1,6 +1,6 @@
 # CropGenome-FM 下游 v4：公开状态说明
 
-更新时间：2026-08-05 09:50 CST
+更新时间：2026-08-06 00:08 CST
 
 本页提供下游 v4 的轻量公开状态。仓库只保存可阅读的任务、来源、模型注册表及进展快照，不上传checkpoint、公共模型权重、数据集、embedding、逐样本预测、日志或完整运行目录。
 
@@ -13,9 +13,9 @@
 - 当前checkpoint集合：Stage B step40000、45000、50000。
 - 冻结矩阵：1572行、251个GPU组；每项使用5个随机种子；内部预训练消融不进入本轮。
 
-2026-08-05 09:50 CST快照：86/1572行、8/251个GPU组闭合，终止失败0。CPU probe与敏感性分析只允许SLURM q05，快照时18个RUNNING、4个PENDING均在q05；可GPU化阶段在gpu05按实时显存与主机内存动态并发，不设固定每卡命令上限。
+2026-08-06 00:08 CST快照：93/1572行、8/251个GPU组闭合，终止失败0。CPU probe与敏感性分析只允许SLURM q05，快照时11个RUNNING、0个PENDING。gpu05既有4个run-group继续运行，但全主机新CUDA上下文故障修复前暂停所有新GPU派发和重复CUDA探针。
 
-最终审计当前为`BLOCKED`：运行中调整GPU并发和q05提交器后，冻结计划与当前实现哈希不一致；正式smoke回执尚未归档，矩阵也未闭合。这不等于已有指标失败，但必须在正式终报前关闭。
+最终审计当前为`BLOCKED`：实现哈希漂移、正式smoke回执缺失和矩阵未闭合仍待处理。gpu05硬件blocker要求既有任务完成后由管理员维护B4:00.0并重启主机或重载驱动，通过全主机CUDA验证后再恢复daemon。
 
 轻量状态：`docs/training_progress/source_data/stage_b_checkpoint_set_downstream_status.tsv`
 

@@ -150,7 +150,7 @@ def write_png(path: Path, metric_key: str, title: str, description: str, train_p
         vy = [y for _, y in val_points]
         ax.scatter(vx, vy, marker="D", s=70, color="#DC2626", edgecolor="white", linewidth=0.8, zorder=6, label="validation checkpoints")
         ax.plot(vx, vy, color="#DC2626", linewidth=1.5, alpha=0.65)
-        if len(val_points) <= 12:
+        if len(val_points) <= 11:
             label_indices = list(range(len(val_points)))
         else:
             stride = max(1, math.ceil((len(val_points) - 1) / 8))

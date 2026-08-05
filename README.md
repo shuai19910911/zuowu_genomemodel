@@ -1,6 +1,6 @@
 # CropGenome-FM
 
-更新时间：2026-08-05 09:50 CST
+更新时间：2026-08-06 00:08 CST
 
 CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库只保留可公开、可读、可核验的轻量材料；checkpoint、embedding缓存、逐样本预测和大日志不上传。
 
@@ -9,16 +9,16 @@ CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库�
 |模块|状态|最新事实|
 |---|---|---|
 |Stage B续训|COMPLETE|已到step `50000/50000`；最终validation selection loss为0.9875776，当前Stage B最佳点为step50000|
-|Stage C1混合长度训练|RUNNING|从Stage B step50000权重warm-start并把Stage C1重新从step0计步；4K/8K/16K/32K/64K混合，最新日志step3600/30000，最新validation为step3500，selection loss 0.9021056|
+|Stage C1混合长度训练|RUNNING|从Stage B step50000权重warm-start并把Stage C1重新从step0计步；4K/8K/16K/32K/64K混合，快照到step6000/30000，最新validation同为step6000，selection loss 0.8982663且为当前最低|
 |step19000非EDTA下游|COMPLETE|A1–A10与B13–B17全部完成；10/10 embedding marker、2/2 evaluation marker、FINAL_RECEIPT闭包|
 |下游任务目录|56项|A类10项、B类7项、C类36项、D类3项；逐项说明见`DOWNSTREAM_TASKS_CN.md`|
 |新增C/D数据准备|39/39|原始数据源11/11、统一数据整理39/39、公共模型14/14及真实GPU冒烟14/14完成|
 |全量数据审计|COMPLETE|53/53非EDTA任务逐项检查通过；8个恢复分片及最终汇总均完成|
-|三checkpoint完整下游|RUNNING / AUDIT BLOCKED|冻结step40000/45000/50000；54项可执行非EDTA任务、1572行、251个GPU组；快照时86/1572行和8/251组闭合，终止失败0；最终审计仍受计划实现漂移、正式smoke回执缺失和矩阵未闭合阻塞|
-|EDTA结构注释|RUNNING/QUEUED|本轮119个待处理组装已有17个最终任务回执通过；独立q04数组继续运行，RepeatModeler禁用|
+|三checkpoint完整下游|RUNNING / AUDIT + HARDWARE BLOCKED|冻结step40000/45000/50000；快照时93/1572行和8/251个GPU组闭合，终止失败0；gpu05既有worker继续，但新GPU派发因全主机新CUDA上下文故障暂停|
+|EDTA结构注释|RUNNING/QUEUED|本轮119个目标已有38个满足完整输出与回执条件，剩余81个继续由独立q04数组处理；RepeatModeler禁用|
 |B11/B12|DEFERRED|等待正式EDTA TE标签，未使用替代标签补数|
 
-C/D新增任务的CPU数据整理和统一完整性检查已经完成。step40000、45000、50000三checkpoint完整非EDTA下游已经启动；可GPU化阶段继续在gpu05按实时显存和主机内存动态并发，CPU probe与敏感性分析只允许SLURM `q05`，不回退其他CPU分区。2026-08-05 09:50 CST快照下，CPU数组18个RUNNING、4个PENDING，全部位于q05。
+C/D新增任务的数据整理和完整性检查已经完成。CPU probe与敏感性分析继续只走SLURM `q05`，快照时11个任务RUNNING、0个PENDING。gpu05现有4个run-group继续运行，但新GPU任务派发daemon已暂停；待既有任务结束后由管理员维护B4:00.0并重启主机或重载驱动，通过全主机CUDA上下文验证后再恢复派发。
 
 这三个checkpoint都会访问完整下游测试集，因此其比较结果按monitoring/development evidence（监控/开发证据）管理，不能把其中表现最好的一个包装成未经test选择的独立最终模型。轻量状态快照见[`stage_b_checkpoint_set_downstream_status.tsv`](docs/training_progress/source_data/stage_b_checkpoint_set_downstream_status.tsv)。
 
@@ -37,10 +37,10 @@ C/D新增任务的CPU数据整理和统一完整性检查已经完成。step4000
 一句话概括：**Stage B已完成到step50000，Stage C1混合长度新阶段正在运行，step40000/45000/50000三checkpoint完整非EDTA下游已经正式启动但尚未完成。**
 
 1. **Stage B**：step14000无替换续训已完成到step50000；最终`val_selection_loss=0.9875776`，相对正式候选起点step16000下降约5.10%。
-2. **Stage C1**：从Stage B step50000加载权重后重新建立优化器和阶段计数，单一连续run混合4K/8K/16K/32K/64K上下文；快照时训练日志到step3600，最新validation为step3500，也是当前最低点，`val_selection_loss=0.9021056`。
+2. **Stage C1**：从Stage B step50000加载权重后重新建立优化器和阶段计数，单一连续run混合4K/8K/16K/32K/64K上下文；快照到step6000，最新validation同为step6000，也是当前最低点，`val_selection_loss=0.8982663`。gpu10三张A100持续满载，训练未被重启或改动。
 3. **下游数据与公共模型**：53/53独立非EDTA数据检查通过；14个公共DNA/植物模型均已固定版本并通过真实GPU前向smoke。
-4. **三checkpoint比较**：step40000、45000、50000身份和SHA均已冻结；当前计划覆盖54项可执行任务、1572行、251个GPU组。2026-08-05 09:50 CST快照为86行和8个GPU组闭合，终止失败0。由于运行中调整了GPU并发与q05提交器，冻结计划与当前实现哈希不再一致；这不等于已有指标失败，但正式终审必须先解决该漂移并补齐正式smoke回执。
-5. **还差什么**：等待整个1572行矩阵闭合、完成敏感性分析和统一终审；在此之前不能宣称CropGenome-FM超过公共强模型。
+4. **三checkpoint比较**：step40000、45000、50000身份和SHA均已冻结；当前计划覆盖54项可执行任务、1572行、251个GPU组。2026-08-06 00:08 CST快照为93行和8个GPU组闭合，终止失败0。最终审计仍受实现哈希漂移、正式smoke回执缺失和矩阵未闭合阻塞；此外gpu05新CUDA上下文故障使新GPU派发保持暂停。
+5. **还差什么**：先保护现有gpu05任务完成并进行管理员维护，恢复全主机CUDA后继续剩余GPU组；同时让q05完成CPU probe，最后完成敏感性分析和统一终审。在此之前不能宣称CropGenome-FM超过公共强模型。
 
 ## step19000非EDTA主结果
 
@@ -90,7 +90,7 @@ C/D新增任务的CPU数据整理和统一完整性检查已经完成。step4000
 - [step14000后续训selection loss局部图](docs/training_progress/figures/stage_b_continuation_selection_loss.png)
 - [续训局部图源数据](docs/training_progress/source_data/stage_b_continuation_metrics.tsv)
 
-Stage C1独立图当前覆盖step10–3600，共360个train点和7个validation点。validation selection loss从step500的0.9064628降到step3500的0.9021056，下降约0.48%；validation total loss同期下降约1.83%。趋势继续改善，但验证点仍少、幅度仍小，不能据此判断最终下游收益。
+Stage C1独立图当前覆盖step10–6000，共600个train点和12个validation点。validation selection loss从step500的0.9064628降到step6000的0.8982663，下降约0.90%；validation total loss同期下降约2.50%。趋势稳定改善，但预训练loss仍不能替代完整下游比较。
 
 Stage B完整图覆盖step10–50000，共5000个train点和50个validation点；绿色虚线标出step14000精确续训边界。图中step10–14000来自原Stage B权威源表，step14000之后来自无替换续训日志；旧训练中已经被续训替代的step15000–17000没有混入新谱系。原有两张续训图继续保留，作为右半段细节放大图。Stage C1改变了上下文混合、运行配置和优化器状态，并重新计步，因此不把Stage B与Stage C1的loss硬连成一条曲线。
 
