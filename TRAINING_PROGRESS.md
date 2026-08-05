@@ -1,6 +1,6 @@
 # CropGenome-FM训练进展
 
-更新时间：2026-08-04 21:28 CST
+更新时间：2026-08-05 09:50 CST
 
 ## 1. 当前训练状态
 
@@ -9,14 +9,14 @@
 |Stage B|COMPLETE：step14000精确续训至step50000|
 |Stage B最终/最佳验证点|step50000；val selection loss 0.9875776|
 |Stage C1|RUNNING：从Stage B step50000权重warm-start，阶段从step0重新计步|
-|Stage C1最新训练日志|step1520 / 30000|
-|Stage C1最新validation|step1500；val selection loss 0.9056264，当前Stage C1最低|
+|Stage C1最新训练日志|step3600 / 30000|
+|Stage C1最新validation|step3500；val selection loss 0.9021056，当前Stage C1最低|
 |Stage C1上下文|4K/8K/16K/32K/64K按预设比例混合的单一连续run|
-|Stage C1曲线范围|step10–1520；152个train点、3个validation点|
+|Stage C1曲线范围|step10–3600；360个train点、7个validation点|
 |训练资源|gpu10，3×NVIDIA A100-SXM4-40GB，GPU0–2|
 |Stage B checkpoint|每500 step永久保存；step40000、45000、50000身份与SHA已冻结用于完整下游|
 |Stage B完整曲线范围|step10–50000；5000个train点、50个validation点|
-|三checkpoint下游|RUNNING：54项可执行非EDTA任务、1572行、251个GPU组；快照时22行和2组闭合，终止失败0|
+|三checkpoint下游|RUNNING / AUDIT BLOCKED：54项可执行非EDTA任务、1572行、251个GPU组；快照时86行和8组闭合，终止失败0|
 
 本页是时间戳快照，Stage C1和三checkpoint下游继续运行后数字会自然前进。Stage B预训练曲线下降只说明训练目标改善，最终模型是否更有用仍要看固定下游任务和公共模型公平重跑。
 
@@ -79,8 +79,12 @@
 |500|0.9746|0.9023|0.2095|0.9065|1.3624|0.5365|
 |1000|0.9700|0.9016|0.2084|0.9058|1.2840|0.5417|
 |1500|0.9667|0.9015|0.2073|0.9056|1.2223|0.5729|
+|2000|0.9646|0.8994|0.2015|0.9035|1.2219|0.5781|
+|2500|0.9625|0.8986|0.2105|0.9028|1.1925|0.5885|
+|3000|0.9621|0.9002|0.2158|0.9045|1.1516|0.5990|
+|3500|0.9568|0.8980|0.2069|0.9021|1.0930|0.6354|
 
-从step500到step1500，validation selection loss下降0.0008364（约0.09%），total loss下降约0.80%。方向略有改善，但幅度很小且目前只有3个validation点，不能据此声称长上下文阶段已经带来明确模型增益。训练raw loss会受4K–64K混合长度与每步样本组成影响，判断趋势应优先看滚动中位数和固定validation。
+从step500到step3500，validation selection loss下降0.0043572（约0.48%），total loss下降约1.83%。方向继续改善，但目前只有7个validation点，仍不能据此声称长上下文阶段已经带来明确下游增益。训练raw loss会受4K–64K混合长度与每步样本组成影响，判断趋势应优先看滚动中位数和固定validation。
 
 Stage C1是新阶段：它从Stage B step50000加载模型权重，但重新建立优化器、混合长度采样和阶段步数。因此Stage C1单独画图，不把它与Stage B的loss硬连接成一条连续曲线。
 
@@ -133,9 +137,12 @@ step19000已完成A01–A10与B13–B17，共15个已执行编号；B11/B12等�
 |原始资产|11/11数据源已下载校验；14/14公共模型已下载并通过真实GPU前向冒烟|
 |资源使用策略|所有可访问数据和公共模型直接使用；许可证元数据不构成执行Gate|
 |模型/基线|16个：CropGenome-FM、14个公共模型和k-mer简单基线；不含内部消融|
-|三checkpoint正式运行|step40000/45000/50000；1572行、251个GPU组、5个seed；2026-08-04 19:46 CST快照为22行和2组闭合，终止失败0|
+|三checkpoint正式运行|step40000/45000/50000；1572行、251个GPU组、5个seed；2026-08-05 09:50 CST快照为86行和8组闭合，终止失败0|
 |统一数据审计|COMPLETE：53/53非EDTA任务逐项检查通过，数据索引与汇总检查均已关闭|
-|CPU调度边界|只允许SLURM q02–q05；禁止cu和fat，无资源时等待|
+|CPU调度边界|CPU probe与敏感性分析只允许SLURM q05；不回退其他CPU分区，快照时18个RUNNING、4个PENDING均在q05|
+|GPU调度|可GPU化阶段继续在gpu05；按实时显存与主机内存动态并发，不设固定每卡命令上限，不抢占他人进程|
+
+最终审计当前为`BLOCKED`：运行中调整GPU并发和q05提交器后，冻结计划与当前实现哈希不一致；此外正式smoke回执尚未归档，1572行矩阵也未闭合。这不等于已有指标失败，但三项阻塞都必须在正式终报前关闭。
 
 当前已经完成的资产和真实链路：
 
@@ -148,7 +155,7 @@ step19000已完成A01–A10与B13–B17，共15个已执行编号；B11/B12等�
 
 原串行作业8622446在24小时上限到达后超时，已通过保留18项有效结果、只分片补齐缺失任务的方式恢复。8个q05分片全部`COMPLETED/0:0`，随后完成53/53逐任务深度核验和一次汇总检查；没有从头重复已通过项目。当前数据准备已经关闭，三checkpoint评测正直接复用冻结数据和split运行。轻量状态快照见[`stage_b_checkpoint_set_downstream_status.tsv`](docs/training_progress/source_data/stage_b_checkpoint_set_downstream_status.tsv)。
 
-当前已进入正式执行阶段，但完整矩阵尚未闭合，因此仍没有模型胜负结论。step40000、45000、50000都会访问完整test；这些结果按checkpoint-comparison monitoring/development evidence管理，不能把事后最优checkpoint写成未经test选择的独立最终模型。
+当前已进入正式执行阶段，但完整矩阵尚未闭合且审计阻塞尚未关闭，因此仍没有模型胜负结论。step40000、45000、50000都会访问完整test；这些结果按checkpoint-comparison monitoring/development evidence管理，不能把事后最优checkpoint写成未经test选择的独立最终模型。
 
 ## 6. EDTA与B11/B12
 

@@ -158,7 +158,7 @@ def write_png(path: Path, metric_key: str, title: str, description: str, train_p
         for label_rank, point_index in enumerate(label_indices):
             x, y = val_points[point_index]
             if point_index == len(val_points) - 1:
-                offset, align = (-72, -34), "right"
+                offset, align = (-20, 48), "right"
             else:
                 offset = (8, 18) if label_rank % 2 == 0 else (8, -30)
                 align = "left"
