@@ -1,6 +1,6 @@
 # CropGenome-FM训练进展
 
-更新时间：2026-08-06 00:08 CST
+更新时间：2026-08-07 19:30 CST
 
 ## 1. 当前训练状态
 
@@ -144,7 +144,7 @@ step19000已完成A01–A10与B13–B17，共15个已执行编号；B11/B12等�
 |模型/基线|16个：CropGenome-FM、14个公共模型和k-mer简单基线；不含内部消融|
 |三checkpoint正式运行|step40000/45000/50000；1572行、251个GPU组、5个seed；2026-08-06 00:08 CST快照为93行和8组闭合，终止失败0|
 |统一数据审计|COMPLETE：53/53非EDTA任务逐项检查通过，数据索引与汇总检查均已关闭|
-|CPU调度边界|CPU probe与敏感性分析只允许SLURM q05；不回退其他CPU分区，快照时11个RUNNING、0个PENDING|
+|CPU调度边界|CPU-only下游任务只在gpu05本机CPU执行：隐藏全部CUDA设备、按主机可用内存限流（每worker 48GiB、保留32GiB、最多2并发）；SLURM q05提交已禁用|
 |GPU调度|gpu05既有4个run-group继续运行；新GPU派发daemon保持暂停，禁止重复CUDA探针、GPU reset、驱动重载或重启|
 
 最终审计当前为`BLOCKED`：实现哈希漂移、正式smoke回执缺失和1572行矩阵未闭合仍待处理。gpu05另有全主机新CUDA上下文故障；现有worker完成后需要管理员维护B4:00.0并重启主机或重载驱动，验证CUDA恢复后才能继续新GPU派发。
@@ -158,7 +158,7 @@ step19000已完成A01–A10与B13–B17，共15个已执行编号；B11/B12等�
 - 正式非EDTA数据索引达到53/53 ready，53项逐任务完整性检查全部通过；
 - 14/14公共模型真实GPU前向冒烟全部通过。
 
-原串行作业8622446在24小时上限到达后超时，已通过保留18项有效结果、只分片补齐缺失任务的方式恢复。8个q05分片全部`COMPLETED/0:0`，随后完成53/53逐任务深度核验和一次汇总检查；没有从头重复已通过项目。当前数据准备已经关闭，三checkpoint评测正直接复用冻结数据和split运行。轻量状态快照见[`stage_b_checkpoint_set_downstream_status.tsv`](docs/training_progress/source_data/stage_b_checkpoint_set_downstream_status.tsv)。
+原串行作业8622446在24小时上限到达后超时，恢复流程保留了18项有效结果并以q05分片补齐（历史数据审计，不代表当前CPU策略）；随后完成53/53逐任务深度核验和一次汇总检查。当前数据准备已关闭，三checkpoint评测复用冻结数据运行，CPU-only行由gpu05本机CPU队列执行。
 
 当前已进入正式执行阶段，但完整矩阵尚未闭合且审计阻塞尚未关闭，因此仍没有模型胜负结论。step40000、45000、50000都会访问完整test；这些结果按checkpoint-comparison monitoring/development evidence管理，不能把事后最优checkpoint写成未经test选择的独立最终模型。
 
@@ -169,7 +169,7 @@ EDTA继续在q04执行，RepeatModeler明确禁用；119个目标中已有38个�
 ## 7. 下一步
 
 1. Stage C1继续按4K/8K/16K/32K/64K混合长度单一连续run训练，并按冻结门禁监控validation。
-2. 保护gpu05既有worker完成；q05继续CPU probe。既有GPU任务排空后由管理员修复主机CUDA，再恢复剩余GPU组、B17敏感性分析和最终审计。
+2. 保护gpu05既有GPU与CPU worker完成；gpu05本机CPU队列继续消化CPU-only行。GPU任务排空后由管理员修复主机CUDA，再恢复剩余GPU组、B17敏感性分析和最终审计。
 3. 持续完成EDTA；最终manifest、ID回映射和坐标质控关闭后运行B11/B12。
 4. 不运行no-region、random-init或其他内部模型消融，把计算资源集中到作物专属下游任务和公共强模型公平比较。
 5. 矩阵闭合后统一汇总三个checkpoint、公共模型和简单基线；如据test表现选择checkpoint，必须明确标注post-hoc（事后选择）和监控/开发证据属性。

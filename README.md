@@ -1,6 +1,6 @@
 # CropGenome-FM
 
-更新时间：2026-08-06 00:08 CST
+更新时间：2026-08-07 19:30 CST
 
 CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库只保留可公开、可读、可核验的轻量材料；checkpoint、embedding缓存、逐样本预测和大日志不上传。
 
@@ -18,7 +18,7 @@ CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库�
 |EDTA结构注释|RUNNING/QUEUED|本轮119个目标已有38个满足完整输出与回执条件，剩余81个继续由独立q04数组处理；RepeatModeler禁用|
 |B11/B12|DEFERRED|等待正式EDTA TE标签，未使用替代标签补数|
 
-C/D新增任务的数据整理和完整性检查已经完成。CPU probe与敏感性分析继续只走SLURM `q05`，快照时11个任务RUNNING、0个PENDING。gpu05现有4个run-group继续运行，但新GPU任务派发daemon已暂停；待既有任务结束后由管理员维护B4:00.0并重启主机或重载驱动，通过全主机CUDA上下文验证后再恢复派发。
+C/D新增任务的数据整理和完整性检查已经完成。CPU-only下游任务（probe与敏感性分析）已迁移到gpu05本机CPU执行：调度daemon运行中，1个CPU worker活跃、52行就绪，全部隐藏CUDA设备、按主机可用内存限流；SLURM `q05`提交已禁用且q05无本项目作业。gpu05新GPU派发daemon仍暂停，待既有GPU任务结束后由管理员维护B4:00.0再恢复。
 
 这三个checkpoint都会访问完整下游测试集，因此其比较结果按monitoring/development evidence（监控/开发证据）管理，不能把其中表现最好的一个包装成未经test选择的独立最终模型。轻量状态快照见[`stage_b_checkpoint_set_downstream_status.tsv`](docs/training_progress/source_data/stage_b_checkpoint_set_downstream_status.tsv)。
 
@@ -40,7 +40,7 @@ C/D新增任务的数据整理和完整性检查已经完成。CPU probe与敏�
 2. **Stage C1**：从Stage B step50000加载权重后重新建立优化器和阶段计数，单一连续run混合4K/8K/16K/32K/64K上下文；快照到step6000，最新validation同为step6000，也是当前最低点，`val_selection_loss=0.8982663`。gpu10三张A100持续满载，训练未被重启或改动。
 3. **下游数据与公共模型**：53/53独立非EDTA数据检查通过；14个公共DNA/植物模型均已固定版本并通过真实GPU前向smoke。
 4. **三checkpoint比较**：step40000、45000、50000身份和SHA均已冻结；当前计划覆盖54项可执行任务、1572行、251个GPU组。2026-08-06 00:08 CST快照为93行和8个GPU组闭合，终止失败0。最终审计仍受实现哈希漂移、正式smoke回执缺失和矩阵未闭合阻塞；此外gpu05新CUDA上下文故障使新GPU派发保持暂停。
-5. **还差什么**：先保护现有gpu05任务完成并进行管理员维护，恢复全主机CUDA后继续剩余GPU组；同时让q05完成CPU probe，最后完成敏感性分析和统一终审。在此之前不能宣称CropGenome-FM超过公共强模型。
+5. **还差什么**：先保护现有gpu05任务完成并进行管理员维护，恢复全主机CUDA后继续剩余GPU组；gpu05本机CPU队列持续消化CPU-only行，最后完成敏感性分析和统一终审。在此之前不能宣称CropGenome-FM超过公共强模型。
 
 ## step19000非EDTA主结果
 
