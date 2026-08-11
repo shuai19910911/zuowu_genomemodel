@@ -1,6 +1,6 @@
 # CropGenome-FM训练进展
 
-更新时间：2026-08-10 15:57 CST
+更新时间：2026-08-11 09:50 CST
 
 ## 1. 当前训练状态
 
@@ -9,14 +9,14 @@
 |Stage B|COMPLETE：step14000精确续训至step50000|
 |Stage B最终/最佳验证点|step50000；val selection loss 0.9875776|
 |Stage C1|RUNNING：从Stage B step50000权重warm-start，阶段从step0重新计步|
-|Stage C1最新训练日志|train step24270 / 30000（80.90%）|
-|Stage C1最新validation|step24000；val selection loss 0.8845102，当前Stage C1最低|
+|Stage C1最新训练日志|train step25020 / 75000（33.36%）；step25000早停后exact续跑|
+|Stage C1最新validation|step25000；val selection loss 0.8844738，当前Stage C1最低|
 |Stage C1上下文|4K/8K/16K/32K/64K按预设比例混合的单一连续run|
-|Stage C1曲线范围|step10–24270；2427个train点、48个validation点；step17500 exact恢复边界已去重|
+|Stage C1曲线范围|step10–25020；2502个train点、50个validation点；step17500与step25000两处恢复边界已去重|
 |训练资源|gpu10，3×NVIDIA A100-SXM4-40GB，GPU0–2|
 |Stage B checkpoint|每500 step永久保存；step40000、45000、50000身份与SHA已冻结用于完整下游|
 |Stage B完整曲线范围|step10–50000；5000个train点、50个validation点|
-|三checkpoint下游|RUNNING / AUDIT BLOCKED：54项可执行非EDTA任务、1572行、251个GPU组；快照时107行和9组闭合，终止失败0|
+|三checkpoint下游|RUNNING / AUDIT BLOCKED：54项可执行非EDTA任务、1572行、251个GPU组；快照时108行和9组闭合，终止失败0|
 
 本页是时间戳快照，Stage C1和三checkpoint下游继续运行后数字会自然前进。Stage B预训练曲线下降只说明训练目标改善，最终模型是否更有用仍要看固定下游任务和公共模型公平重跑。
 
@@ -124,10 +124,12 @@
 |23000|0.9326|0.8806|0.2105|0.8848|0.9566|0.6719|
 |23500|0.9314|0.8804|0.2144|0.8847|0.9335|0.6927|
 |24000|0.9309|0.8803|0.2123|0.8845|0.9276|0.6927|
+|24500|0.9326|0.8805|0.2140|0.8848|0.9482|0.6927|
+|25000|0.9321|0.8802|0.2135|0.8845|0.9520|0.6719|
 
-从step500到step24000，validation selection loss下降0.0219526（约2.42%），total loss下降约4.48%。48个validation点总体改善，step24000为当前最低；但预训练loss仍不能替代正式下游证据。训练raw loss会受4K–64K混合长度与每步样本组成影响，判断趋势应优先看滚动中位数和固定validation。
+从step500到step25000，validation selection loss下降0.0219890（约2.43%），total loss下降约4.36%。50个validation点总体改善，step25000为当前最低；但预训练loss仍不能替代正式下游证据。训练raw loss会受4K–64K混合长度与每步样本组成影响，判断趋势应优先看滚动中位数和固定validation。
 
-Stage C1是新阶段：它从Stage B step50000加载模型权重，但重新建立优化器、混合长度采样和阶段步数。因此Stage C1单独画图，不把它与Stage B的loss硬连接成一条连续曲线。step17590发生单rank SIGSEGV后，从永久checkpoint step17500以exact模式恢复；曲线生成器按恢复边界截断旧区间并去重，截至快照gpu10三张A100训练进程均存活。
+Stage C1是新阶段：从Stage B step50000权重warm-start并重新计步。原定30000步，step25000因val selection loss连续6次改善<0.001（min_delta=0.001）触发早停。随后从step25000 checkpoint exact续跑至75000步，早停已关闭。曲线在step17500和step25000两处恢复边界去重。gpu10三张A100训练进程存活。
 
 ### Stage B完整谱系与续训局部图
 
@@ -178,12 +180,12 @@ step19000已完成A01–A10与B13–B17，共15个已执行编号；B11/B12等�
 |原始资产|11/11数据源已下载校验；14/14公共模型已下载并通过真实GPU前向冒烟|
 |资源使用策略|所有可访问数据和公共模型直接使用；许可证元数据不构成执行Gate|
 |模型/基线|16个：CropGenome-FM、14个公共模型和k-mer简单基线；不含内部消融|
-|三checkpoint正式运行|step40000/45000/50000；1572行、251个GPU组、5个seed；2026-08-10 15:57 CST快照为107行和9组闭合，终止失败0|
+|三checkpoint正式运行|step40000/45000/50000；1572行、251个GPU组、5个seed；2026-08-11 09:50 CST快照为108行和9组闭合，终止失败0|
 |统一数据审计|COMPLETE：53/53非EDTA任务逐项检查通过，数据索引与汇总检查均已关闭|
 |CPU调度边界|CPU-only下游任务只在gpu05本机CPU执行：隐藏全部CUDA设备、按主机可用内存限流（每worker 48GiB、保留32GiB、最多2并发）；SLURM q05提交已禁用|
-|GPU调度|B4:00.0故障卡保持隔离，健康卡新CUDA上下文与动态派发已经恢复；4个组持有内存claim并计算，另1个组等待主机内存|
+|GPU调度|B4:00.0故障卡保持隔离；健康卡动态派发已验证，主机内存不足限制CPU/GPU新任务|
 
-最终审计当前为`BLOCKED`：14/14公共模型正式smoke回执和执行授权已经完成，剩余blocker是实现哈希漂移与1572行矩阵未闭合。gpu05有8块物理2080 Ti，B4:00.0故障卡保持隔离，NVML可见其余7块；健康卡的新CUDA上下文与连续动态派发已经通过实跑验证。当前GPU embedding提取占用大量主机内存，CPU-only新行和一个额外GPU组都在等待内存；单个长期claim等待仍会限制后续派发，因此不能把调度状态写成完全闭合。
+最终审计`BLOCKED`：14/14正式smoke完成，剩余blocker=实现哈希漂移+矩阵未闭合。gpu05 B4:00.0故障卡隔离，主机内存不足使新任务等待。
 
 当前已经完成的资产和真实链路：
 
@@ -200,12 +202,12 @@ step19000已完成A01–A10与B13–B17，共15个已执行编号；B11/B12等�
 
 ## 6. EDTA与B11/B12
 
-EDTA继续在q04执行，RepeatModeler明确禁用；2026-08-10 15:57 CST快照中，119个目标已有96个满足完整输出与回执条件，10个正在运行、13个排队，最终汇总manifest尚未形成。B11/B12只在最终TE manifest、ID回映射和坐标质控全部通过后启动，不使用中间文件或替代标签。
+EDTA继续在q04执行（RepeatModeler禁用）。119个目标已有98个完成，12个在q04运行、7个排队。B11/B12等待最终TE manifest。
 
 ## 7. 下一步
 
-1. Stage C1继续按4K/8K/16K/32K/64K混合长度单一连续run训练，并按冻结门禁监控validation。
-2. 保护gpu05既有GPU与CPU worker完成；释放主机内存后继续消化52行CPU-only队列与剩余GPU组，并修复长期claim等待对后续派发的限制，再完成B17敏感性分析和最终审计。
+1. Stage C1从step25000 exact续跑到75000步（早停已关闭），按冻结门禁监控validation。
+2. 释放gpu05主机内存后消化52行CPU队列与剩余GPU组，修复claim等待限制，完成B17敏感性分析和最终审计。
 3. 持续完成EDTA；最终manifest、ID回映射和坐标质控关闭后运行B11/B12。
 4. 不运行no-region、random-init或其他内部模型消融，把计算资源集中到作物专属下游任务和公共强模型公平比较。
 5. 矩阵闭合后统一汇总三个checkpoint、公共模型和简单基线；如据test表现选择checkpoint，必须明确标注post-hoc（事后选择）和监控/开发证据属性。

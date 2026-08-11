@@ -1,6 +1,6 @@
 # CropGenome-FM 下游 v4：公开状态说明
 
-更新时间：2026-08-10 15:57 CST
+更新时间：2026-08-11 09:50 CST
 
 本页提供下游 v4 的轻量公开状态。仓库只保存可阅读的任务、来源、模型注册表及进展快照，不上传checkpoint、公共模型权重、数据集、embedding、逐样本预测、日志或完整运行目录。
 
@@ -13,9 +13,9 @@
 - 当前checkpoint集合：Stage B step40000、45000、50000。
 - 冻结矩阵：1572行、251个GPU组；每项使用5个随机种子；内部预训练消融不进入本轮。
 
-2026-08-10 15:57 CST快照：107/1572行、9/251个GPU组闭合，终止失败0。CPU-only下游任务在gpu05本机CPU执行：调度daemon运行中，1个worker活跃、52行就绪，全部隐藏CUDA设备、按内存限流；SLURM q05提交已禁用。GPU端健康卡动态派发已经恢复，4个组持有显存/主机内存claim并计算，另1个组等待主机内存。
+2026-08-11 09:50 CST快照：108/1572行、9/251个GPU组闭合，终止失败0。CPU/GPU新任务因gpu05主机内存不足等待；B4:00.0故障卡保持隔离。
 
-最终审计当前为`BLOCKED`：14/14公共模型正式smoke回执和执行授权已经完成，剩余blocker是实现哈希漂移与矩阵未闭合。gpu05的B4:00.0故障卡保持隔离，NVML可见其余7/8块卡；健康卡的新CUDA上下文和连续动态派发已经通过实跑验证。当前GPU embedding提取占用大量主机内存，CPU-only新行和一个额外GPU组等待内存；单个长期claim等待仍会限制后续派发。
+最终审计`BLOCKED`：14/14正式smoke完成，blocker=实现哈希漂移+矩阵未闭合。gpu05主机内存不足限制新任务。
 
 轻量状态：`docs/training_progress/source_data/stage_b_checkpoint_set_downstream_status.tsv`
 
