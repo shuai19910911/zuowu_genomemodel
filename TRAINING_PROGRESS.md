@@ -1,6 +1,6 @@
 # CropGenome-FM训练进展
 
-更新时间：2026-08-11 09:50 CST
+更新时间：2026-08-11 15:27 CST
 
 ## 1. 当前训练状态
 
@@ -8,17 +8,17 @@
 |---|---|
 |Stage B|COMPLETE：step14000精确续训至step50000|
 |Stage B最终/最佳验证点|step50000；val selection loss 0.9875776|
-|Stage C1|RUNNING：从Stage B step50000权重warm-start，阶段从step0重新计步|
-|Stage C1最新训练日志|train step25020 / 75000（33.36%）；step25000早停后exact续跑|
-|Stage C1最新validation|step25000；val selection loss 0.8844738，当前Stage C1最低|
+|Stage C1|PAUSED：从Stage B step50000权重warm-start，已在step25942安全中断|
+|Stage C1最新训练日志|train step25942；完整中断checkpoint已验证，GPU0–2已释放|
+|Stage C1最新validation|step25500；val selection loss 0.8854862；当前最低仍为step25000的0.8844738|
 |Stage C1上下文|4K/8K/16K/32K/64K按预设比例混合的单一连续run|
-|Stage C1曲线范围|step10–25020；2502个train点、50个validation点；step17500与step25000两处恢复边界已去重|
-|训练资源|gpu10，3×NVIDIA A100-SXM4-40GB，GPU0–2|
+|Stage C1曲线范围|step10–25940；2594个train点、51个validation点；安全中断step25942不伪造为常规日志点|
+|训练资源|当前不占GPU；数据重建CPU任务只使用SLURM q03|
 |Stage B checkpoint|每500 step永久保存；step40000、45000、50000身份与SHA已冻结用于完整下游|
 |Stage B完整曲线范围|step10–50000；5000个train点、50个validation点|
 |三checkpoint下游|RUNNING / AUDIT BLOCKED：54项可执行非EDTA任务、1572行、251个GPU组；快照时108行和9组闭合，终止失败0|
 
-本页是时间戳快照，Stage C1和三checkpoint下游继续运行后数字会自然前进。Stage B预训练曲线下降只说明训练目标改善，最终模型是否更有用仍要看固定下游任务和公共模型公平重跑。
+本页是时间戳快照。Stage C1当前不运行GPU训练，正在重建去重后的Stage C1-v2语料；三checkpoint下游数字仍可能自然前进。Stage B预训练曲线下降只说明训练目标改善，最终模型是否更有用仍要看固定下游任务和公共模型公平重跑。
 
 ## 2. Stage B validation轨迹
 
@@ -129,7 +129,7 @@
 
 从step500到step25000，validation selection loss下降0.0219890（约2.43%），total loss下降约4.36%。50个validation点总体改善，step25000为当前最低；但预训练loss仍不能替代正式下游证据。训练raw loss会受4K–64K混合长度与每步样本组成影响，判断趋势应优先看滚动中位数和固定validation。
 
-Stage C1是新阶段：从Stage B step50000权重warm-start并重新计步。原定30000步，step25000因val selection loss连续6次改善<0.001（min_delta=0.001）触发早停。随后从step25000 checkpoint exact续跑至75000步，早停已关闭。曲线在step17500和step25000两处恢复边界去重。gpu10三张A100训练进程存活。
+Stage C1是新阶段：从Stage B step50000权重warm-start并重新计步。step25000后曾exact续跑；2026-08-11 15:24 CST通过训练器SIGTERM安全路径在step25942保存完整中断checkpoint。该checkpoint包含430项模型参数、430项optimizer状态及sampler状态，原训练进程和GPU0–2占用已全部退出。由于旧语料没有真实去重且采样合同将变化，Stage C1-v2不能把旧sampler状态包装成同一数据目录下的exact resume。
 
 ### Stage B完整谱系与续训局部图
 
@@ -206,11 +206,11 @@ EDTA继续在q04执行（RepeatModeler禁用）。119个目标已有98个完成�
 
 ## 7. 下一步
 
-1. Stage C1从step25000 exact续跑到75000步（早停已关闭），按冻结门禁监控validation。
+1. 在q03完成Stage C1-v2全量CPU数据处理、去重、近重复聚类、35池采样目录和机器检查，冻结新的READY回执。
 2. 释放gpu05主机内存后消化52行CPU队列与剩余GPU组，修复claim等待限制，完成B17敏感性分析和最终审计。
 3. 持续完成EDTA；最终manifest、ID回映射和坐标质控关闭后运行B11/B12。
 4. 不运行no-region、random-init或其他内部模型消融，把计算资源集中到作物专属下游任务和公共强模型公平比较。
-5. 矩阵闭合后统一汇总三个checkpoint、公共模型和简单基线；如据test表现选择checkpoint，必须明确标注post-hoc（事后选择）和监控/开发证据属性。
+5. 数据READY后只在收到明确启动指令时恢复GPU训练；新语料阶段使用新采样谱系，不能冒充旧语料exact resume。
 
 ## 8. 解释边界
 
