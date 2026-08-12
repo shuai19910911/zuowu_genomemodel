@@ -1,0 +1,124 @@
+{
+  "protocol_id": "cropgenome_downstream_article_guided_v1",
+  "status": "frozen_design",
+  "scope": "plant_and_crop_dna_only",
+  "core_task_ids": [
+    "A01", "A02", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10",
+    "B11", "B12", "B13", "B14", "B15", "B16", "B17"
+  ],
+  "supplement_task_ids": ["C05", "C08", "C09", "C10", "C28", "D01", "D02", "D03"],
+  "complete_task_count": 25,
+  "category_by_task": {
+    "A01": "splicing",
+    "A02": "promoter",
+    "A03": "termination_polyadenylation",
+    "A04": "plant_lncrna",
+    "A05": "plant_enhancer",
+    "A06": "plant_expression",
+    "A07": "plant_expression",
+    "A08": "plant_expression",
+    "A09": "plant_expression",
+    "A10": "plant_expression",
+    "B11": "transposable_element",
+    "B12": "transposable_element",
+    "B13": "gene_structure",
+    "B14": "long_range_gene_structure",
+    "B15": "long_range_gene_structure",
+    "B16": "gene_structure",
+    "B17": "low_homology_generalization",
+    "C05": "chromatin_accessibility",
+    "C08": "histone_modification",
+    "C09": "histone_modification",
+    "C10": "histone_modification",
+    "C28": "variant_effect",
+    "D01": "genomic_region_annotation",
+    "D02": "variant_effect",
+    "D03": "variant_effect"
+  },
+  "probe_policy": {
+    "primary": "frozen_linear_probe",
+    "classification_primary_metric": "mcc",
+    "retain_task_native_primary_metric": true,
+    "seeds": [13, 17, 42, 123, 997],
+    "few_shot_regimes": [1, 10],
+    "few_shot_task_ids": ["A01", "A02", "A03", "A04", "A05", "B11", "B12", "B16", "C05", "C08"],
+    "few_shot_training_only": true,
+    "validation_and_test_immutable": true,
+    "regularization_grid": [0.01, 0.1, 1.0, 10.0, 100.0],
+    "nonlinear_probe_sensitivity": {
+      "enabled": false,
+      "reason": "post-matrix optional check; frozen linear probing is primary and GENEB reported high rank stability",
+      "hidden_units": 256,
+      "activation": "relu",
+      "task_ids": ["A01", "A02", "A04", "A05", "B16", "C05", "C08", "D01"]
+    }
+  },
+  "pooling_policy": {
+    "primary": "masked_mean",
+    "rationale": "Nature Communications 2025 benchmark found mean pooling the most frequent task-wise winner; max and special-token pooling remain sensitivity analyses only.",
+    "enabled_by_default": false,
+    "sensitivity_methods": ["masked_mean", "masked_max", "special_token"],
+    "sensitivity_task_ids": ["A01", "A02", "A04", "A05", "C05", "C08", "D01"]
+  },
+  "aggregation_policy": {
+    "primary": "category_macro_average",
+    "secondary": "task_micro_average",
+    "classification_metric": "mcc",
+    "report_specialization_score": true,
+    "specialization_definition": "outside_category_mean_rank_minus_within_category_mean_rank",
+    "report_hard_and_high_variance_tasks": true,
+    "no_single_global_score_for_model_selection": true
+  },
+  "context_policy": {
+    "common_context_track_bp": [512, 2048, 8192],
+    "long_context_track": {
+      "enabled": false,
+      "reason": "activate only after per-model 2080Ti 32K/64K memory profiling; excluded from the default common-context launch",
+      "task_ids": ["A06", "A07", "A08", "A09", "A10", "B14", "B15"],
+      "contexts_bp": [6000, 32768, 65536],
+      "separate_from_common_context_leaderboard": true,
+      "only_models_with_native_capacity": true
+    }
+  },
+  "resource_policy": {
+    "gpu_host": "gpu05",
+    "gpu_model": "RTX2080Ti_11GB",
+    "max_tasks_per_gpu": 1,
+    "default_max_workers": 3,
+    "foreign_compute_allowed": false,
+    "host_memory_reserved_mib": 16384,
+    "stream_embeddings_to_float16_memmap": true,
+    "gpu_telemetry_mode": "basic_memory_utilization_cached",
+    "gpu_telemetry_cache_seconds": 5,
+    "training_row_cap": 100000,
+    "training_row_cap_applies_only_when_train_split_exceeds_cap": true,
+    "validation_and_test_never_subsampled": true
+  },
+  "checkpoint_policy": {
+    "selection": "explicit_user_supplied_checkpoint",
+    "one_checkpoint_per_launch": true,
+    "test_metrics_sealed_until_matrix_complete": true,
+    "checkpoint_sweeps_are_monitoring_not_final_selection": true
+  },
+  "sources": [
+    {
+      "title": "Benchmarking DNA foundation models for genomic and genetic tasks",
+      "doi": "10.1038/s41467-025-65823-8",
+      "url": "https://www.nature.com/articles/s41467-025-65823-8",
+      "code": "https://github.com/ChongWuLab/dna_foundation_benchmark",
+      "used_for": ["pooling_policy", "variant_effect_protocol", "strict_group_split", "simple_probe_baselines", "runtime_reporting"]
+    },
+    {
+      "title": "GENEB: Why Genomic Models Are Hard to Compare",
+      "arxiv": "2606.04525",
+      "url": "https://arxiv.org/abs/2606.04525",
+      "used_for": ["fixed_five_seed_probe", "few_shot_regimes", "mcc", "category_macro_average", "specialization_score", "hard_task_panel", "plant_domain_alignment"]
+    }
+  ],
+  "explicit_nonclaims": [
+    "The GENEB arXiv manuscript does not provide a public code or data repository in the inspected version.",
+    "Linear-probe ranking stability does not establish stability under full task-specific fine-tuning.",
+    "Long-context gains are reported as a separate extension and are not mixed into the common-context leaderboard.",
+    "Human and mouse tasks are excluded from the CropGenome-FM main evidence scope."
+  ]
+}

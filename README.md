@@ -4,6 +4,10 @@
 
 CropGenome-FM是面向作物基因组的长序列基础模型项目。本仓库只保留可公开、可读、可核验的轻量材料；checkpoint、embedding缓存、逐样本预测和大日志不上传。
 
+## 论文引导的下游协议
+
+旧下游执行已停止；基于 Nature Communications 2025 DNA foundation model benchmark 与 GENEB 2026 的 25 项 plant-only 新协议、2080Ti 低内存实现和单 checkpoint 启动说明见 [`training_server_transfer/docs/ARTICLE_GUIDED_DOWNSTREAM_V1_CN.md`](training_server_transfer/docs/ARTICLE_GUIDED_DOWNSTREAM_V1_CN.md)。默认命令只生成候选计划，不占 GPU；只有显式 `--execute --confirmation ACTIVATE_ARTICLE_GUIDED_CHECKPOINT` 才会通过正式 Gate 启动 gpu05。
+
 ## 当前状态
 
 |模块|状态|最新事实|

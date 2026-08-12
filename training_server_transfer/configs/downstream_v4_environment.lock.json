@@ -1,0 +1,35 @@
+{
+  "lock_version": "1.0.0",
+  "python": "3.10.18",
+  "executable": "/home/user/zhangzhishuai/.local/share/mamba/envs/zuowu_genomemodel/bin/python",
+  "torch": "2.5.1",
+  "cuda_runtime": "12.4",
+  "torch_cxx11_abi": false,
+  "packages": {
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
+    "scikit-learn": "1.7.2",
+    "pandas": "2.2.3",
+    "pyarrow": "17.0.0",
+    "transformers": "4.46.3",
+    "mamba-ssm": "2.2.4",
+    "causal-conv1d": "1.5.0.post8",
+    "gpn": "0.8"
+  },
+  "binary_wheels": {
+    "causal-conv1d": "https://github.com/Dao-AILab/causal-conv1d/releases/download/v1.5.0.post8/causal_conv1d-1.5.0.post8+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl",
+    "mamba-ssm": "https://github.com/state-spaces/mamba/releases/download/v2.2.4/mamba_ssm-2.2.4+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl"
+  },
+  "git_dependencies": {
+    "gpn": {
+      "url": "https://github.com/songlab-cal/gpn.git",
+      "commit": "56295926cacc156cd1474a7bb49166ce7a76a5fd",
+      "install_mode": "pip --no-deps"
+    }
+  },
+  "centos7_notes": {
+    "nvcc_available": false,
+    "mamba_install_policy": "prebuilt wheel only; never compile CUDA extensions on this host",
+    "plantbimoe_norm": "Official fused RMSNorm requires Triton runtime C compilation and stdatomic.h, absent on CentOS 7. The adapter disables fused_add_norm and replaces RMSNorm with a mathematically equivalent pure-PyTorch RMSNorm while loading the exact official MLM weights."
+  }
+}
