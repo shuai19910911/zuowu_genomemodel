@@ -137,12 +137,19 @@ def build_checkpoint_set_plan(registry, checkpoint_identities,
     policy = dict(gpu_scheduler_policy or {})
     if policy.get("mode") != "memory_packed":
         raise RuntimeError("explicit checkpoint set requires memory_packed GPU policy")
-    if int(policy.get("max_tasks_per_gpu", 1)) != 1:
-        raise RuntimeError("same-card concurrency is not validated; max_tasks_per_gpu must be 1")
+    max_tasks_per_gpu = int(policy.get("max_tasks_per_gpu", 1))
+    if not 1 <= max_tasks_per_gpu <= 3:
+        raise RuntimeError("max_tasks_per_gpu must be between 1 and 3")
+    policy.setdefault("foreign_compute_allowed", False)
+    policy.setdefault("unknown_compute_blocks", True)
+    policy.setdefault("do_not_signal_foreign_processes", True)
+    if (
+        policy["unknown_compute_blocks"] is not True
+        or policy["do_not_signal_foreign_processes"] is not True
+    ):
+        raise RuntimeError("unknown GPU occupancy must remain fail-closed")
     policy.update({
-        "max_tasks_per_gpu": 1,
-        "foreign_compute_allowed": False,
-        "unknown_compute_blocks": True,
+        "max_tasks_per_gpu": max_tasks_per_gpu,
         "nvitop_is_benign": True,
         "required_hostname": "gpu05",
         "allowed_gpu_indices": list(range(7)),
@@ -198,12 +205,19 @@ def build_latest_snapshot_plan(registry, checkpoint_step, checkpoint_identity,
     policy = dict(gpu_scheduler_policy or {})
     if policy.get("mode") != "memory_packed":
         raise RuntimeError("latest checkpoint snapshot requires memory_packed GPU policy")
-    if int(policy.get("max_tasks_per_gpu", 1)) != 1:
-        raise RuntimeError("same-card concurrency is not validated; max_tasks_per_gpu must be 1")
+    max_tasks_per_gpu = int(policy.get("max_tasks_per_gpu", 1))
+    if not 1 <= max_tasks_per_gpu <= 3:
+        raise RuntimeError("max_tasks_per_gpu must be between 1 and 3")
+    policy.setdefault("foreign_compute_allowed", False)
+    policy.setdefault("unknown_compute_blocks", True)
+    policy.setdefault("do_not_signal_foreign_processes", True)
+    if (
+        policy["unknown_compute_blocks"] is not True
+        or policy["do_not_signal_foreign_processes"] is not True
+    ):
+        raise RuntimeError("unknown GPU occupancy must remain fail-closed")
     policy.update({
-        "max_tasks_per_gpu": 1,
-        "foreign_compute_allowed": False,
-        "unknown_compute_blocks": True,
+        "max_tasks_per_gpu": max_tasks_per_gpu,
         "nvitop_is_benign": True,
         "required_hostname": "gpu05",
         "allowed_gpu_indices": list(range(7)),

@@ -62,8 +62,12 @@ def test_article_guided_checkpoint_plan_is_plant_only_and_single_checkpoint():
     )
     assert plan["article_guided_evaluation"]["complete_task_count"] == 25
     assert plan["test_policy"]["checkpoint_selection_rule"] == "explicit_user_supplied_checkpoint"
-    assert plan["gpu_scheduler_policy"]["max_tasks_per_gpu"] == 1
-    assert plan["gpu_scheduler_policy"]["foreign_compute_allowed"] is False
+    assert plan["gpu_scheduler_policy"]["max_workers"] == 3
+    assert plan["gpu_scheduler_policy"]["max_tasks_per_gpu"] == 3
+    assert plan["gpu_scheduler_policy"]["foreign_compute_allowed"] is True
+    assert plan["gpu_scheduler_policy"]["unknown_compute_blocks"] is True
+    assert plan["gpu_scheduler_policy"]["do_not_signal_foreign_processes"] is True
+    assert max(scheduler["budgets_mib"].values()) + scheduler["reserved_headroom_mib"] <= 11264
     a01 = next(row for row in plan["rows"] if row["task_id"] == "A01")
     d01 = next(row for row in plan["rows"] if row["task_id"] == "D01")
     assert a01["few_shot_regimes"] == [1, 10]

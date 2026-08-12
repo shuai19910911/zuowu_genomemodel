@@ -223,9 +223,9 @@ def _resolve_daemon_worker_limit(max_workers, plan,
     if configured < 0:
         raise ValueError("max_workers must be zero (use frozen plan) or positive")
     policy = plan.get("gpu_scheduler_policy") or {}
-    frozen = int(policy.get("max_workers", len(tuple(allowed_gpu_indices))))
-    if frozen <= 0:
-        raise RuntimeError("frozen max_workers must be positive")
+    frozen = int(policy.get("max_workers", min(3, len(tuple(allowed_gpu_indices)))))
+    if not 1 <= frozen <= 3:
+        raise RuntimeError("frozen max_workers must be between 1 and 3")
     if configured > frozen:
         raise RuntimeError(
             f"runtime max_workers={configured} exceeds frozen max_workers={frozen}"
@@ -291,7 +291,9 @@ def _memory_policy_for_group(plan, group, foreign_compute_allowed=None,
         "host_memory_budget_mib": _host_memory_budget_for_group(
             group, int(budgets[key]),
         ),
-        "reserved_host_headroom_mib": 8192,
+        "reserved_host_headroom_mib": int(
+            policy.get("host_reserved_memory_mib", 8192)
+        ),
         "wait_timeout_seconds": int(policy.get("wait_timeout_seconds", 7200)),
         "poll_seconds": float(policy.get("poll_seconds", 15)),
         "monitor_seconds": float(policy.get("monitor_seconds", 2)),
@@ -301,12 +303,13 @@ def _memory_policy_for_group(plan, group, foreign_compute_allowed=None,
         resolved["memory_budget_mib"] <= 0
         or resolved["reserved_headroom_mib"] < 0
         or resolved["minimum_runtime_headroom_mib"] < 0
-        or resolved["max_tasks_per_gpu"] < 0
+        or not 1 <= resolved["max_tasks_per_gpu"] <= 3
         or resolved["host_memory_budget_mib"] <= 0
         or resolved["reserved_host_headroom_mib"] < 0
-        or int(policy.get("max_tasks_per_gpu", 1)) != 1
-        or policy.get("foreign_compute_allowed") is not False
+        or not 1 <= int(policy.get("max_tasks_per_gpu", 1)) <= 3
+        or not isinstance(policy.get("foreign_compute_allowed"), bool)
         or policy.get("unknown_compute_blocks") is not True
+        or policy.get("do_not_signal_foreign_processes", True) is not True
         or policy.get("nvitop_is_benign") is not True
     ):
         raise RuntimeError(f"invalid frozen GPU memory policy: {key}")
@@ -783,7 +786,7 @@ def _execute_group_unlocked(group, registry, project_root, final_root, plan_sha2
 
 
 def execute_group(group, registry, project_root, final_root, plan_sha256, script_path,
-                  foreign_compute_allowed=False, max_tasks_per_gpu=1):
+                  foreign_compute_allowed=None, max_tasks_per_gpu=None):
     paths = _group_paths(group, final_root)
     paths["root"].mkdir(parents=True, exist_ok=True)
     lock_path = paths["root"] / ".run.lock"
@@ -1080,9 +1083,21 @@ def _group_worker_command(script_path, group_key, final_root,
 
 
 def run_daemon(plan, registry, project_root, final_root, script_path, max_workers=0,
-               poll_seconds=60, max_attempts=3, foreign_compute_allowed=False,
-               max_tasks_per_gpu=1):
+               poll_seconds=60, max_attempts=3, foreign_compute_allowed=None,
+               max_tasks_per_gpu=None):
     project_root = Path(project_root).resolve(); final_root = Path(final_root).resolve()
+    frozen_policy = plan.get("gpu_scheduler_policy") or {}
+    frozen_foreign = bool(frozen_policy.get("foreign_compute_allowed", False))
+    frozen_max_tasks = int(frozen_policy.get("max_tasks_per_gpu", 1))
+    if foreign_compute_allowed is None:
+        foreign_compute_allowed = frozen_foreign
+    if max_tasks_per_gpu is None:
+        max_tasks_per_gpu = frozen_max_tasks
+    if (
+        bool(foreign_compute_allowed) != frozen_foreign
+        or int(max_tasks_per_gpu) != frozen_max_tasks
+    ):
+        raise RuntimeError("runtime scheduler override relaxes frozen GPU memory policy")
     groups = build_gpu_groups(plan); by_key = {group["group_key"]: group for group in groups}
     state_path = final_root / "GPU_CONTROLLER_STATUS.json"
     attempts_path = final_root / "controller" / "GPU_ATTEMPTS.json"
@@ -1105,9 +1120,7 @@ def run_daemon(plan, registry, project_root, final_root, script_path, max_worker
     worker_limit = _resolve_daemon_worker_limit(
         max_workers, plan, AUTHORIZED_GPU_INDICES,
     )
-    worker_limit_source = (
-        "configured" if int(max_workers) else "memory_capacity_unbounded"
-    )
+    worker_limit_source = "configured" if int(max_workers) else "frozen_policy"
     active = {}
     while True:
         _write_json(

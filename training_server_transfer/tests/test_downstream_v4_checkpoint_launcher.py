@@ -32,7 +32,11 @@ def test_checkpoint_launcher_builds_single_checkpoint_article_plan(tmp_path):
     assert plan["task_selection"]["task_ids"]
     assert len(set(plan["task_selection"]["task_ids"])) == 25
     assert candidate["launch_contract"]["max_workers"] == 3
-    assert candidate["launch_contract"]["max_tasks_per_gpu"] == 1
-    assert candidate["launch_contract"]["foreign_compute_allowed"] is False
+    assert candidate["launch_contract"]["max_tasks_per_gpu"] == 3
+    assert candidate["launch_contract"]["foreign_compute_allowed"] is True
+    assert candidate["plan"]["gpu_scheduler_policy"]["unknown_compute_blocks"] is True
+    assert candidate["plan"]["gpu_scheduler_policy"]["do_not_signal_foreign_processes"] is True
     assert "daemon" in candidate["remote_command"]
     assert "--max-workers 3" in candidate["remote_command"]
+    assert "--max-tasks-per-gpu 3" in candidate["remote_command"]
+    assert "--allow-foreign-compute" in candidate["remote_command"]

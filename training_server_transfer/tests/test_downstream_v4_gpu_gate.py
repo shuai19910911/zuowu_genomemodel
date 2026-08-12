@@ -145,6 +145,23 @@ def test_memory_packed_gpu_allows_foreign_compute_when_budget_and_headroom_fit()
     assert selected["remaining_after_claim_mib"] == 4251
 
 
+def test_memory_packed_gpu_blocks_unattributed_basic_telemetry_even_with_claim():
+    state = parse_gpu_state(
+        "4, GPU-shared, RTX, 11264, 2000, 65", "",
+    )
+    state[0]["application_telemetry_available"] = False
+    assert select_memory_packed_gpu(
+        state, claims_by_uuid={}, required_memory_mib=3000,
+        reserved_headroom_mib=768, max_tasks_per_gpu=3,
+        max_unaccounted_used_mib=8, foreign_compute_allowed=True,
+    ) is None
+    assert select_memory_packed_gpu(
+        state, claims_by_uuid={"GPU-shared": [{"memory_budget_mib": 3000}]},
+        required_memory_mib=3000, reserved_headroom_mib=768, max_tasks_per_gpu=3,
+        max_unaccounted_used_mib=8, foreign_compute_allowed=True,
+    ) is None
+
+
 def test_memory_packed_gpu_uses_only_an_unclaimed_idle_card():
     state = parse_gpu_state(
         "0, GPU-a, RTX, 11264, 2001, 20\n"
@@ -178,12 +195,37 @@ def test_memory_packed_gpu_allows_multiple_owned_claims_when_memory_fits():
     ]
     selected = select_memory_packed_gpu(
         state, claims, required_memory_mib=3000,
-        reserved_headroom_mib=1024, max_tasks_per_gpu=0,
+        reserved_headroom_mib=1024, max_tasks_per_gpu=3,
         leased_gpu_uuids={"GPU-shared"},
     )
     assert selected["uuid"] == "GPU-shared"
     assert selected["active_claims"] == 1
     assert selected["remaining_after_claim_mib"] == 5263
+
+
+def test_memory_packed_gpu_blocks_owned_application_over_frozen_claim_budget():
+    state = parse_gpu_state(
+        "0, GPU-shared, RTX, 11264, 4001, 80",
+        "GPU-shared, 111, /project/python, 4000",
+    )
+    claims = {"GPU-shared": [{
+        "memory_budget_mib": 3000, "application_pids": [111],
+    }]}
+    assert select_memory_packed_gpu(
+        state, claims, required_memory_mib=1536,
+        reserved_headroom_mib=768, max_tasks_per_gpu=3,
+        foreign_compute_allowed=True,
+    ) is None
+
+
+def test_memory_packed_gpu_rejects_more_than_three_same_card_tasks():
+    state = parse_gpu_state("0, GPU-a, RTX, 11264, 1, 0", "")
+    with pytest.raises(ValueError, match="between 1 and 3"):
+        select_memory_packed_gpu(
+            state, {}, required_memory_mib=1536,
+            reserved_headroom_mib=768, max_tasks_per_gpu=4,
+            foreign_compute_allowed=True,
+        )
 
 
 def test_memory_packed_gpu_blocks_claim_that_would_consume_reserved_headroom():
@@ -414,6 +456,47 @@ def test_memory_packed_run_stops_process_tree_that_exceeds_host_budget(
     assert result["peak_host_process_tree_memory_mib"] == pytest.approx(4000.0)
 
 
+def test_memory_packed_run_stops_owned_process_over_gpu_budget(
+        monkeypatch, tmp_path):
+    selected = {
+        "uuid": "GPU-test", "index": 6, "memory_total_mib": 11264,
+        "memory_used_mib": 1, "applications": [],
+    }
+    monkeypatch.setattr(
+        "downstream_v4.gpu_gate.preflight_memory_packed_gpu",
+        lambda *args, **kwargs: {"status": "ready", "selected": selected},
+    )
+    monkeypatch.setattr(
+        "downstream_v4.gpu_gate._host_memory_capacity_report",
+        lambda *args, **kwargs: {"status": "ready"},
+    )
+    monkeypatch.setattr(
+        "downstream_v4.gpu_gate._pid_descends_from",
+        lambda pid, owner: int(pid) == 999,
+    )
+    monkeypatch.setattr(
+        "downstream_v4.gpu_gate.query_gpu_state",
+        lambda *args, **kwargs: [{
+            **selected, "memory_used_mib": 4001,
+            "application_telemetry_available": True,
+            "applications": [{
+                "pid": 999, "process_name": "/project/python",
+                "used_memory_mib": 4000,
+            }],
+        }],
+    )
+    result = run_with_memory_packed_gpu(
+        [sys.executable, "-c", "import time; time.sleep(5)"],
+        "gpu-over-budget", memory_budget_mib=3000,
+        host_memory_budget_mib=8192, reserved_host_headroom_mib=512,
+        claim_root=tmp_path / "claims", lease_root=tmp_path / "leases",
+        wait_timeout_seconds=1, poll_seconds=0.01, monitor_seconds=0.01,
+    )
+    assert result["returncode"] != 0
+    assert result["safety_stop"]["reason"] == "gpu_memory_budget_exceeded"
+    assert result["peak_process_memory_mib"] == 4000
+
+
 def test_memory_packed_run_uses_shared_claim_without_replacing_legacy_lease(
         monkeypatch, tmp_path):
     selected = {
@@ -538,6 +621,32 @@ def test_basic_gpu_telemetry_skips_hanging_compute_application_query(monkeypatch
     assert "--query-gpu" in calls[0][1]
     assert state[0]["applications"] == []
     assert state[0]["application_telemetry_available"] is False
+
+
+def test_gpu_telemetry_falls_back_to_basic_when_compute_app_query_times_out(
+        monkeypatch, tmp_path):
+    timeouts = []
+
+    def fake_run(argv, **kwargs):
+        timeouts.append(kwargs["timeout"])
+        if "--query-compute-apps" in argv[1]:
+            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+        return subprocess.CompletedProcess(
+            argv, 0,
+            stdout="0, GPU-a, RTX, 11264, 3000, 40, P2, 0x0\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr("downstream_v4.gpu_gate.subprocess.run", fake_run)
+    monkeypatch.setattr("downstream_v4.gpu_gate.shutil.which", lambda name: None)
+    state = query_gpu_state(
+        telemetry_lock_path=tmp_path / "telemetry.lock",
+        include_applications=True, cache_max_age_seconds=0,
+    )
+    assert state[0]["memory_used_mib"] == 3000
+    assert state[0]["applications"] == []
+    assert state[0]["application_telemetry_available"] is False
+    assert timeouts == [90, 5]
 
 
 def test_gpu_telemetry_file_guard_is_reentrant_for_same_process(tmp_path):

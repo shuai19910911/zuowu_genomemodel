@@ -85,9 +85,10 @@ def build_launch_candidate(
         raise RuntimeError("scheduler template lacks memory_packed policy")
     if (
         int(policy.get("max_workers", 0)) != 3
-        or int(policy.get("max_tasks_per_gpu", 0)) != 1
-        or policy.get("foreign_compute_allowed") is not False
+        or int(policy.get("max_tasks_per_gpu", 0)) != 3
+        or policy.get("foreign_compute_allowed") is not True
         or policy.get("unknown_compute_blocks") is not True
+        or policy.get("do_not_signal_foreign_processes") is not True
     ):
         raise RuntimeError("scheduler template violates frozen gpu05 safety policy")
     checkpoint_sha, identity_source = _inventory_sha(
@@ -113,7 +114,8 @@ def build_launch_candidate(
         profile=profile,
     )
     max_workers = int(profile["resource_policy"]["default_max_workers"])
-    max_tasks_per_gpu = 1
+    max_tasks_per_gpu = int(policy["max_tasks_per_gpu"])
+    foreign_compute_allowed = bool(policy["foreign_compute_allowed"])
     python = project_root.parent.parent / ".local/share/mamba/envs/zuowu_genomemodel/bin/python"
     if not python.is_file():
         python = Path("/home/user/zhangzhishuai/.local/share/mamba/envs/zuowu_genomemodel/bin/python")
@@ -126,6 +128,8 @@ def build_launch_candidate(
         "--max-tasks-per-gpu", str(max_tasks_per_gpu),
         "--poll-seconds", "10",
     ]
+    if foreign_compute_allowed:
+        command.append("--allow-foreign-compute")
     remote_command = " ".join(
         [command[0]] + [shlex.quote(value) for value in command[1:]]
     )
@@ -142,7 +146,7 @@ def build_launch_candidate(
             "required_host": "gpu05",
             "max_workers": max_workers,
             "max_tasks_per_gpu": max_tasks_per_gpu,
-            "foreign_compute_allowed": False,
+            "foreign_compute_allowed": foreign_compute_allowed,
             "host_reserved_memory_mib": int(
                 profile["resource_policy"]["host_memory_reserved_mib"]
             ),

@@ -93,22 +93,23 @@ def select_memory_packed_gpu(gpu_state, claims_by_uuid, required_memory_mib,
     """Select a GPU from conservative owned claims and observed foreign memory.
 
     Active owned claims reserve their full conservative budgets. Unknown compute,
-    unknown device holders, anomalous unaccounted memory, or anomalous idle-card
-    utilization are fail-closed unless foreign compute is explicitly allowed.
-    A zero task limit means memory-only packing with no command-count ceiling.
+    unknown device holders, and anomalous unaccounted memory are always fail-closed.
+    Explicit sharing applies only to process-level compute with measurable memory.
     """
     required = int(required_memory_mib)
     headroom = int(reserved_headroom_mib)
     limit = int(max_tasks_per_gpu)
     leased = set(leased_gpu_uuids or ())
     allowed = None if allowed_indices is None else {int(value) for value in allowed_indices}
-    if required <= 0 or headroom < 0 or limit < 0:
-        raise ValueError("memory budgets must be positive and task limit non-negative")
+    if required <= 0 or headroom < 0 or not 1 <= limit <= 3:
+        raise ValueError("memory budgets must be positive and task limit between 1 and 3")
     candidates = []
     for gpu in gpu_state:
         if allowed is not None and int(gpu["index"]) not in allowed:
             continue
         if not gpu.get("system_ready", True):
+            continue
+        if gpu.get("application_telemetry_available") is False:
             continue
         claims = list((claims_by_uuid or {}).get(gpu["uuid"], []))
         if gpu["uuid"] in leased and not claims:
@@ -133,6 +134,17 @@ def select_memory_packed_gpu(gpu_state, claims_by_uuid, required_memory_mib,
             app for app in applications if int(app.get("pid", -1)) not in owned_pids
         ]
         if foreign_applications and not foreign_compute_allowed:
+            continue
+        claim_over_budget = any(
+            sum(
+                int(app.get("used_memory_mib", 0))
+                for app in applications
+                if int(app.get("pid", -1))
+                in {int(pid) for pid in claim.get("application_pids", [])}
+            ) > int(claim["memory_budget_mib"])
+            for claim in claims
+        )
+        if claim_over_budget:
             continue
         application_used = sum(int(app.get("used_memory_mib", 0)) for app in applications)
         foreign_used = sum(
@@ -360,9 +372,7 @@ def preflight_memory_packed_gpu(memory_budget_mib, reserved_headroom_mib=1024,
                                 claim_root=MEMORY_CLAIM_ROOT,
                                 lease_root=LEASE_ROOT, allowed_indices=None,
                                 foreign_compute_allowed=False):
-    state = query_gpu_state(
-        cache_max_age_seconds=5, include_applications=False,
-    )
+    state = query_gpu_state(cache_max_age_seconds=5, include_applications=True)
     claims = _attach_claim_application_pids(active_memory_claims(claim_root), state)
     leased = leased_uuids(lease_root)
     selected = select_memory_packed_gpu(
@@ -381,7 +391,7 @@ def preflight_memory_packed_gpu(memory_budget_mib, reserved_headroom_mib=1024,
             "reserved_headroom_mib": int(reserved_headroom_mib),
             "max_tasks_per_gpu": int(max_tasks_per_gpu),
             "foreign_compute_allowed": bool(foreign_compute_allowed),
-            "unknown_compute_blocks": not bool(foreign_compute_allowed),
+            "unknown_compute_blocks": True,
             "nvitop_is_benign": True,
         },
     }
@@ -489,6 +499,7 @@ def run_with_memory_packed_gpu(argv, purpose, memory_budget_mib,
         )
         claim = _update_memory_claim(claim_path, child_pid=process.pid)
         low_headroom_polls = 0
+        gpu_over_budget_polls = 0
         host_over_budget_polls = 0
         while process.poll() is None:
             time.sleep(float(monitor_seconds))
@@ -518,7 +529,7 @@ def run_with_memory_packed_gpu(argv, purpose, memory_budget_mib,
                 telemetry_errors += 1
             try:
                 state = query_gpu_state(
-                    cache_max_age_seconds=5, include_applications=False,
+                    cache_max_age_seconds=5, include_applications=True,
                 )
                 gpu = next(row for row in state if row["uuid"] == selected["uuid"])
                 foreign = [
@@ -543,6 +554,19 @@ def run_with_memory_packed_gpu(argv, purpose, memory_budget_mib,
                         - int(selected.get("memory_used_mib", 0)),
                     )
                 peak_memory = max(peak_memory, owned)
+                gpu_over_budget_polls = (
+                    gpu_over_budget_polls + 1
+                    if owned > int(memory_budget_mib)
+                    else 0
+                )
+                if gpu_over_budget_polls >= 2:
+                    safety_stop = {
+                        "reason": "gpu_memory_budget_exceeded",
+                        "observed_process_mib": int(owned),
+                        "budget_mib": int(memory_budget_mib),
+                    }
+                    _stop_owned_process_group(process)
+                    break
                 free = int(gpu["memory_total_mib"]) - int(gpu["memory_used_mib"])
                 low_headroom_polls = low_headroom_polls + 1 if free < int(minimum_runtime_headroom_mib) else 0
                 if low_headroom_polls >= 2:
@@ -659,16 +683,21 @@ def query_gpu_state(timeout=90, telemetry_lock_path=TELEMETRY_LOCK_PATH,
             "--format=csv,noheader,nounits",
         ], text=True, capture_output=True, timeout=timeout, check=True)
         application_csv = ""
+        application_telemetry_available = False
         if include_applications:
-            apps = subprocess.run([
-                "nvidia-smi", "--query-compute-apps=gpu_uuid,pid,process_name,used_memory",
-                "--format=csv,noheader,nounits",
-            ], text=True, capture_output=True, timeout=timeout, check=True)
-            application_csv = apps.stdout
+            try:
+                apps = subprocess.run([
+                    "nvidia-smi", "--query-compute-apps=gpu_uuid,pid,process_name,used_memory",
+                    "--format=csv,noheader,nounits",
+                ], text=True, capture_output=True, timeout=min(int(timeout), 5), check=True)
+                application_csv = apps.stdout
+                application_telemetry_available = True
+            except TELEMETRY_ERRORS:
+                application_csv = ""
         state = parse_gpu_state(gpu.stdout, application_csv)
         executable = shutil.which("fuser")
         for row in state:
-            row["application_telemetry_available"] = bool(include_applications)
+            row["application_telemetry_available"] = application_telemetry_available
             row["fuser_holders"] = []
             row["fuser_query_error"] = None
             if executable:

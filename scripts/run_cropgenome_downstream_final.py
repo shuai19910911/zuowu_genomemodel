@@ -103,8 +103,8 @@ def build_parser():
     group = sub.add_parser("run-group")
     group.add_argument("--group-key", required=True)
     group.add_argument("--final-root", default=DEFAULT_FINAL_ROOT)
-    group.add_argument("--allow-foreign-compute", action="store_true")
-    group.add_argument("--max-tasks-per-gpu", type=int, default=1)
+    group.add_argument("--allow-foreign-compute", action="store_true", default=None)
+    group.add_argument("--max-tasks-per-gpu", type=int, default=None)
     zero = sub.add_parser("zero-child")
     zero.add_argument("--spec", required=True)
     daemon = sub.add_parser("daemon")
@@ -115,10 +115,10 @@ def build_parser():
     )
     daemon.add_argument("--poll-seconds", type=int, default=60)
     daemon.add_argument("--max-attempts", type=int, default=3)
-    daemon.add_argument("--allow-foreign-compute", action="store_true")
+    daemon.add_argument("--allow-foreign-compute", action="store_true", default=None)
     daemon.add_argument(
-        "--max-tasks-per-gpu", type=int, default=1,
-        help="must equal the frozen per-GPU task limit",
+        "--max-tasks-per-gpu", type=int, default=None,
+        help="defaults to the frozen per-GPU task limit",
     )
     cpu = sub.add_parser("cpu-row")
     cpu.add_argument("--run-key", required=True)

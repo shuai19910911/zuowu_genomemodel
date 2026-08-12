@@ -135,7 +135,7 @@ def _valid_migrated_model_smoke(
 
 
 def _safe_gpu_scheduler_policy(plan):
-    """Strict dynamic mode is safe; packed mode must still use one idle UUID."""
+    """Accept bounded, budgeted colocation while keeping unknown use fail-closed."""
     policy = plan.get("gpu_scheduler_policy") or {}
     if not policy:
         return True
@@ -143,12 +143,15 @@ def _safe_gpu_scheduler_policy(plan):
         return False
     try:
         max_tasks = int(policy.get("max_tasks_per_gpu", 0))
+        max_workers = int(policy.get("max_workers", max_tasks))
     except (TypeError, ValueError):
         return False
     return (
-        max_tasks == 1
-        and policy.get("foreign_compute_allowed") is False
+        1 <= max_tasks <= 3
+        and 1 <= max_workers <= 3
+        and isinstance(policy.get("foreign_compute_allowed"), bool)
         and policy.get("unknown_compute_blocks") is True
+        and policy.get("do_not_signal_foreign_processes", True) is True
         and policy.get("nvitop_is_benign") is True
         and policy.get("required_hostname") == "gpu05"
         and list(policy.get("allowed_gpu_indices") or []) == list(range(7))

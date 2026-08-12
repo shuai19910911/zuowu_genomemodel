@@ -3,9 +3,9 @@
   "status": "frozen",
   "policy": {
     "mode": "memory_packed",
-    "reserved_headroom_mib": 512,
-    "minimum_runtime_headroom_mib": 512,
-    "max_tasks_per_gpu": 1,
+    "reserved_headroom_mib": 768,
+    "minimum_runtime_headroom_mib": 768,
+    "max_tasks_per_gpu": 3,
     "max_workers": 3,
     "wait_timeout_seconds": 86400,
     "poll_seconds": 10,
@@ -107,8 +107,9 @@
       ],
       "model_config_sha256": "2f708df86dcd92f7d197a46036f83debc79fba56454f67c33599586fbd592e6d"
     },
-    "foreign_compute_allowed": false,
+    "foreign_compute_allowed": true,
     "unknown_compute_blocks": true,
+    "do_not_signal_foreign_processes": true,
     "nvitop_is_benign": true,
     "required_hostname": "gpu05",
     "allowed_gpu_indices": [

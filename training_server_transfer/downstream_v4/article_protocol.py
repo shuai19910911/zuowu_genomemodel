@@ -125,9 +125,15 @@ def build_article_guided_checkpoint_plan(
     policy["host_reserved_memory_mib"] = int(
         profile["resource_policy"]["host_memory_reserved_mib"]
     )
-    policy["max_tasks_per_gpu"] = 1
-    policy["foreign_compute_allowed"] = False
-    policy["unknown_compute_blocks"] = True
+    policy["max_tasks_per_gpu"] = int(
+        profile["resource_policy"]["max_tasks_per_gpu"]
+    )
+    policy["foreign_compute_allowed"] = bool(
+        profile["resource_policy"]["foreign_compute_allowed"]
+    )
+    policy["unknown_compute_blocks"] = bool(
+        profile["resource_policy"]["unknown_compute_blocks"]
+    )
     plan["gpu_scheduler_policy"] = policy
     plan["test_policy"] = {
         **plan["test_policy"],

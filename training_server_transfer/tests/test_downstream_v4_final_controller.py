@@ -248,11 +248,15 @@ def test_one_terminal_group_failure_does_not_stop_unrelated_groups():
 
 
 def test_zero_max_workers_uses_frozen_worker_limit_and_cannot_relax_it():
-    plan = {"gpu_scheduler_policy": {"max_workers": 5, "max_tasks_per_gpu": 1}}
-    assert _resolve_daemon_worker_limit(0, plan, range(7)) == 5
-    assert _resolve_daemon_worker_limit(3, plan, range(7)) == 3
+    plan = {"gpu_scheduler_policy": {"max_workers": 3, "max_tasks_per_gpu": 3}}
+    assert _resolve_daemon_worker_limit(0, plan, range(7)) == 3
+    assert _resolve_daemon_worker_limit(2, plan, range(7)) == 2
     with pytest.raises(RuntimeError, match="exceeds frozen max_workers"):
-        _resolve_daemon_worker_limit(6, plan, range(7))
+        _resolve_daemon_worker_limit(4, plan, range(7))
+    with pytest.raises(RuntimeError, match="between 1 and 3"):
+        _resolve_daemon_worker_limit(
+            0, {"gpu_scheduler_policy": {"max_workers": 4}}, range(7),
+        )
 
 
 def test_memory_unbounded_daemon_keeps_one_unclaimed_worker():
@@ -355,10 +359,32 @@ def test_memory_packed_group_policy_requires_exact_frozen_budget():
         _memory_policy_for_group(plan, {**group, "context_bp": 8192})
 
     unsafe = {"gpu_scheduler_policy": {
-        **plan["gpu_scheduler_policy"], "foreign_compute_allowed": True,
+        **plan["gpu_scheduler_policy"], "unknown_compute_blocks": False,
     }}
     with pytest.raises(RuntimeError, match="invalid frozen GPU memory policy"):
         _memory_policy_for_group(unsafe, group)
+
+
+def test_memory_packed_group_policy_accepts_memory_safe_colocation():
+    plan = {"gpu_scheduler_policy": {
+        "mode": "memory_packed", "reserved_headroom_mib": 1536,
+        "minimum_runtime_headroom_mib": 1024, "max_tasks_per_gpu": 3,
+        "foreign_compute_allowed": True, "unknown_compute_blocks": True,
+        "host_reserved_memory_mib": 16384,
+        "nvitop_is_benign": True, "wait_timeout_seconds": 7200,
+        "budgets_mib": {"model:512:pooled": 2304},
+    }}
+    group = {"model_id": "model", "context_bp": 512, "mode": "pooled"}
+    policy = _memory_policy_for_group(plan, group)
+    assert policy["max_tasks_per_gpu"] == 3
+    assert policy["foreign_compute_allowed"] is True
+    assert policy["reserved_headroom_mib"] == 1536
+    assert policy["minimum_runtime_headroom_mib"] == 1024
+    assert policy["reserved_host_headroom_mib"] == 16384
+    with pytest.raises(RuntimeError, match="invalid frozen GPU memory policy"):
+        _memory_policy_for_group({"gpu_scheduler_policy": {
+            **plan["gpu_scheduler_policy"], "max_tasks_per_gpu": 4,
+        }}, group)
 
 
 def test_runtime_cannot_enable_foreign_compute_against_frozen_policy():

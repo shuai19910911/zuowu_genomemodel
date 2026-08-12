@@ -10,11 +10,34 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "training_server_transfer"))
 
 from downstream_v4.formal_gate import (
+    _safe_gpu_scheduler_policy,
     _valid_migrated_model_smoke,
     authorize_formal_execution,
     valid_formal_execution_authorization,
     write_formal_execution_authorization_receipt,
 )
+
+
+def test_formal_gate_accepts_only_bounded_budgeted_gpu_colocation():
+    policy = {
+        "mode": "memory_packed", "max_workers": 3,
+        "max_tasks_per_gpu": 3, "foreign_compute_allowed": True,
+        "unknown_compute_blocks": True,
+        "do_not_signal_foreign_processes": True,
+        "reserved_headroom_mib": 768, "minimum_runtime_headroom_mib": 768,
+        "nvitop_is_benign": True, "required_hostname": "gpu05",
+        "allowed_gpu_indices": list(range(7)),
+    }
+    assert _safe_gpu_scheduler_policy({"gpu_scheduler_policy": policy}) is True
+    for update in (
+        {"max_tasks_per_gpu": 4},
+        {"max_workers": 4},
+        {"unknown_compute_blocks": False},
+        {"do_not_signal_foreign_processes": False},
+    ):
+        assert _safe_gpu_scheduler_policy({
+            "gpu_scheduler_policy": {**policy, **update},
+        }) is False
 
 
 def test_formal_authorization_receipt_binds_plan_evidence_and_checkpoint_stat(tmp_path):
